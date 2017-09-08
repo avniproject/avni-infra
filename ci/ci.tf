@@ -15,10 +15,32 @@ resource "aws_instance" "ci" {
   }
 
   provisioner "remote-exec" {
-    script = "ci/provision/halyard.sh"
+    script = "ci/provision/make.sh"
     connection {
       user = "ubuntu"
     }
+  }
+
+  provisioner "file" {
+    source = "ci/provision/Makefile"
+    destination = "/tmp/Makefile"
+    connection {
+      user = "ubuntu"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "cd /tmp",
+      "make setup-halyard"        ,
+    ]
+    connection {
+      user = "ubuntu"
+    }
+  }
+
+  tags {
+    Name = "OpenCHS CI"
   }
 }
 

@@ -12,8 +12,8 @@ variable "environment" {
 
 variable "ami" {
   type = "string"
-  description = "ECS AMI"
-  default = "ami-df413bb0"
+  description = "Ubuntu 14.04 hvm:ebs-ssd AMI Mumbai"
+  default = "ami-0b460164"
 }
 
 
