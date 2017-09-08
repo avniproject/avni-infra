@@ -2,7 +2,7 @@ HAL_EXISTS := $(shell hal -v)
 
 install-halyard:
 	curl -O https://raw.githubusercontent.com/spinnaker/halyard/master/install/stable/InstallHalyard.sh
-	sudo bash InstallHalyard.sh
+	sudo bash InstallHalyard.sh -y
 
 update-halyard:
 	sudo apt-get --assume-yes update
@@ -18,4 +18,3 @@ else
 	@echo "Installing HAL"
 	make install-halyard
 endif 
-
