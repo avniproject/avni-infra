@@ -3,5 +3,5 @@ if make -v; then
 else
     echo "make Not Installed"
     echo "Installing make"
-    sudo apt-get install --reinstall --assume-yes make
+    sudo apt-get install --reinstall make
 fi
