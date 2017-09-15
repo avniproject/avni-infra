@@ -1,5 +1,5 @@
 export OPENCHS_SERVER=localhost
-export OPENCHS_SERVER_PORT=8080
+export OPENCHS_SERVER_PORT=80
 export OPENCHS_SERVER_OPTS="-Xmx250m -XX:ErrorFile=/var/log/openchs/jvm.log"
 export OPENCHS_DATABASE_HOST=${database_host}
 export OPENCHS_DATABASE_USER=${database_user}
