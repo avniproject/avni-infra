@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket = "openchs"
-    key = "terraform-state/ci/terraform.tfstate"
+    key = "terraform-state/backend/terraform.tfstate"
     encrypt = true
   }
 }

@@ -7,15 +7,41 @@ variable "region" {
 variable "environment" {
   type = "string"
   description = "Environment Name"
-  default = "ci"
+  default = "staging"
+}
+
+variable "cidr_map" {
+  type = "map"
+  description = "CIDR Map"
+
+  default = {
+    demo = "10.10.0.0/16"
+    staging = "10.20.0.0/16"
+    prod = "10.100.0.0/16"
+  }
+}
+
+variable "url_map" {
+  type = "map"
+  description = "URL Map"
+
+  default = {
+    demo = "demo"
+    staging = "staging"
+    prod = "server"
+  }
 }
 
 variable "ami" {
   type = "string"
-  description = "Ubuntu 14.04 hvm:ebs-ssd AMI Mumbai"
-  default = "ami-0b460164"
+  description = "RHEL hvm:ebs-ssd AMI Mumbai"
+  default = "ami-e41b618b"
 }
 
+variable "default_ami_user" {
+  type = "string"
+  default = "ec2-user"
+}
 
 variable "instance_type" {
   type = "string"
@@ -25,7 +51,7 @@ variable "instance_type" {
 
 variable "disk_size" {
   description = "Size of the disks for EC2 Instances"
-  default = 100
+  default = 20
 }
 
 variable "ssh_public_key" {
