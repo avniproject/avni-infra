@@ -39,8 +39,7 @@ resource "aws_instance" "server" {
   provisioner "remote-exec" {
     inline = [
       "curl -L https://bintray.com/openchs/rpm/rpm > /tmp/bintray-openchs-rpm.repo",
-      "sudo mv /tmp/bintray-openchs-rpm.repo /etc/yum.repos.d/bintray-openchs-rpm.repo",
-      "sudo yum -y install openchs-server"
+      "sudo mv /tmp/bintray-openchs-rpm.repo /etc/yum.repos.d/bintray-openchs-rpm.repo"
     ]
     connection {
       user = "${var.default_ami_user}"
@@ -66,16 +65,6 @@ resource "aws_instance" "server" {
       private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
   }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo service openchs start"
-    ]
-    connection {
-      user = "${var.default_ami_user}"
-      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
-    }
-  }
 }
 
 resource "null_resource" "update_instance" {
@@ -89,7 +78,7 @@ resource "null_resource" "update_instance" {
     user = "${var.default_ami_user}"
     private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
   }
-  
+
   provisioner "file" {
     content = "${data.template_file.update.rendered}"
     destination = "/tmp/update.sh"
@@ -105,7 +94,7 @@ resource "null_resource" "update_instance" {
       "chmod +x /tmp/update.sh",
       "/tmp/update.sh"
     ]
-    
+
     connection {
       host = "${aws_instance.server.public_ip}"
       user = "${var.default_ami_user}"
