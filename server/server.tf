@@ -79,6 +79,11 @@ resource "aws_instance" "server" {
 }
 
 resource "null_resource" "update_instance" {
+
+  triggers {
+    major_version = "${file("server/version/major_version")}"
+    minor_version = "${file("server/version/minor_version")}"
+  }
   connection {
     host = "${aws_instance.server.public_ip}"
     user = "${var.default_ami_user}"
