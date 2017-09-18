@@ -6,6 +6,7 @@ data "template_file" "config" {
     database_port = "${aws_db_instance.openchs.port}"
     database_user = "${aws_db_instance.openchs.username}"
     database_name = "${aws_db_instance.openchs.name}"
+    server_port = "${var.server_port}"
     database_password = "${aws_db_instance.openchs.password}"
   }
 }
@@ -47,8 +48,16 @@ resource "aws_instance" "server" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo mv /tmp/openchs.conf /etc/openchs/openchs.conf",
-      "sudo service openchs start",
+      "sudo mv /tmp/openchs.conf /etc/openchs/openchs.conf"
+    ]
+    connection {
+      user = "${var.default_ami_user}"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo service openchs start"
     ]
     connection {
       user = "${var.default_ami_user}"
@@ -60,8 +69,10 @@ resource "aws_route53_record" "server" {
   zone_id = "${data.aws_route53_zone.openchs.zone_id}"
   name = "${lookup(var.url_map, var.environment, "temp")}.${data.aws_route53_zone.openchs.name}"
   type = "A"
-  ttl = "300"
-  records = [
-    "${aws_instance.server.public_ip}"
-  ]
+
+  alias {
+    evaluate_target_health = true
+    name = "${aws_elb.loadbalancer.dns_name}"
+    zone_id = "${aws_elb.loadbalancer.zone_id}"
+  }
 }

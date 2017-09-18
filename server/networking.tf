@@ -37,6 +37,11 @@ resource "aws_route_table_association" "external_main" {
   route_table_id = "${aws_route_table.route_table.id}"
 }
 
+resource "aws_route_table_association" "external_secondary" {
+  subnet_id = "${aws_subnet.subnetb.id}"
+  route_table_id = "${aws_route_table.route_table.id}"
+}
+
 resource "aws_security_group" "server_sg" {
   name = "server-sg"
   description = "Allowed Ports"
@@ -52,8 +57,8 @@ resource "aws_security_group" "server_sg" {
 
   ingress {
     from_port = 0
-    to_port = 0
-    protocol = "-1"
+    to_port = "${var.server_port}"
+    protocol = "tcp"
     cidr_blocks = [
       "${aws_vpc.vpc.cidr_block}"
     ]
@@ -90,6 +95,41 @@ resource "aws_security_group" "db_sg" {
       "${aws_vpc.vpc.cidr_block}"]
   }
 }
+
+resource "aws_security_group" "elb_sg" {
+  name = "elb-sg"
+  description = "Allowed Ports on ELB"
+  vpc_id = "${aws_vpc.vpc.id}"
+
+  ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = [
+      "0.0.0.0/0"
+    ]
+  }
+
+  ingress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = [
+      "${aws_vpc.vpc.cidr_block}"
+    ]
+  }
+
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = [
+      "0.0.0.0/0"]
+  }
+
+  depends_on = ["aws_internet_gateway.internet_gateway"]
+}
+
 
 data "aws_route53_zone" "openchs" {
   name = "openchs.org"

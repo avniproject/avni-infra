@@ -63,3 +63,8 @@ variable "key_name" {
   description = "Key Name"
   default = "openchs"
 }
+
+variable "server_port" {
+  description = "Server Port"
+  default = 8021
+}
