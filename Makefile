@@ -2,13 +2,11 @@
 UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
 	TERRAFORM_URL="https://releases.hashicorp.com/terraform/0.10.2/terraform_0.10.2_linux_amd64.zip"
-	TERRAFORM_LOCATION:=/usr/local/bin/terraform
 endif
 ifeq ($(UNAME),Darwin)
 	TERRAFORM_URL="https://releases.hashicorp.com/terraform/0.10.2/terraform_0.10.2_darwin_amd64.zip"
-	TERRAFORM_LOCATION:=/bin/terraform
 endif
-
+TERRAFORM_LOCATION:=/usr/local/bin/terraform
 
 define create
 	terraform get server;
@@ -25,15 +23,15 @@ define destroy
 endef
 
 unencrypt:
-	openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY_AWS}
+	@openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY_AWS}
 
 install:
 	rm -rf terraform terraform.zip
 	curl -L $(TERRAFORM_URL) > terraform.zip
 	unzip terraform.zip
 	rm -rf terraform.zip
-	-mv terraform $(TERRAFORM_LOCATION)
-	openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY_AWS}
+	-sudo mv terraform $(TERRAFORM_LOCATION)
+	@openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY_AWS}
 	terraform init -backend=true -backend-config="server/backend.config" server
 
 staging-create:
