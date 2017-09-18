@@ -11,6 +11,15 @@ data "template_file" "config" {
   }
 }
 
+data "template_file" "update" {
+  template = "${file("server/provision/update.sh.tpl")}"
+
+  vars {
+    major_version = "0.0.1"
+    minor_version = "64"
+  }
+}
+
 resource "aws_instance" "server" {
   ami = "${var.ami}"
   availability_zone = "${var.region}a"
@@ -69,13 +78,35 @@ resource "aws_instance" "server" {
   }
 }
 
-//resource "null_resource" "update_instance" {
-//  connection {
-//    type = "ssh"
-//    user = "${var.default_ami_user}"
-//    private_key = ""
-//  }
-//}
+resource "null_resource" "update_instance" {
+  connection {
+    type = "ssh"
+    user = "${var.default_ami_user}"
+    private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+  }
+
+  provisioner "file" {
+    content = "${data.template_file.update.rendered}"
+    destination = "/tmp/update.sh"
+    connection {
+      user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/update.sh",
+      "/tmp/update.sh"
+    ]
+    
+    connection {
+      host = "${aws_instance.server.public_ip}"
+      user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+    }
+  }
+}
 
 resource "aws_route53_record" "server" {
   zone_id = "${data.aws_route53_zone.openchs.zone_id}"
