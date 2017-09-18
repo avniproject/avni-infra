@@ -80,15 +80,16 @@ resource "aws_instance" "server" {
 
 resource "null_resource" "update_instance" {
   connection {
-    type = "ssh"
+    host = "${aws_instance.server.public_ip}"
     user = "${var.default_ami_user}"
     private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
   }
-
+  
   provisioner "file" {
     content = "${data.template_file.update.rendered}"
     destination = "/tmp/update.sh"
     connection {
+      host = "${aws_instance.server.public_ip}"
       user = "${var.default_ami_user}"
       private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
