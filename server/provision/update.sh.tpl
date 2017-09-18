@@ -1,10 +1,10 @@
 #!/bin/bash
 sudo service openchs stop || true
 
-sudo yum cache clean
-sudo rm -rf /var/cache/yum
--sudo yum -y updateinfo
--sudo yum -y remove openchs-server
-sudo yum -y install openchs-server-${major_version}-${minor_version}
+sudo yum cache clean 2>&1 >/dev/null
+sudo rm -rf /var/cache/yum 2>&1 >/dev/null
+sudo yum -y updateinfo 2>&1 >/dev/null
+sudo yum -y remove openchs-server 2>&1 >/dev/null
+sudo yum -y install openchs-server-${major_version}-${minor_version} 2>&1 >/dev/null
 
 sudo service openchs start || true
