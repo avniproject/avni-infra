@@ -56,12 +56,12 @@ variable "disk_size" {
 
 variable "ssh_public_key" {
   description = "Public Key used to ssh into the instances"
-  default = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDJw2vUsJSJECTQ4n5MsVmKzowPKMTSebezmP4yopbSCc6w+MjwZLf40+SrMJxtA8zHo2kAXARc1mkMqob8C9QoA+nBU1atLmpb7GBum0QijQNY3oPXx69x2qzz6t18p6UL7jXuky0/fWTIXo+Lkh0S8wVyOWa+bS52WCNaVmhXYy6tvGk2PjQm7tFt59HXeTwFsV/U6Xm4UKTzVj5Sa+odbzXrTiw6E1rnpKGeZukSJ75vN9xPfIG8oiuP4Qe6mKZ0UXvMzSOQpz2AOqwjklXRDV0nTVE/zvZi5cfisn3q4XNUjhYxRtVBHzQI2SYNVnBCCM50trteEJVay5u/Kx45gvFmWeznqi3M5FuPdLpk6ZAI90HmAGatFYoucPqv+8hwyeOgq6Eglw10ZK11ECUX6+nRF9FBCa/rsNaUPfhiGVEaac21uz4sCmvrhPtw48cPYG352MM0VqafSeD6Uht1kDtn/Il+6hiAN3RGRNBVCDwUcqvA9vbMggnCgmQwvCdYa7tlYw9PjIRHdkmPJdMma1bdrvogucLCF2UNcmSnwLemOZ2sBHDHNOQR3uy/1rJSaqt2Wxwhg6XErckOfNySLOMmkBjqjvqs2/Cq+mVhYIxk3EetWz4AxcrX415/EpEg2Ut6J02+OzbAJZ6+8H9VQEdsUycZZs00Nck5eAyesQ== openchs"
+  default = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCCn43kM4aumjyp/PuQFJrIiENhBXiwVdkje0SNmMFllvyy6LZQoZ86yi4KrnePGAw0aJLY9oViFsR/Ib8qzULYKSM1M5D7tPsdhb/1Tyv5DYFZxpDQTsrW134xQfB01E53n65KItjyQ2H9nh1Xyop2wDHZUDIdBAUWDj4Bb3uqVUfwiMBn/Jk2eACl42pbeD7zVOJgUZYiJx8/DlYhiPRofwtnn1DUKjPjYosnwBbvUfuIhfYEk1TsTAW49MJI163TBAZqj8bylo/WqSI/U2D1N0Njh1WiXrHywGJHWrN8SNUvZL50D87dq3iUWkz5RPcrvVi5eJBhHHk6ieGExmZH"
 }
 
 variable "key_name" {
   description = "Key Name"
-  default = "openchs"
+  default = "openchs-infra"
 }
 
 variable "server_port" {

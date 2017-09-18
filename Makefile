@@ -28,6 +28,7 @@ install:
 	unzip terraform.zip
 	rm -rf terraform.zip
 	mv terraform /usr/local/bin/terraform
+	openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY}
 	terraform init -backend=true -backend-config="server/backend.config" server
 
 staging-create:

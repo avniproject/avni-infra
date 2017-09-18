@@ -35,6 +35,7 @@ resource "aws_instance" "server" {
     ]
     connection {
       user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
   }
 
@@ -43,6 +44,7 @@ resource "aws_instance" "server" {
     destination = "/tmp/openchs.conf"
     connection {
       user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
   }
 
@@ -52,6 +54,7 @@ resource "aws_instance" "server" {
     ]
     connection {
       user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
   }
 
@@ -61,9 +64,18 @@ resource "aws_instance" "server" {
     ]
     connection {
       user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
   }
 }
+
+//resource "null_resource" "update_instance" {
+//  connection {
+//    type = "ssh"
+//    user = "${var.default_ami_user}"
+//    private_key = ""
+//  }
+//}
 
 resource "aws_route53_record" "server" {
   zone_id = "${data.aws_route53_zone.openchs.zone_id}"
