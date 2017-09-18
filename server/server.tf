@@ -15,8 +15,8 @@ data "template_file" "update" {
   template = "${file("server/provision/update.sh.tpl")}"
 
   vars {
-    major_version = "0.0.1"
-    minor_version = "64"
+    major_version = "${file("server/version/major_version")}"
+    minor_version = "${file("server/version/minor_version")}"
   }
 }
 
