@@ -9,4 +9,4 @@ sudo yum -y install openchs-server-${major_version}-${minor_version} 2>&1 >/dev/
 
 sudo service openchs start || true
 
-sleep 500
+sleep 20
