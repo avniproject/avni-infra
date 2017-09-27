@@ -55,16 +55,6 @@ resource "aws_instance" "server" {
       private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
     }
   }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo mv /tmp/openchs.conf /etc/openchs/openchs.conf"
-    ]
-    connection {
-      user = "${var.default_ami_user}"
-      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
-    }
-  }
 }
 
 resource "null_resource" "update_instance" {
