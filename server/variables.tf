@@ -21,6 +21,14 @@ variable "cidr_map" {
   }
 }
 
+variable "db_final_snapshot" {
+  type = "map"
+  default = {
+    production = false
+  }
+}
+
+
 variable "url_map" {
   type = "map"
   description = "URL Map"
