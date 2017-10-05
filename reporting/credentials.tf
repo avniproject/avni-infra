@@ -1,13 +1,8 @@
-resource "aws_key_pair" "openchs" {
-  key_name = "${var.key_name}"
-  public_key = "${var.ssh_public_key}"
-}
-
 resource "aws_iam_user" "reporting" {
   name = "reporting"
 }
 
-resource "aws_iam_access_key" "server_key" {
+resource "aws_iam_access_key" "reporting_server_key" {
   user = "${aws_iam_user.reporting.name}"
 }
 

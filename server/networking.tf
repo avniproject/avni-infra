@@ -130,6 +130,17 @@ resource "aws_security_group" "elb_sg" {
   depends_on = ["aws_internet_gateway.internet_gateway"]
 }
 
+data "aws_caller_identity" "current" {
+  
+}
+
+//resource "aws_vpc_peering_connection" "primary2secondary" {
+//  peer_owner_id = "${data.aws_caller_identity.current.account_id}"
+//  peer_vpc_id = "${aws_vpc.secondary.id}"
+//  vpc_id = "${aws_vpc.vpc.id}"
+//  auto_accept = true
+//}
+
 
 data "aws_route53_zone" "openchs" {
   name = "openchs.org"

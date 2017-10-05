@@ -1,12 +1,12 @@
-resource "aws_elb" "loadbalancer" {
+resource "aws_elb" "reportingloadbalancer" {
   name = "reporting-load-balancer"
 
   subnets = [
-    "${aws_subnet.subneta.id}",
-    "${aws_subnet.subnetb.id}"]
+    "${aws_subnet.reportingsubneta.id}",
+    "${aws_subnet.reportingsubnetb.id}"]
 
   security_groups = [
-    "${aws_security_group.elb_sg.id}"]
+    "${aws_security_group.reporting_elb_sg.id}"]
 
   listener {
     instance_port = "3000"
@@ -24,13 +24,13 @@ resource "aws_elb" "loadbalancer" {
   }
 
   instances = [
-    "${aws_instance.server.id}"]
+    "${aws_instance.reporting_server.id}"]
   cross_zone_load_balancing = true
   idle_timeout = 400
   connection_draining = true
   connection_draining_timeout = 400
 
   tags {
-    Name = "openchs-server-load-balancer"
+    Name = "reporting-load-balancer"
   }
 }

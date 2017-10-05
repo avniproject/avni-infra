@@ -9,17 +9,15 @@ endif
 TERRAFORM_LOCATION:=/usr/local/bin/terraform
 
 define create
-	terraform get server;
+	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
+	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
 	terraform apply -var 'environment=$(1)' $(2);
 endef
 
 define plan
+	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
+	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
 	terraform plan -var 'environment=$(1)' $(2);
-endef
-
-
-define destroy
-	terraform destroy -var 'environment=$(1)' $(2);
 endef
 
 unencrypt:
@@ -31,15 +29,10 @@ install:
 	unzip terraform.zip
 	rm -rf terraform.zip
 	-sudo mv terraform $(TERRAFORM_LOCATION)
-	@openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY_AWS}
-	terraform init -backend=true -backend-config="server/backend.config" server
-	terraform init -backend=true -backend-config="reporting/backend.config" reporting
+	make unencrypt
 
 staging-create:
 	$(call create,staging,server)
-
-staging-destroy:
-	$(call destroy,staging,server)
 
 staging-plan:
 	$(call plan,staging,server)
@@ -47,17 +40,14 @@ staging-plan:
 demo-create:
 	$(call create,demo,server)
 
-demo-destroy:
-	$(call destroy,staging,server)
-
 demo-plan:
-	$(call plan,demo)
+	$(call plan,demo,server)
 
 reporting-create:
-	$(call create,staging,reporting)
+	$(call create,reporting,reporting)
 
 reporting-destroy:
-	$(call destroy,staging,reporting)
+	$(call destroy,reporting,reporting)
 
 reporting-plan:
-	$(call plan,staging,reporting)
+	$(call plan,reporting,reporting)

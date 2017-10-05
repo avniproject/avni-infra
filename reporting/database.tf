@@ -1,8 +1,8 @@
-resource "aws_db_subnet_group" "db_subnet" {
-  name = "main"
+resource "aws_db_subnet_group" "reporting_db_subnet" {
+  name = "reporting_main"
   subnet_ids = [
-    "${aws_subnet.subneta.id}",
-    "${aws_subnet.subnetb.id}"]
+    "${aws_subnet.reportingsubneta.id}",
+    "${aws_subnet.reportingsubnetb.id}"]
 
   tags {
     Name = "Reporting DB subnet group"
@@ -21,7 +21,7 @@ resource "aws_db_instance" "reporting" {
   skip_final_snapshot = false
   final_snapshot_identifier = "reportingdb"
   storage_type = "gp2"
-  db_subnet_group_name = "${aws_db_subnet_group.db_subnet.name}"
+  db_subnet_group_name = "${aws_db_subnet_group.reporting_db_subnet.name}"
   engine = "postgres"
   engine_version = "9.6.3"
   instance_class = "db.t2.micro"
@@ -29,7 +29,7 @@ resource "aws_db_instance" "reporting" {
   username = "reporting_user"
   password = "password"
   vpc_security_group_ids = [
-    "${aws_security_group.db_sg.id}"
+    "${aws_security_group.reporting_db_sg.id}"
   ]
   tags {
     Name = "Reporting Database"
