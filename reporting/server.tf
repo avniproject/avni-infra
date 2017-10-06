@@ -11,6 +11,7 @@ data "template_file" "reporting_config" {
 }
 
 resource "aws_instance" "reporting_server" {
+  count = 2
   ami = "${var.ami}"
   availability_zone = "${var.region}a"
   instance_type = "${var.instance_type}"
@@ -26,12 +27,16 @@ resource "aws_instance" "reporting_server" {
     delete_on_termination = true
   }
 
+  tags {
+    Name = "Reporting Instance"
+  }
+
 }
 
 resource "null_resource" "update_instance" {
-
+  count = "${length(aws_instance.reporting_server.*.id)}"
   connection {
-    host = "${aws_instance.reporting_server.public_ip}"
+    host = "${element(aws_instance.reporting_server.*.public_ip, count.index)}"
     user = "${var.default_ami_user}"
     private_key = "${file("reporting/key/${var.key_name}.pem")}"
   }
@@ -40,7 +45,7 @@ resource "null_resource" "update_instance" {
     content = "${data.template_file.reporting_config.rendered}"
     destination = "~/reporting.sh"
     connection {
-      host = "${aws_instance.reporting_server.public_ip}"
+      host = "${element(aws_instance.reporting_server.*.public_ip, count.index)}"
       user = "${var.default_ami_user}"
       private_key = "${file("reporting/key/${var.key_name}.pem")}"
     }
@@ -52,7 +57,7 @@ resource "null_resource" "update_instance" {
       "~/reporting.sh 2>&1 > /dev/null"
     ]
     connection {
-      host = "${aws_instance.reporting_server.public_ip}"
+      host = "${element(aws_instance.reporting_server.*.public_ip, count.index)}"
       user = "${var.default_ami_user}"
       private_key = "${file("reporting/key/${var.key_name}.pem")}"
     }

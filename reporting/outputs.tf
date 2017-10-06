@@ -1,5 +1,5 @@
 output "reporting_server_ip" {
-  value = "${aws_instance.reporting_server.public_ip}"
+  value = "${aws_instance.reporting_server.*.public_ip}"
 }
 
 output "reporting_database_url" {

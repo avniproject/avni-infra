@@ -21,6 +21,7 @@ data "template_file" "update" {
 }
 
 resource "aws_instance" "server" {
+  count = 1
   ami = "${var.ami}"
   availability_zone = "${var.region}a"
   instance_type = "${var.instance_type}"
@@ -66,8 +67,10 @@ resource "null_resource" "update_instance" {
     major_version = "${file("server/version/major_version")}"
     minor_version = "${file("server/version/minor_version")}"
   }
+  count = "${length(aws_instance.server.*.id)}"
+
   connection {
-    host = "${aws_instance.server.public_ip}"
+    host = "${element(aws_instance.server.*.public_ip, count.index)}"
     user = "${var.default_ami_user}"
     private_key = "${file("server/key/${var.key_name}.pem")}"
   }
@@ -76,7 +79,7 @@ resource "null_resource" "update_instance" {
     content = "${data.template_file.update.rendered}"
     destination = "/tmp/update.sh"
     connection {
-      host = "${aws_instance.server.public_ip}"
+      host = "${element(aws_instance.server.*.public_ip, count.index)}"
       user = "${var.default_ami_user}"
       private_key = "${file("server/key/${var.key_name}.pem")}"
     }
@@ -89,7 +92,7 @@ resource "null_resource" "update_instance" {
     ]
 
     connection {
-      host = "${aws_instance.server.public_ip}"
+      host = "${element(aws_instance.server.*.public_ip, count.index)}"
       user = "${var.default_ami_user}"
       private_key = "${file("server/key/${var.key_name}.pem")}"
     }

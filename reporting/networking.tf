@@ -40,6 +40,10 @@ resource "aws_route_table" "reporting_route_table" {
     gateway_id = "${aws_internet_gateway.reporting_internet_gateway.id}"
   }
 
+  lifecycle {
+    ignore_changes = ["route"]
+  }
+  
   tags {
     Name = "Reporting Route Table"
   }

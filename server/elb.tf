@@ -24,7 +24,8 @@ resource "aws_elb" "loadbalancer" {
   }
 
   instances = [
-    "${aws_instance.server.id}"]
+    "${aws_instance.server.*.id}"
+  ]
   cross_zone_load_balancing = true
   idle_timeout = 400
   connection_draining = true

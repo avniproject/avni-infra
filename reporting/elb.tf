@@ -24,7 +24,7 @@ resource "aws_elb" "reportingloadbalancer" {
   }
 
   instances = [
-    "${aws_instance.reporting_server.id}"]
+    "${aws_instance.reporting_server.*.id}"]
   cross_zone_load_balancing = true
   idle_timeout = 400
   connection_draining = true
