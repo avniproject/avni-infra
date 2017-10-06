@@ -14,6 +14,9 @@ resource "aws_subnet" "reportingsubneta" {
   cidr_block = "${cidrsubnet("${aws_vpc.reportingvpc.cidr_block}", 8, 1)}"
   availability_zone = "${var.region}a"
   map_public_ip_on_launch = true
+  tags {
+    Name = "Reporting Subnet A"
+  }
 }
 
 resource "aws_subnet" "reportingsubnetb" {
@@ -21,6 +24,9 @@ resource "aws_subnet" "reportingsubnetb" {
   cidr_block = "${cidrsubnet("${aws_vpc.reportingvpc.cidr_block}", 8, 2)}"
   availability_zone = "${var.region}b"
   map_public_ip_on_launch = false
+  tags {
+    Name = "Reporting Subnet B"
+  }
 }
 
 resource "aws_internet_gateway" "reporting_internet_gateway" {

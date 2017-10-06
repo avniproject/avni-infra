@@ -1,5 +1,5 @@
 resource "aws_db_subnet_group" "db_subnet" {
-  name = "main"
+  name = "${var.environment}_main"
   subnet_ids = [
     "${aws_subnet.subneta.id}",
     "${aws_subnet.subnetb.id}"]

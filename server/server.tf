@@ -29,7 +29,7 @@ resource "aws_instance" "server" {
     "${aws_security_group.server_sg.id}"]
   subnet_id = "${aws_subnet.subneta.id}"
   iam_instance_profile = "${aws_iam_instance_profile.server_instance.name}"
-  key_name = "${aws_key_pair.openchs.key_name}"
+  key_name = "${var.key_name}"
   root_block_device = {
     volume_size = "${var.disk_size}"
     volume_type = "gp2"
@@ -43,7 +43,7 @@ resource "aws_instance" "server" {
     ]
     connection {
       user = "${var.default_ami_user}"
-      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+      private_key = "${file("server/key/${var.key_name}.pem")}"
     }
   }
 
@@ -52,8 +52,11 @@ resource "aws_instance" "server" {
     destination = "/tmp/openchs.conf"
     connection {
       user = "${var.default_ami_user}"
-      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+      private_key = "${file("server/key/${var.key_name}.pem")}"
     }
+  }
+  tags {
+    Name = "${var.environment} Machine"
   }
 }
 
@@ -66,7 +69,7 @@ resource "null_resource" "update_instance" {
   connection {
     host = "${aws_instance.server.public_ip}"
     user = "${var.default_ami_user}"
-    private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+    private_key = "${file("server/key/${var.key_name}.pem")}"
   }
 
   provisioner "file" {
@@ -75,7 +78,7 @@ resource "null_resource" "update_instance" {
     connection {
       host = "${aws_instance.server.public_ip}"
       user = "${var.default_ami_user}"
-      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+      private_key = "${file("server/key/${var.key_name}.pem")}"
     }
   }
 
@@ -88,7 +91,7 @@ resource "null_resource" "update_instance" {
     connection {
       host = "${aws_instance.server.public_ip}"
       user = "${var.default_ami_user}"
-      private_key = "${file("server/key/${aws_key_pair.openchs.key_name}.pem")}"
+      private_key = "${file("server/key/${var.key_name}.pem")}"
     }
   }
 }

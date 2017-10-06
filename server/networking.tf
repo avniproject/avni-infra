@@ -3,6 +3,9 @@ resource "aws_vpc" "vpc" {
   enable_dns_support = true
   enable_dns_hostnames = true
   enable_classiclink = false
+  tags {
+    Name = "${var.environment} VPC"
+  }
 }
 
 data "aws_vpc" "accepter" {
@@ -26,6 +29,9 @@ resource "aws_vpc_peering_connection" "environment_to_reporting" {
   peer_vpc_id = "${data.aws_vpc.accepter.id}"
   vpc_id = "${aws_vpc.vpc.id}"
   auto_accept = true
+  tags {
+    Name = "${var.environment} To Reporting VPC Peering"
+  }
 }
 
 resource "aws_route" "reporting_to_environment" {
@@ -40,6 +46,9 @@ resource "aws_subnet" "subneta" {
   cidr_block = "${cidrsubnet("${aws_vpc.vpc.cidr_block}", 8, 1)}"
   availability_zone = "${var.region}a"
   map_public_ip_on_launch = true
+  tags {
+    Name = "${var.environment} Subnet A"
+  }
 }
 
 resource "aws_subnet" "subnetb" {
@@ -47,10 +56,16 @@ resource "aws_subnet" "subnetb" {
   cidr_block = "${cidrsubnet("${aws_vpc.vpc.cidr_block}", 8, 2)}"
   availability_zone = "${var.region}b"
   map_public_ip_on_launch = false
+  tags {
+    Name = "${var.environment} Subnet B"
+  }
 }
 
 resource "aws_internet_gateway" "internet_gateway" {
   vpc_id = "${aws_vpc.vpc.id}"
+  tags {
+    Name = "${var.environment} Internet Gateway"
+  }
 }
 
 resource "aws_route_table" "route_table" {

@@ -1,5 +1,5 @@
 resource "aws_elb" "loadbalancer" {
-  name = "openchs-load-balancer"
+  name = "${var.environment}-openchs-load-balancer"
 
   subnets = [
     "${aws_subnet.subneta.id}",
@@ -31,6 +31,6 @@ resource "aws_elb" "loadbalancer" {
   connection_draining_timeout = 400
 
   tags {
-    Name = "openchs-server-load-balancer"
+    Name = "${var.environment}-openchs-server-load-balancer"
   }
 }
