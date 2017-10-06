@@ -3,6 +3,9 @@ resource "aws_vpc" "reportingvpc" {
   enable_dns_support = true
   enable_dns_hostnames = true
   enable_classiclink = false
+  tags {
+    Name = "Reporting"
+  }
 }
 
 
@@ -29,6 +32,10 @@ resource "aws_route_table" "reporting_route_table" {
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = "${aws_internet_gateway.reporting_internet_gateway.id}"
+  }
+
+  tags {
+    Name = "Reporting Route Table"
   }
 }
 

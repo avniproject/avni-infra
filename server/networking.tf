@@ -5,6 +5,35 @@ resource "aws_vpc" "vpc" {
   enable_classiclink = false
 }
 
+data "aws_vpc" "accepter" {
+  cidr_block = "172.10.0.0/16"
+  tags {
+    Name = "Reporting"
+  }
+}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_route_table" "accepter_route_table" {
+  vpc_id = "${data.aws_vpc.accepter.id}"
+  tags {
+    Name = "Reporting Route Table"
+  }
+}
+
+resource "aws_vpc_peering_connection" "environment_to_reporting" {
+  peer_owner_id = "${data.aws_caller_identity.current.account_id}"
+  peer_vpc_id = "${data.aws_vpc.accepter.id}"
+  vpc_id = "${aws_vpc.vpc.id}"
+  auto_accept = true
+}
+
+resource "aws_route" "reporting_to_environment" {
+  route_table_id = "${data.aws_route_table.accepter_route_table.route_table_id}"
+  destination_cidr_block = "${aws_vpc.vpc.cidr_block}"
+  vpc_peering_connection_id = "${aws_vpc_peering_connection.environment_to_reporting.id}"
+}
+
 
 resource "aws_subnet" "subneta" {
   vpc_id = "${aws_vpc.vpc.id}"
@@ -30,6 +59,17 @@ resource "aws_route_table" "route_table" {
     cidr_block = "0.0.0.0/0"
     gateway_id = "${aws_internet_gateway.internet_gateway.id}"
   }
+
+  route {
+    cidr_block = "${data.aws_vpc.accepter.cidr_block}"
+    vpc_peering_connection_id = "${aws_vpc_peering_connection.environment_to_reporting.id}"
+  }
+
+  depends_on = ["aws_vpc_peering_connection.environment_to_reporting"]
+
+  tags {
+    Name = "${var.environment} Route Table"
+  }
 }
 
 resource "aws_route_table_association" "external_main" {
@@ -52,7 +92,8 @@ resource "aws_security_group" "server_sg" {
     to_port = 22
     protocol = "tcp"
     cidr_blocks = [
-      "0.0.0.0/0"]
+      "0.0.0.0/0"
+    ]
   }
 
   ingress {
@@ -60,7 +101,8 @@ resource "aws_security_group" "server_sg" {
     to_port = "${var.server_port}"
     protocol = "tcp"
     cidr_blocks = [
-      "${aws_vpc.vpc.cidr_block}"
+      "${aws_vpc.vpc.cidr_block}",
+      "${data.aws_vpc.accepter.cidr_block}"
     ]
   }
 
@@ -69,7 +111,8 @@ resource "aws_security_group" "server_sg" {
     to_port = 0
     protocol = "-1"
     cidr_blocks = [
-      "0.0.0.0/0"]
+      "0.0.0.0/0"
+    ]
   }
 }
 
@@ -83,7 +126,8 @@ resource "aws_security_group" "db_sg" {
     to_port = 5432
     protocol = "tcp"
     cidr_blocks = [
-      "${aws_vpc.vpc.cidr_block}"
+      "${aws_vpc.vpc.cidr_block}",
+      "${data.aws_vpc.accepter.cidr_block}"
     ]
   }
 
@@ -92,7 +136,9 @@ resource "aws_security_group" "db_sg" {
     to_port = 0
     protocol = "-1"
     cidr_blocks = [
-      "${aws_vpc.vpc.cidr_block}"]
+      "${aws_vpc.vpc.cidr_block}",
+      "${data.aws_vpc.accepter.cidr_block}"
+    ]
   }
 }
 
@@ -115,7 +161,8 @@ resource "aws_security_group" "elb_sg" {
     to_port = 0
     protocol = "-1"
     cidr_blocks = [
-      "${aws_vpc.vpc.cidr_block}"
+      "${aws_vpc.vpc.cidr_block}",
+      "${data.aws_vpc.accepter.cidr_block}"
     ]
   }
 
@@ -127,19 +174,9 @@ resource "aws_security_group" "elb_sg" {
       "0.0.0.0/0"]
   }
 
-  depends_on = ["aws_internet_gateway.internet_gateway"]
+  depends_on = [
+    "aws_internet_gateway.internet_gateway"]
 }
-
-data "aws_caller_identity" "current" {
-  
-}
-
-//resource "aws_vpc_peering_connection" "primary2secondary" {
-//  peer_owner_id = "${data.aws_caller_identity.current.account_id}"
-//  peer_vpc_id = "${aws_vpc.secondary.id}"
-//  vpc_id = "${aws_vpc.vpc.id}"
-//  auto_accept = true
-//}
 
 
 data "aws_route53_zone" "openchs" {
