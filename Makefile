@@ -14,6 +14,12 @@ define create
 	terraform apply -var 'environment=$(1)' $(2);
 endef
 
+define graph
+	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
+	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
+	terraform graph -draw-cycles -type plan $(2) | dot -Tpng > $(1).png;
+endef
+
 define plan
 	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
 	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
@@ -37,17 +43,23 @@ staging-create:
 staging-plan:
 	$(call plan,staging,server)
 
+staging-graph:
+	$(call graph,staging,server)
+
 demo-create:
 	$(call create,demo,server)
 
 demo-plan:
 	$(call plan,demo,server)
 
+demo-graph:
+	$(call graph,demo,server)
+
 reporting-create:
 	$(call create,reporting,reporting)
 
-reporting-destroy:
-	$(call destroy,reporting,reporting)
-
 reporting-plan:
 	$(call plan,reporting,reporting)
+
+reporting-graph:
+	$(call graph,reporting,reporting)
