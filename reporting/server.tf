@@ -36,6 +36,9 @@ resource "aws_instance" "reporting_server" {
 
 resource "null_resource" "update_instance" {
   count = "${aws_instance.reporting_server.count}"
+  triggers {
+    metabase_version = "${var.metabase_version}"
+  }
   connection {
     host = "${element(aws_instance.reporting_server.*.public_ip, count.index)}"
     user = "${var.default_ami_user}"

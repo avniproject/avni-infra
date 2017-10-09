@@ -10,7 +10,10 @@ export MB_DB_PASS=${db_password}
 export MB_DB_HOST=${db_host}
 
 sudo yum install -y java-1.8.0-openjdk-devel
+rm -rf ~/metabase.jar 2>&1 > /dev/null
 curl -L http://downloads.metabase.com/${metabase_version}/metabase.jar > ~/metabase.jar
+sudo fuser -k 3000/tcp 2>&1 > /dev/null
+sleep 5
 nohup java -jar ~/metabase.jar 2>&1 >> ~/metabase.log &
 
 sleep 20
