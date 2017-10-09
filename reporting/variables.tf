@@ -35,3 +35,8 @@ variable "key_name" {
   description = "Key Name"
   default = "openchs-infra"
 }
+
+variable "metabase_version" {
+  description = "Metabase version to install"
+  default = "v0.26.1"
+}

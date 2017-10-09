@@ -115,6 +115,7 @@ resource "aws_route53_record" "server_instance" {
   zone_id = "${data.aws_route53_zone.openchs.zone_id}"
   name = "ssh.${lookup(var.url_map, var.environment, "temp")}.${data.aws_route53_zone.openchs.name}"
   type = "A"
+  ttl = 300
   records = [
     "${aws_instance.server.0.public_ip}"
   ]

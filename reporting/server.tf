@@ -7,6 +7,7 @@ data "template_file" "reporting_config" {
     db_user = "${aws_db_instance.reporting.username}"
     db_name = "${aws_db_instance.reporting.name}"
     db_password = "${aws_db_instance.reporting.password}"
+    metabase_version = "${var.metabase_version}"
   }
 }
 
@@ -34,7 +35,7 @@ resource "aws_instance" "reporting_server" {
 }
 
 resource "null_resource" "update_instance" {
-  count = "${length(aws_instance.reporting_server.*.id)}"
+  count = "${aws_instance.reporting_server.count}"
   connection {
     host = "${element(aws_instance.reporting_server.*.public_ip, count.index)}"
     user = "${var.default_ami_user}"
@@ -79,6 +80,7 @@ resource "aws_route53_record" "reporting" {
 resource "aws_route53_record" "reporting_server_instance" {
   zone_id = "${data.aws_route53_zone.openchs.zone_id}"
   name = "ssh.reporting.${data.aws_route53_zone.openchs.name}"
+  ttl = 300
   type = "A"
   records = [
     "${aws_instance.reporting_server.0.public_ip}"
