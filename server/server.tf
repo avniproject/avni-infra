@@ -110,3 +110,12 @@ resource "aws_route53_record" "server" {
     zone_id = "${aws_elb.loadbalancer.zone_id}"
   }
 }
+
+resource "aws_route53_record" "server_instance" {
+  zone_id = "${data.aws_route53_zone.openchs.zone_id}"
+  name = "ssh.${lookup(var.url_map, var.environment, "temp")}.${data.aws_route53_zone.openchs.name}"
+  type = "A"
+  records = [
+    "${aws_instance.server.0.public_ip}"
+  ]
+}

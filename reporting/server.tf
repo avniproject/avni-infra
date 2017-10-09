@@ -75,3 +75,13 @@ resource "aws_route53_record" "reporting" {
     zone_id = "${aws_elb.reportingloadbalancer.zone_id}"
   }
 }
+
+resource "aws_route53_record" "reporting_server_instance" {
+  zone_id = "${data.aws_route53_zone.openchs.zone_id}"
+  name = "ssh.reporting.${data.aws_route53_zone.openchs.name}"
+  type = "A"
+  records = [
+    "${aws_instance.reporting_server.0.public_ip}"
+  ]
+}
+
