@@ -25,6 +25,7 @@ variable "db_final_snapshot" {
   type = "map"
   default = {
     production = false
+    demo = false
   }
 }
 
