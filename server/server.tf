@@ -67,7 +67,7 @@ resource "null_resource" "update_instance" {
     major_version = "${file("server/version/major_version")}"
     minor_version = "${file("server/version/minor_version")}"
   }
-  count = "${length(aws_instance.server.*.id)}"
+  count = "${aws_instance.server.count}"
 
   connection {
     host = "${element(aws_instance.server.*.public_ip, count.index)}"
