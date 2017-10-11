@@ -26,6 +26,12 @@ define plan
 	terraform plan -var 'environment=$(1)' $(2);
 endef
 
+define destroy
+	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
+	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
+	terraform destroy -var 'environment=$(1)' $(2);
+endef
+
 unencrypt:
 	@openssl aes-256-cbc -a -md md5 -in server/key/openchs-infra.pem.enc -d -out server/key/openchs-infra.pem -k ${ENCRYPTION_KEY_AWS}
 
@@ -39,6 +45,9 @@ install:
 
 staging-create:
 	$(call create,staging,server)
+
+staging-destroy:
+	$(call destroy,staging,server)
 
 staging-plan:
 	$(call plan,staging,server)
@@ -55,6 +64,9 @@ demo-plan:
 demo-graph:
 	$(call graph,demo,server)
 
+demo-destroy:
+	$(call destroy,staging,server)
+
 reporting-create:
 	$(call create,reporting,reporting)
 
@@ -62,4 +74,7 @@ reporting-plan:
 	$(call plan,reporting,reporting)
 
 reporting-graph:
+	$(call graph,reporting,reporting)
+
+reporting-destroy:
 	$(call graph,reporting,reporting)
