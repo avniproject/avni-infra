@@ -19,7 +19,6 @@ resource "aws_db_instance" "openchs" {
   storage_encrypted = false
   publicly_accessible = false
   skip_final_snapshot = "${lookup(var.db_final_snapshot, var.environment, true)}"
-  snapshot_identifier = "${var.environment}-db-snapshot"
   final_snapshot_identifier = "${var.environment}-db-final-snapshot"
   storage_type = "gp2"
   db_subnet_group_name = "${aws_db_subnet_group.db_subnet.name}"
