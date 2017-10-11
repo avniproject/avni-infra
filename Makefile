@@ -65,7 +65,7 @@ demo-graph:
 	$(call graph,demo,server)
 
 demo-destroy:
-	$(call destroy,staging,server)
+	$(call destroy,demo,server)
 
 reporting-create:
 	$(call create,reporting,reporting)
