@@ -52,6 +52,12 @@ staging-destroy:
 staging-plan:
 	$(call plan,staging,server)
 
+production-plan:
+	$(call plan,prod,server)
+
+production-create:
+	$(call create,prod,server)
+
 staging-graph:
 	$(call graph,staging,server)
 

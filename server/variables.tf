@@ -24,7 +24,7 @@ variable "cidr_map" {
 variable "db_final_snapshot" {
   type = "map"
   default = {
-    production = false
+    prod = false
     demo = false
   }
 }
