@@ -5,3 +5,4 @@ terraform.tfstate.backup
 *.pem
 *.png
 .DS_Store
+user-management/users.json
