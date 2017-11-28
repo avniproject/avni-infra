@@ -1,0 +1,38 @@
+[
+  {
+    "username": "<username>",
+    "password": "<password>",
+    "catchment_id": "<catchmentId>",
+    "email": "<email?",
+    "phone_number": "<number>",
+    "org_name": "<organisationName>",
+    "org_id": "<organisationId>",
+    "is_user": "<isUser>",
+    "is_admin": "<isAdmin>",
+    "is_org_admin": "<isOrganisationAdmin>"
+  },
+  {
+    "username": "<username>",
+    "password": "<password>",
+    "catchment_id": "<catchmentId>",
+    "email": "<email?",
+    "phone_number": "<number>",
+    "org_name": "<organisationName>",
+    "org_id": "<organisationId>",
+    "is_user": "<isUser>",
+    "is_admin": "<isAdmin>",
+    "is_org_admin": "<isOrganisationAdmin>"
+  },
+  {
+    "username": "<username>",
+    "password": "<password>",
+    "catchment_id": "<catchmentId>",
+    "email": "<email?",
+    "phone_number": "<number>",
+    "org_name": "<organisationName>",
+    "org_id": "<organisationId>",
+    "is_user": "<isUser>",
+    "is_admin": "<isAdmin>",
+    "is_org_admin": "<isOrganisationAdmin>"
+  }
+]

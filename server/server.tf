@@ -8,7 +8,13 @@ data "template_file" "config" {
     database_name = "${aws_db_instance.openchs.name}"
     server_port = "${var.server_port}"
     database_password = "${aws_db_instance.openchs.password}"
+    client_id = "${file("server/version/client_id")}"
+    user_pool_id = "${aws_cognito_user_pool.user_pool.id}"
   }
+
+  depends_on = [
+    "null_resource.client_id",
+    "aws_cognito_user_pool.user_pool"]
 }
 
 data "template_file" "update" {

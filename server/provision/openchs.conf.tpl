@@ -5,5 +5,7 @@ export OPENCHS_DATABASE_HOST=${database_host}
 export OPENCHS_DATABASE_USER=${database_user}
 export OPENCHS_DATABASE_PASSWORD=${database_password}
 export OPENCHS_DATABASE_URL="jdbc:postgresql://${database_host}:${database_port}/${database_name}"
+export OPENCHS_USER_POOL=${user_pool_id}
+export OPENCHS_CLIENT_ID=${client_id}
 export OPENCHS_MODE=live
 export AUTH_SERVER_URL=http://reporting.openchs.org
