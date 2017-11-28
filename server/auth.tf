@@ -76,6 +76,11 @@ resource "aws_cognito_user_pool" "user_pool" {
 }
 
 resource "null_resource" "client_id" {
+
+  triggers {
+    user_pool_id = "${aws_cognito_user_pool.user_pool.id}"
+  }
+
   provisioner "local-exec" {
     command = "python ${path.module}/provision/user_pool_client.py ${aws_cognito_user_pool.user_pool.id} >> server/version/client_id"
   }
