@@ -1,17 +1,17 @@
 .PHONY: install
 UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
-	TERRAFORM_URL="https://releases.hashicorp.com/terraform/0.10.2/terraform_0.10.2_linux_amd64.zip"
+	TERRAFORM_URL="https://releases.hashicorp.com/terraform/0.11.0/terraform_0.11.0_linux_amd64.zip"
 endif
 ifeq ($(UNAME),Darwin)
-	TERRAFORM_URL="https://releases.hashicorp.com/terraform/0.10.2/terraform_0.10.2_darwin_amd64.zip"
+	TERRAFORM_URL="https://releases.hashicorp.com/terraform/0.11.0/terraform_0.11.0_darwin_amd64.zip"
 endif
 TERRAFORM_LOCATION:=/usr/local/bin/terraform
 
 define create
 	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
 	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
-	terraform apply -var 'environment=$(1)' $(2);
+	terraform apply -auto-approve -var 'environment=$(1)' $(2);
 endef
 
 define graph
