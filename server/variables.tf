@@ -29,6 +29,12 @@ variable "db_final_snapshot" {
   }
 }
 
+variable "db_ssd_type" {
+  type = "map"
+  default = {
+    prod = "gp2"
+  }
+}
 
 variable "url_map" {
   type = "map"

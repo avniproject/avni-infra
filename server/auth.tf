@@ -82,7 +82,7 @@ resource "null_resource" "client_id" {
   }
 
   provisioner "local-exec" {
-    command = "python ${path.module}/provision/user_pool_client.py ${aws_cognito_user_pool.user_pool.id} >> server/version/client_id"
+    command = "python ${path.module}/provision/user_pool_client.py ${aws_cognito_user_pool.user_pool.id} > server/version/client_id"
   }
   depends_on = [
     "aws_cognito_user_pool.user_pool"

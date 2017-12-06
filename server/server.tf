@@ -62,6 +62,7 @@ resource "aws_instance" "server" {
       private_key = "${file("server/key/${var.key_name}.pem")}"
     }
   }
+
   tags {
     Name = "${var.environment} Machine"
   }
@@ -79,6 +80,15 @@ resource "null_resource" "update_instance" {
     host = "${element(aws_instance.server.*.public_ip, count.index)}"
     user = "${var.default_ami_user}"
     private_key = "${file("server/key/${var.key_name}.pem")}"
+  }
+
+  provisioner "file" {
+    content = "${data.template_file.config.rendered}"
+    destination = "/tmp/openchs.conf"
+    connection {
+      user = "${var.default_ami_user}"
+      private_key = "${file("server/key/${var.key_name}.pem")}"
+    }
   }
 
   provisioner "file" {
