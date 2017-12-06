@@ -11,8 +11,9 @@ resource "aws_elb" "loadbalancer" {
   listener {
     instance_port = "${var.server_port}"
     instance_protocol = "http"
-    lb_port = 80
-    lb_protocol = "http"
+    lb_port = 443
+    lb_protocol = "https"
+    ssl_certificate_id = "${data.aws_acm_certificate.ssl_certificate.arn}"
   }
 
   health_check {

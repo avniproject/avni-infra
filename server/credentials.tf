@@ -24,3 +24,8 @@ resource "aws_iam_instance_profile" "server_instance" {
   role = "${aws_iam_role.server_role.name}"
 }
 
+
+data "aws_acm_certificate" "ssl_certificate" {
+  domain   = "*.openchs.org"
+  statuses = ["ISSUED"]
+}

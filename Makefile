@@ -49,6 +49,9 @@ staging-create:
 staging-destroy:
 	$(call destroy,staging,server)
 
+production-destroy:
+	$(call destroy,prod,server)
+
 staging-plan:
 	$(call plan,staging,server)
 
