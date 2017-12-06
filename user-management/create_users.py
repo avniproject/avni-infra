@@ -10,7 +10,6 @@ def json_input(username, password, email, org_name, org_id, catchment_id, phone_
                is_org_admin="false"):
     return {
         'Username': username,
-        'MessageAction': 'SUPPRESS',
         'UserPoolId': user_pool_id,
         'ValidationData': [],
         'UserAttributes': [
@@ -25,7 +24,7 @@ def json_input(username, password, email, org_name, org_id, catchment_id, phone_
         ],
         'ForceAliasCreation': True,
         'TemporaryPassword': password,
-        'DesiredDeliveryMediums': ['SMS']
+        'DesiredDeliveryMediums': ['SMS', 'EMAIL']
     }
 
 
