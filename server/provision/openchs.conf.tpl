@@ -8,4 +8,3 @@ export OPENCHS_DATABASE_URL="jdbc:postgresql://${database_host}:${database_port}
 export OPENCHS_USER_POOL=${user_pool_id}
 export OPENCHS_CLIENT_ID=${client_id}
 export OPENCHS_MODE=live
-export AUTH_SERVER_URL=http://reporting.openchs.org
