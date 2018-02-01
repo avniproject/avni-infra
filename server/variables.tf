@@ -60,8 +60,15 @@ variable "default_ami_user" {
 
 variable "instance_type" {
   type = "string"
-  description = "ECS Instance Type"
+  description = "EC2 Instance Type"
   default = "t2.micro"
+}
+
+variable "instance_map" {
+  type = "map"
+  default = {
+    prod = "t2.medium"
+  }
 }
 
 variable "disk_size" {

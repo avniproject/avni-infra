@@ -30,7 +30,7 @@ resource "aws_instance" "server" {
   count = 1
   ami = "${var.ami}"
   availability_zone = "${var.region}a"
-  instance_type = "${var.instance_type}"
+  instance_type = "${lookup(var.instance_map, var.environment, var.instance_type)}"
   associate_public_ip_address = true
   vpc_security_group_ids = [
     "${aws_security_group.server_sg.id}"]
