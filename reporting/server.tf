@@ -12,7 +12,7 @@ data "template_file" "reporting_config" {
 }
 
 resource "aws_instance" "reporting_server" {
-  count = 1
+  count = "${var.instance_count}"
   ami = "${var.ami}"
   availability_zone = "${var.region}a"
   instance_type = "${var.instance_type}"
