@@ -38,7 +38,7 @@ variable "key_name" {
 
 variable "metabase_version" {
   description = "Metabase version to install"
-  default = "v0.27.2"
+  default = "v0.28.1"
 }
 
 variable "instance_count" {
