@@ -37,6 +37,7 @@ resource "aws_instance" "server" {
   subnet_id = "${aws_subnet.subneta.id}"
   iam_instance_profile = "${aws_iam_instance_profile.server_instance.name}"
   key_name = "${var.key_name}"
+  disable_api_termination = "${lookup(var.disable_api_termination, var.environment, false)}"
   root_block_device = {
     volume_size = "${var.disk_size}"
     volume_type = "gp2"

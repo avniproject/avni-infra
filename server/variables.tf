@@ -29,6 +29,13 @@ variable "db_final_snapshot" {
   }
 }
 
+variable "disable_api_termination" {
+  type = "map"
+  default = {
+    prod = true
+  }
+}
+
 variable "db_ssd_type" {
   type = "map"
   default = {
