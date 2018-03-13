@@ -56,8 +56,8 @@ variable "url_map" {
 
 variable "ami" {
   type = "string"
-  description = "RHEL hvm:ebs-ssd AMI Mumbai"
-  default = "ami-e41b618b"
+  description = "Centos hvm:ebs-ssd AMI Mumbai"
+  default = "ami-531a4c3c"
 }
 
 variable "default_ami_user" {
