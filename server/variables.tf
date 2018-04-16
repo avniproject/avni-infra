@@ -16,6 +16,7 @@ variable "cidr_map" {
 
   default = {
     demo    = "10.10.0.0/16"
+    uat    = "10.30.0.0/16"
     staging = "10.20.0.0/16"
     prod    = "10.100.0.0/16"
   }
@@ -27,6 +28,7 @@ variable "db_final_snapshot" {
   default = {
     prod = false
     demo = false
+    uat = true
   }
 }
 
@@ -52,6 +54,7 @@ variable "url_map" {
 
   default = {
     demo    = "demo"
+    uat    = "uat"
     staging = "staging"
     prod    = "server"
   }

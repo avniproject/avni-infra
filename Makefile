@@ -76,6 +76,18 @@ demo-graph:
 demo-destroy:
 	$(call destroy,demo,server)
 
+uat-create:
+	$(call create,uat,server)
+
+uat-plan:
+	$(call plan,uat,server)
+
+uat-graph:
+	$(call graph,uat,server)
+
+uat-destroy:
+	$(call destroy,uat,server)
+
 reporting-create:
 	$(call create,reporting,reporting)
 
