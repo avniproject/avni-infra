@@ -6,3 +6,4 @@ terraform.tfstate.backup
 *.png
 .DS_Store
 user-management/users.json
+server/*override.tf

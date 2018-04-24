@@ -37,6 +37,7 @@ resource "aws_db_instance" "openchs" {
   }
 }
 
+
 resource "aws_route53_record" "database" {
   zone_id = "${data.aws_route53_zone.openchs.zone_id}"
   name = "${lookup(var.url_map, var.environment, "temp")}db"

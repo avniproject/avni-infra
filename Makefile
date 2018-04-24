@@ -9,7 +9,9 @@ endif
 TERRAFORM_LOCATION:=/usr/local/bin/terraform
 
 define create
-	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
+    rm -rf server/*_override.tf
+    cp -f ./server-override/$(1)_override.tf ./server || :
+    terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
 	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
 	terraform apply -auto-approve -var 'environment=$(1)' $(2);
 endef
@@ -21,13 +23,17 @@ define graph
 endef
 
 define plan
+    rm -rf server/*_override.tf
+    cp -f ./server-override/$(1)_override.tf ./server || :
 	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
 	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
 	terraform plan -var 'environment=$(1)' $(2);
 endef
 
 define destroy
-	terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
+    rm -rf server/*_override.tf
+    cp -f ./server-override/$(1)_override.tf ./server || :
+    terraform init -backend=true -backend-config='$(2)/backend.config' $(2)
 	terraform workspace select $(1) $(2) || (terraform workspace new $(1) $(2))
 	terraform destroy -var 'environment=$(1)' $(2);
 endef
@@ -57,6 +63,7 @@ staging-plan:
 
 production-plan:
 	$(call plan,prod,server)
+	rm -f server/prod_override.tf
 
 production-create:
 	$(call create,prod,server)
