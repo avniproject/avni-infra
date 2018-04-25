@@ -63,7 +63,6 @@ staging-plan:
 
 production-plan:
 	$(call plan,prod,server)
-	rm -f server/prod_override.tf
 
 production-create:
 	$(call create,prod,server)
