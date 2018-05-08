@@ -9,6 +9,7 @@ export MB_DB_USER=${db_user}
 export MB_DB_PASS=${db_password}
 export MB_DB_HOST=${db_host}
 
+sudo yum remove -y java-1.7.0-openjdk java-1.7.0-openjdk-devel
 sudo yum install -y java-1.8.0-openjdk-devel
 sudo yum install -y lsof
 rm -rf ~/metabase.jar 2>&1 > /dev/null
