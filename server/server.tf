@@ -2,7 +2,7 @@ data "template_file" "config" {
   template = "${file("server/provision/openchs.conf.tpl")}"
 
   vars {
-    database_host = "${aws_db_instance.openchs.address}"
+    database_host = "${aws_route53_record.database.name}.${data.aws_route53_zone.openchs.name}"
     database_port = "${aws_db_instance.openchs.port}"
     database_user = "${aws_db_instance.openchs.username}"
     database_name = "${aws_db_instance.openchs.name}"
