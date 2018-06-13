@@ -30,6 +30,14 @@ define plan
 	terraform plan -var 'environment=$(1)' $(2);
 endef
 
+define create_staging_from_prod
+    rm -rf server/*_override.tf
+    cp -f ./server-override/from_$(2)_override.tf ./server || :
+    terraform init -backend=true -backend-config='$(3)/backend.config' $(3)
+	terraform workspace select $(2) $(3) || (terraform workspace new $(2) $(3))
+	terraform apply -auto-approve -var 'environment=$(2)' -var 'fromDB=$(1)' $(3);
+endef
+
 define destroy
     rm -rf server/*_override.tf
     cp -f ./server-override/$(1)_override.tf ./server || :
@@ -105,3 +113,6 @@ reporting-graph:
 
 reporting-destroy:
 	$(call graph,reporting,reporting)
+
+staging-create-from-prod: staging-destroy
+	$(call create_staging_from_prod,uat,staging,server)

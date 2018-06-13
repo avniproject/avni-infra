@@ -103,3 +103,9 @@ variable "server_port" {
   description = "Server Port"
   default     = 8021
 }
+
+variable "fromDB" {
+  type        = "string"
+  description = "From Database"
+  default     = "staging"
+}
