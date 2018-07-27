@@ -19,7 +19,7 @@ resource "aws_cognito_user_pool" "user_pool" {
   }
   admin_create_user_config {
     allow_admin_create_user_only = true
-    unused_account_validity_days = 7
+    unused_account_validity_days = 90
   }
   device_configuration {
     device_only_remembered_on_user_prompt = false
