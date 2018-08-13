@@ -128,3 +128,7 @@ delete-bintray-version:
               -H 'Postman-Token: 6b0484b6-eda4-4151-9aab-c33ef114994e' ; \
 		((number = number + 1)) ; \
 	done
+
+# AWS Environment variables are set which will authenticate you
+create-users:
+	cd user-management && python create_users.py $(pool)
