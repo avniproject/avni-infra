@@ -60,6 +60,9 @@ install:
 staging-create:
 	$(call create,staging,server)
 
+staging-app-create:
+	$(call create,app.staging,client)
+
 staging-destroy:
 	$(call destroy,staging,server)
 
@@ -68,6 +71,9 @@ production-destroy:
 
 staging-plan:
 	$(call plan,staging,server)
+
+staging-app-plan:
+	$(call plan,app.staging,client)
 
 production-plan:
 	$(call plan,prod,server)
