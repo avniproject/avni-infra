@@ -13,7 +13,7 @@ data "aws_route53_zone" "openchs" {
 
 
 resource "aws_s3_bucket" "app" {
-  bucket = "${var.environment}.${data.aws_route53_zone.openchs.name}"
+  bucket = "${var.environment}.openchs.org"
   acl = "public-read"
   policy = "${data.template_file.policy.rendered}"
 
