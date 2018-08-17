@@ -30,7 +30,7 @@ resource "aws_route53_record" "app_url" {
 
   alias {
     evaluate_target_health = false
-    name = "s3-website.ap-south-1.amazonaws.com."
+    name = "${aws_s3_bucket.app.website_endpoint}"
     zone_id = "${aws_s3_bucket.app.hosted_zone_id}"
   }
 }
