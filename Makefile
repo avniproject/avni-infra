@@ -138,3 +138,6 @@ delete-bintray-version:
 # AWS Environment variables are set which will authenticate you
 create-users:
 	cd user-management && python create_users.py $(pool)
+get-users:
+	aws cognito-idp list-users --user-pool-id $(pool) > cognito-users.json
+	node user-management/mapUsers.js
