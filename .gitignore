@@ -7,4 +7,4 @@ terraform.tfstate.backup
 .DS_Store
 user-management/users.json
 server/*override.tf
-cognito-users.json
+cognito-users-mapped.json

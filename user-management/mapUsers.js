@@ -17,16 +17,14 @@ function getCustomAttributeValue(cognitoUser, attributeName) {
 function mapToServerContract(cognitoJSON) {
     return cognitoJSON["Users"].map(function (cognitoUser) {
         return {
-            "uuid": newUUID(),
-            "userUUID": "5fed2907-df3a-4867-aef5-c87f4c78a31a",
             "name": cognitoUser["Username"],
             "organisationId": Number(getCustomAttributeValue(cognitoUser, "organisationId")),
             "catchmentId": Number(getCustomAttributeValue(cognitoUser, "catchmentId")),
-            "isOrgAdmin": getCustomAttributeValue(cognitoUser, "isOrganisationAdmin") === "true",
-            "isAdmin": getCustomAttributeValue(cognitoUser, "isAdmin") === "true"
+            "orgAdmin": getCustomAttributeValue(cognitoUser, "isOrganisationAdmin") === "true",
+            "admin": getCustomAttributeValue(cognitoUser, "isAdmin") === "true"
         };
     });
 }
 
 let output = mapToServerContract(cognitoUserResponse);
-console.log(output);
+console.log(JSON.stringify(output));
