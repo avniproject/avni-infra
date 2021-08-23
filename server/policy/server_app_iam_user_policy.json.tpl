@@ -97,7 +97,8 @@
         "cognito-idp:AdminListGroupsForUser",
         "s3:HeadBucket",
         "cognito-idp:AdminResetUserPassword",
-        "cognito-idp:ListUsers"
+        "cognito-idp:ListUsers",
+        cognito-idp:AdminSetUserPassword
       ],
       "Resource": "*"
     }
