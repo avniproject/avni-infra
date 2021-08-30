@@ -1,3 +1,3 @@
 resource "aws_db_instance" "openchs" {
-  engine_version = "12.5"
+  engine_version = "12.7"
 }
