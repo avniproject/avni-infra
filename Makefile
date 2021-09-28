@@ -218,17 +218,6 @@ reporting-jasper-destroy:
 staging-create-from-prod: staging-destroy
 	$(call create_staging_from_prod,uat,staging,server)
 
-# Generate the AUTH_HASH using basic authentication in Postman using generate code for cUrl (using your bintray user and password)
-# Number range in start and end
-delete-bintray-version:
-	number=$(start) ; while [[ $$number -le $(end) ]] ; do \
-		curl -X DELETE \
-              https://api.bintray.com/packages/openchs/rpm/OpenCHS/versions/$$number \
-              -H 'Authorization: Basic $(AUTH_HASH)' \
-              -H 'Cache-Control: no-cache' \
-              -H 'Postman-Token: 6b0484b6-eda4-4151-9aab-c33ef114994e' ; \
-		((number = number + 1)) ; \
-	done
 
 # AWS Environment variables are set which will authenticate you
 # Multiple profiles need to be setup like the following,
