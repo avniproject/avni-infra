@@ -4,7 +4,7 @@ data "aws_db_snapshot" "latest_snapshot" {
 }
 
 resource "aws_db_instance" "openchs" {
-  allocated_storage = 100
+  allocated_storage = 200
   instance_class = "db.t2.small"
   storage_encrypted = true
   snapshot_identifier = "${data.aws_db_snapshot.latest_snapshot.db_snapshot_identifier}"
