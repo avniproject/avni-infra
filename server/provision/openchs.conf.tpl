@@ -16,3 +16,5 @@ export OPENCHS_IAM_USER_ACCESS_KEY=${iam_access_key}
 export OPENCHS_IAM_USER_SECRET_ACCESS_KEY=${iam_secret_access_key}
 export OPENCHS_STATIC_PATH=/opt/openchs/static/
 export OPENCHS_MSG91_AUTHKEY_KEY=${msg91_authkey_key}
+export OPENCHS_UPLOAD_USER_USER_NAME=${upload_user_name}
+export OPENCHS_UPLOAD_USER_PASSWORD=${upload_user_password}
