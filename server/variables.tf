@@ -123,3 +123,15 @@ variable "msg91_authkey_key" {
   description = "Msg91 Authkey Encryption key"
   default = ""
 }
+
+variable "upload_user_name" {
+  type        = "string"
+  description = "Upload user used by rule server"
+  default = ""
+}
+
+variable "upload_user_password" {
+  type        = "string"
+  description = "Password for upload user"
+  default = ""
+}
