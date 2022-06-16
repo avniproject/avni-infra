@@ -1,0 +1,16 @@
+---
+
+- include: users.yml
+
+- include: setup_firewall_rules.yml
+
+- include: setup_nginx.yml
+
+- include: setup_certificates.yml
+
+- include: set_file_permissions.yml
+
+- include: setup_application.yml
+
+- include: deploy_application.yml
+

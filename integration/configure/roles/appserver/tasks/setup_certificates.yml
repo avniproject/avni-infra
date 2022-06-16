@@ -1,0 +1,4 @@
+---
+
+- name: Generate cert
+  command: "certbot run --nginx -n --agree-tos -m vinayv@samanvayfoundation.org -d '{{ public_url }}'"

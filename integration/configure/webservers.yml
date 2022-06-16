@@ -1,0 +1,17 @@
+---
+
+- name: Configure web servers
+  hosts: webservers
+  become: yes
+  become_user: root
+  remote_user: "{{ application_user }}"
+  vars:
+    update_apt_cache: yes
+  roles:
+    - base
+    - security
+    - nginx
+    - certbot
+    - postgres
+    - web
+    - appserver

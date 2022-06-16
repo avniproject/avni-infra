@@ -1,0 +1,4 @@
+webapp_zip_path:  "{{ lookup('env','WEBAPP_ZIP_PATH') }}"
+webapp_zip_file_name: "{{ lookup('env','WEBAPP_ZIP_FILE_NAME') }}"
+public_url: "{{app_url}}"
+application_dir: "/opt/{{ application_name }}"

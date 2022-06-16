@@ -1,0 +1,12 @@
+- name: Base configuration
+  hosts: all
+  become: yes
+  become_user: root
+  remote_user: "{{ application_user }}"
+  vars:
+    update_apt_cache: yes
+  roles:
+    - base
+    - security
+
+- include: webservers.yml

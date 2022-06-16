@@ -1,0 +1,7 @@
+---
+
+- name: Allow 80 and 443
+  ufw: rule=allow port={{ item }}
+  with_items:
+    - 80
+    - 443

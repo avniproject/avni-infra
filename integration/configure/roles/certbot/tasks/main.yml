@@ -1,0 +1,12 @@
+---
+
+- name: Install certbot
+  snap:
+    name: certbot
+    classic: yes
+
+- name: Create symbolic link for certbot
+  file:
+    src: "/snap/bin/certbot"
+    dest: "/usr/bin/certbot"
+    state: link

@@ -1,0 +1,14 @@
+- name: restart appserver socket
+  listen: restart appserver
+  service:
+    name: "{{application_name}}_appserver.socket"
+    enabled: true
+    state: restarted
+
+
+- name: restart appserver service
+  listen: restart appserver
+  service:
+    name: "{{application_name}}_appserver.service"
+    enabled: true
+    state: restarted

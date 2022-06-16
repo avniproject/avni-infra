@@ -1,0 +1,11 @@
+---
+
+perform_aptitude_dist_upgrade: yes
+
+force_ssh_authentication: yes
+
+enable_unattended_upgrades: yes
+
+enable_ufw: yes
+
+enable_fail2ban: no

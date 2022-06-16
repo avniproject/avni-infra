@@ -1,0 +1,15 @@
+---
+
+# Application settings.
+application_zip_path:  "{{ lookup('env','APPLICATION_ZIP_PATH') }}"
+application_zip_file_name: "{{ lookup('env','APPLICATION_ZIP_FILE_NAME') }}"
+
+# Application path
+application_dir: "/opt/{{ application_name }}"
+application_log_dir: "/var/log/{{ application_name }}"
+application_conf_file: "/etc/{{application_name}}_appserver.conf"
+static_file_path: "/var/www/{{ application_name }}"
+
+application_user_home: "/home/{{application_user}}"
+
+public_url: "{{app_url}}"

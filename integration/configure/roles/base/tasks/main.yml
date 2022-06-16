@@ -1,0 +1,40 @@
+---
+
+- name: Perform apt dist-upgrade
+  apt: update_cache={{ update_apt_cache }}
+    upgrade=dist
+  tags:
+    - packages
+    - skip_ansible_lint
+
+- name: Install base packages
+  apt: name={{ packages }} update_cache={{ update_apt_cache }} state=present
+  vars:
+    packages:
+      - software-properties-common
+      - debconf-utils
+      - build-essential
+      - libssl-dev
+      - zlib1g-dev
+      - libbz2-dev
+      - libreadline-dev
+      - libsqlite3-dev
+      - wget
+      - curl
+      - llvm-dev
+      - libncurses5-dev
+      - libncursesw5-dev
+      - xz-utils
+      - tk8.6-dev
+      - libffi-dev
+      - liblzma-dev
+      - python-openssl
+      - git
+      - curl
+      - net-tools
+      - openjdk-11-jdk
+      - zip
+      - acl
+  tags:
+    - packages
+    - packages.security

@@ -1,0 +1,26 @@
+---
+
+- name: Clean deploy directory
+  command: "sudo rm -rf /vaw/www/{{application_name}}"
+
+- name: Delete deploy directory
+  file:
+    path: "/var/www/{{application_name}}"
+    state: absent
+  tags: deploy-app-only
+
+- name: Ensure deploy directory exists
+  file:
+    path: "/var/www/{{application_name}}"
+    owner: "www-data"
+    group: "www-data"
+    state: directory
+    mode: '755'
+  tags: deploy-app
+
+- name: Extract web application
+  unarchive:
+    src: "{{webapp_zip_path}}/{{webapp_zip_file_name}}"
+    dest: "/var/www/{{application_name}}"
+    owner: "www-data"
+  tags: deploy-app-only

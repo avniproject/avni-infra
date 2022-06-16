@@ -1,0 +1,21 @@
+---
+
+- name: Ensure server stopped
+  service:
+    name: "{{application_name}}_appserver.service"
+    enabled: true
+    state: stopped
+
+- name: Copy appserver jar file
+  copy:
+    src: "{{application_zip_path}}/{{application_zip_file_name}}"
+    dest: "{{ application_dir }}/integration-server.jar"
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    mode: 0755
+
+- name: Ensure server stopped
+  service:
+    name: "{{application_name}}_appserver.service"
+    enabled: true
+    state: started

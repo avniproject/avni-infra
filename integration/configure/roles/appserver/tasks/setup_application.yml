@@ -1,0 +1,45 @@
+---
+
+- name: Create appserver template
+  template: src=appserver_nginx_conf.j2
+    dest=/etc/nginx/sites-available/appserver
+    backup=yes
+  notify: reload nginx
+
+- name: Ensure appserver site is enabled in nginx
+  file: src=/etc/nginx/sites-available/appserver
+    dest=/etc/nginx/sites-enabled/appserver
+    state=link
+  notify: reload nginx
+
+- name: Reload nginx
+  service: name=nginx state=reloaded
+
+- name: Set up config for application
+  template:
+    src: appserver.conf.j2
+    dest: "{{application_conf_file}}"
+    owner: root
+    group: root
+    mode: '644'
+
+- name: Set up start script for application
+  template:
+    src: start.sh.j2
+    dest: "{{application_dir}}/start.sh"
+    owner: root
+    group: root
+    mode: '644'
+
+- name: Set up systemd config for application
+  template:
+    src: appserver.service.template.j2
+    dest: /usr/lib/systemd/system/{{application_name}}_appserver.service
+    owner: "{{application_user}}"
+    group: "{{application_group}}"
+    mode: '755'
+
+- name: Enable server
+  service:
+    name: "{{application_name}}_appserver.service"
+    enabled: true
