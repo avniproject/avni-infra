@@ -1,2 +1,2 @@
-[intservers]
+[webservers]
 vagrant-server ansible_host=vagrant-server

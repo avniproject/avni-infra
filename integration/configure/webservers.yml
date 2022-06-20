@@ -1,7 +1,7 @@
 ---
 
-- name: Configure web servers
-  hosts: vagrant-server
+- name: Configure webservers servers
+  hosts: webservers
   become: yes
   become_user: root
   remote_user: "{{ application_user }}"
