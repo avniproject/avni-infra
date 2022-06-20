@@ -1,0 +1,19 @@
+[Unit]
+Description=Budget planner server
+After=network.target
+
+[Service]
+Type=simple
+# the specific user that our service will run as
+User={{ application_user }}
+Group={{ application_group }}
+# another option for an even more restricted service is
+# DynamicUser=yes
+ExecStart={{application_dir}}/start.sh
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

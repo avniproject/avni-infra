@@ -1,0 +1,9 @@
+---
+
+# Application path
+application_dir: "/opt/{{ application_name }}"
+static_file_path: "/var/www/{{ application_name }}"
+
+application_user_home: "/home/{{application_user}}"
+
+public_url: "{{app_url}}"

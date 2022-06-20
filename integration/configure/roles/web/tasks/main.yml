@@ -20,6 +20,7 @@
 
 - name: Extract web application
   unarchive:
+    remote_src: no
     src: "{{webapp_zip_path}}/{{webapp_zip_file_name}}"
     dest: "/var/www/{{application_name}}"
     owner: "www-data"

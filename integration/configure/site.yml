@@ -9,4 +9,4 @@
     - base
     - security
 
-- include: webservers.yml
+- include: aws_integration_servers.yml
