@@ -1,12 +1,11 @@
 ---
-
-env: test
+env: vagrant_local
 project_name: integration
 application_name: "{{ project_name }}"
-application_user: "{{ application_name }}"
+application_user: vagrant
 application_group: "{{ application_name }}_group"
-app_url: "staging.integration.avni.org"
-environment: "staging"
+app_url: "vagrant-integration-server"
+environment: "vagrant_local"
 auth0_clientid: "<replace>"
 auth0_clientsecret: "<replace>"
 db_name: "replace"

@@ -28,11 +28,10 @@
       - tk8.6-dev
       - libffi-dev
       - liblzma-dev
-      - python-openssl
+      - libssl-dev
       - git
       - curl
       - net-tools
-      - openjdk-11-jdk
       - zip
       - acl
   tags:

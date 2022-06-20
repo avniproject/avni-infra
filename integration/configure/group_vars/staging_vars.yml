@@ -1,0 +1,11 @@
+---
+
+env: staging
+project_name: integration
+application_name: "{{ project_name }}"
+application_user: "{{ application_name }}"
+application_group: "{{ application_name }}_group"
+app_url: "staging-integration-server"
+environment: "staging"
+db_name: "avni-int"
+db_user: "avni-int"

@@ -1,8 +1,8 @@
 [webservers]
-staging.integration.avni.org ansible_user=ansible
+staging-integration-server ansible_user=ansible
 
 [dbservers]
-staging.integration.avni.org ansible_user=ansible
+staging-integration-server ansible_user=ansible
 
 [test:children]
 webservers
