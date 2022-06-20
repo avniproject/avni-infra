@@ -1,9 +1,2 @@
 [webservers]
-staging-integration-server ansible_user=ansible
-
-[dbservers]
-staging-integration-server ansible_user=ansible
-
-[test:children]
-webservers
-dbservers
+staging-integration-server ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
