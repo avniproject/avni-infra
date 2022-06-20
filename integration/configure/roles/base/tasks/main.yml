@@ -38,6 +38,7 @@
       - zip
       - acl
       - snapd
+      - vim
   tags:
     - packages
     - packages.security

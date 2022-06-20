@@ -1,7 +1,7 @@
 ---
 
 env: staging
-project_name: integration
+project_name: avni-int-service
 application_name: "{{ project_name }}"
 application_user: ubuntu
 application_group: ubuntu

@@ -1,6 +1,6 @@
 ---
 env: vagrant_local
-project_name: integration
+project_name: avni-int-service
 application_name: "{{ project_name }}"
 application_user: vagrant
 application_group: vagrant
