@@ -1,2 +1,2 @@
 [webservers]
-vagrant-server ansible_host=vagrant-server
+vagrant-server ansible_host=vagrant-server ansible_user=vagrant

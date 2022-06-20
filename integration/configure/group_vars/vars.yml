@@ -3,7 +3,7 @@ env: vagrant_local
 project_name: integration
 application_name: "{{ project_name }}"
 application_user: vagrant
-application_group: "{{ application_name }}_group"
+application_group: vagrant
 app_url: "vagrant-integration-server"
 environment: "vagrant_local"
 db_name: "avni_int"
