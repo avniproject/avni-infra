@@ -33,6 +33,7 @@
       - net-tools
       - zip
       - acl
+      - fuse
       - snapd
       - vim
   tags:

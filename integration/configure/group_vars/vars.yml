@@ -2,9 +2,9 @@
 env: vagrant_local
 project_name: avni-int-service
 application_name: "{{ project_name }}"
-application_user: vagrant
-application_group: vagrant
-app_url: "vagrant-integration-server"
+application_user: avni-int-user
+application_group: avni-int-grp
+app_url: "int.staging.avniproject.org"
 environment: "vagrant_local"
 db_name: "avni_int"
 db_user: "avni_int"

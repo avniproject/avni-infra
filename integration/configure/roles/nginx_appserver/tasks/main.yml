@@ -3,5 +3,4 @@
 - include: setup_firewall_rules.yml
 - include: setup_nginx.yml
 - include: setup_certificates.yml
-- include: setup_application.yml
 

@@ -1,5 +1,8 @@
 ---
 
+- name: Ensure snapd service is started
+  service: name=snapd state=started enabled=yes
+
 - name: Install certbot
   snap:
     name: certbot

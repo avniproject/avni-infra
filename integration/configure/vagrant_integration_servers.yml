@@ -16,3 +16,6 @@
     - jdk
     - web
     - int_appserver
+    - nginx
+    - certbot
+    - nginx_appserver

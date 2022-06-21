@@ -1,0 +1,5 @@
+- name: restart snapd
+  service: name=snapd state=restarted enabled=yes
+
+- name: reload snapd
+  service: name=snapd state=reloaded

@@ -6,7 +6,5 @@
 - name: Ensure server user present
   user: name={{ application_user }} group={{ application_group }}  state=present
 
-# Commenting this, as we currently do not have any other user
-# to use instead of application_user for ssh login
-#- name: Remove shell access and set nologin for server user
-#  command: usermod -s /sbin/nologin {{ application_user }}
+- name: Remove shell access and set nologin for server user
+  command: usermod -s /sbin/nologin {{ application_user }}
