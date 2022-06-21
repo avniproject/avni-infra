@@ -7,9 +7,6 @@
     - packages
     - skip_ansible_lint
 
-#- name: install heroku cli via snap
-#  command: snap install heroku --classic
-
 - name: Install base packages
   apt: name={{ packages }} update_cache={{ update_apt_cache }} state=present
   vars:
@@ -31,7 +28,6 @@
       - tk8.6-dev
       - libffi-dev
       - liblzma-dev
-      - libssl-dev
       - git
       - curl
       - net-tools
