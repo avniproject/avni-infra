@@ -15,7 +15,7 @@
     group: "{{ application_group }}"
     mode: 0755
 
-- name: Ensure server stopped
+- name: Ensure server started
   service:
     name: "{{application_name}}_appserver.service"
     enabled: true
