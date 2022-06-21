@@ -1,17 +1,17 @@
 ---
 
 - name: Clean deploy directory
-  command: "sudo rm -rf /vaw/www/{{application_name}}"
+  command: "sudo rm -rf /opt/{{application_name}}/static"
 
 - name: Delete deploy directory
   file:
-    path: "/var/www/{{application_name}}"
+    path: "/opt/{{application_name}}/static"
     state: absent
   tags: deploy-app-only
 
 - name: Ensure deploy directory exists
   file:
-    path: "/var/www/{{application_name}}"
+    path: "/opt/{{application_name}}/static"
     owner: "www-data"
     group: "www-data"
     state: directory
@@ -22,6 +22,6 @@
   unarchive:
     remote_src: no
     src: "{{webapp_zip_path}}/{{webapp_zip_file_name}}"
-    dest: "/var/www/{{application_name}}"
+    dest: "/opt/{{application_name}}/static"
     owner: "www-data"
   tags: deploy-app-only
