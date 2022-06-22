@@ -9,3 +9,4 @@ app_url: "int.staging.avniproject.org"
 environment: "staging"
 db_name: "avni-int"
 db_user: "avni-int"
+letsencrypt_email: himeshl@samanvayfoundation.org
