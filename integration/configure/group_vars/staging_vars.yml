@@ -5,7 +5,7 @@ project_name: avni-int-service
 application_name: "{{ project_name }}"
 application_user: avni-int-user
 application_group: avni-int-grp
-app_url: "int.staging.avniproject.org"
+app_url: "int-staging.avniproject.org"
 environment: "staging"
 db_name: "avni-int"
 db_user: "avni-int"
