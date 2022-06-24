@@ -1,0 +1,5 @@
+[webservers]
+vagrant-server ansible_host=vagrant-server ansible_user=vagrant
+
+[keycloak_server]
+vagrant-server ansible_host=vagrant-server

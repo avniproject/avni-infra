@@ -1,6 +1,7 @@
 ---
 
 - name: Perform apt dist-upgrade
+  become: true
   apt: update_cache={{ update_apt_cache }}
     upgrade=dist
   tags:
@@ -9,6 +10,7 @@
 
 - name: Install base packages
   apt: name={{ packages }} update_cache={{ update_apt_cache }} state=present
+  become: true
   vars:
     packages:
       - software-properties-common
@@ -39,3 +41,7 @@
   tags:
     - packages
     - packages.security
+
+- name: Create cache dir for the rest
+  become: true
+  file: state=directory path={{ avni_cache_dir }} mode=666
