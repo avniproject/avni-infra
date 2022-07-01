@@ -1,12 +1,36 @@
 - name: Base configuration
   hosts: all
   become: yes
-  become_user: root
-  remote_user: "{{ application_user }}"
   vars:
     update_apt_cache: yes
   roles:
     - base
     - security
 
-- include: aws_integration_servers.yml
+- name: Configure database servers
+  hosts: database_server
+  become: yes
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - ./group_vars/vars.yml
+  roles:
+    - postgres
+
+- name: Configure keycloak servers
+  hosts: keycloak_server
+  tags:
+    - keycloak
+  vars:
+    update_apt_cache: yes
+    db_name: keycloak
+    db_user: keycloak
+    db_password: "{{ lookup('env','KEYCLOAK_DB_PASSWORD') }}"
+  vars_files:
+    - ./group_vars/vars.yml
+  roles:
+    - postgres
+    - postgres_db
+#    - openjdk-18
+#    - certbot
+#    - nginx_appserver

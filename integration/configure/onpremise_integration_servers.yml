@@ -15,6 +15,7 @@
     - security
     - jdk
     - web
+    - postgres_db
     - int_appserver
     - nginx
     - certbot

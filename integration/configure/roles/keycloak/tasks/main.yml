@@ -1,0 +1,12 @@
+---
+
+- name: Download keycloak
+  get_url:
+    url: "https://github.com/keycloak/keycloak/releases/download/18.0.1/keycloak-18.0.1.zip"
+    dest: "{{avni_cache_dir}}/keycloak-18.0.1.zip"
+
+- name: Unarchive keycloak
+  unarchive:
+    remote_src: yes
+    src: "{{avni_cache_dir}}/keycloak-18.0.1.zip"
+    dest: "/opt"

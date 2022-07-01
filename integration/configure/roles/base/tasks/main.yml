@@ -44,4 +44,4 @@
 
 - name: Create cache dir for the rest
   become: true
-  file: state=directory path={{ avni_cache_dir }} mode=666
+  file: state=directory path={{ avni_cache_dir }} mode=777
