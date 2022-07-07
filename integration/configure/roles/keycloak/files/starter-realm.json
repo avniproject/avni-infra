@@ -95,7 +95,6 @@
       }
     ],
     "client": {
-      "avni-web-app": [],
       "realm-management": [
         {
           "id": "70fb6a4b-c4a0-4ace-9d57-db0765201a5a",
@@ -332,6 +331,7 @@
           "attributes": {}
         }
       ],
+      "avni-client": [],
       "admin-cli": [],
       "account-console": [],
       "broker": [
@@ -765,7 +765,7 @@
     },
     {
       "id": "915277c7-706e-4aa8-ad41-dfc2c3818c0b",
-      "clientId": "avni-web-app",
+      "clientId": "avni-client",
       "rootUrl": "https://keycloak-staging.avniproject.org:8443",
       "surrogateAuthRequired": false,
       "enabled": true,
