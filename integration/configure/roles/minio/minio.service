@@ -1,0 +1,33 @@
+#This file minio.service should be created in /etc/systemd/system directory
+[Unit]
+Description=Staging Minio Server
+After=network.target
+
+[Service]
+Type=simple
+# the specific user that our service will run as
+User=ubuntu
+Group=ubuntu
+# another option for an even more restricted service is
+# DynamicUser=yes
+EnvironmentFile=/etc/environment
+WorkingDirectory=/opt/minio
+ExecStart=/bin/bash -c 'cd /opt/minio && ./minio server ./data --address :442 --console-address :443 >> /var/log/minio/minio.log 2>&1'
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+### Reference commands
+#.* Load service after create / update of service file
+#sudo systemctl daemon-reload
+#.* start service
+#sudo systemctl start minio.service
+#.* check status
+#sudo systemctl status minio.service
+#.* Enable your service on every reboot
+#sudo systemctl enable minio.service
