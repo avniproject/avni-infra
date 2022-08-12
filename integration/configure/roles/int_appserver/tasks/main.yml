@@ -2,6 +2,6 @@
 
 - include: users.yml
 - include: set_file_permissions.yml
-- include: setup_db.yml
+#- include: setup_db.yml
 - include: setup_application.yml
 - include: deploy_application.yml
