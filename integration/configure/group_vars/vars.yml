@@ -10,3 +10,5 @@ db_name: "avni_int"
 db_user: "avni_int"
 letsencrypt_email: avni@openchs@samanvayfoundation.org
 avni_cache_dir: /var/cache/avni
+goonj_schedule_cron: "0 0/2 * * * ?"
+power_schedule_cron: "0 0/2 * * * ?"
