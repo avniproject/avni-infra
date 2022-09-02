@@ -11,11 +11,11 @@
     - ./group_vars/prod_vars.yml
     - ./group_vars/prod-secret-vars.yml
   roles:
-#    - base
-#    - security
-#    - jdk
-#    - web
-#    - int_appserver
-#    - nginx
-#    - certbot
+    - base
+    - security
+    - jdk
+    - web
+    - int_appserver
+    - nginx
+    - certbot
     - nginx_appserver
