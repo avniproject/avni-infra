@@ -1,12 +1,12 @@
 ---
 
-env: staging
+env: prod
 project_name: avni-int-service
 application_name: "{{ project_name }}"
 application_user: avni-int-user
 application_group: avni-int-grp
-app_url: "int-staging.avniproject.org"
-environment: "staging"
+app_url: "int-prod.avniproject.org"
+environment: "prod"
 db_name: "avni-int"
 db_user: "avni-int"
 letsencrypt_email: avni@samanvayfoundation.org
