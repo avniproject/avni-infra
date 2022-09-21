@@ -6,6 +6,8 @@ application_name: "{{ project_name }}"
 application_user: avni-int-user
 application_group: avni-int-grp
 app_url: "int-staging.avniproject.org"
+goonj_sf_app_url: "https://goonj--goonjstage.my.salesforce.com/services/apexrest/v1"
+goonj_sf_auth_url: "https://test.salesforce.com/services/oauth2/token"
 environment: "staging"
 db_name: "avni-int"
 db_user: "avni-int"
