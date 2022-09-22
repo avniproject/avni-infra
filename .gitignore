@@ -13,4 +13,4 @@ user-management/cognito-users.json
 user-management/openchs-users.json
 vars/*.tfvars
 prod-user-pool.json
-integration/configure/group_vars/staging-secret-vars.yml
+*-secret-vars.yml
