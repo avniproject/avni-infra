@@ -6,7 +6,7 @@ application_name: "{{ project_name }}"
 application_user: avni-int-user
 application_group: avni-int-grp
 app_url: "int-staging.avniproject.org"
-goonj_sf_app_url: "https://goonj--goonjstage.my.salesforce.com/services/apexrest/v1"
+goonj_sf_app_url: "https://goonj--patialv1.sandbox.my.salesforce.com/services/apexrest/v1"
 goonj_sf_auth_url: "https://test.salesforce.com/services/oauth2/token"
 amrit_server_url: "http://amritwprdev.piramalswasthya.org:8080"
 environment: "staging"
@@ -14,7 +14,7 @@ db_name: "avni-int"
 db_user: "avni-int"
 letsencrypt_email: avni@samanvayfoundation.org
 avni_cache_dir: /var/cache/avni
-goonj_schedule_cron: "0 0 * * * ?"
+goonj_schedule_cron: "0 0/2 * * * ?"
 power_schedule_cron: "0 0/2 * * * ?"
 amrit_schedule_cron: "0 0 * * * ?"
 goonj_app_tasks: "None"
