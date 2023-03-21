@@ -1,7 +1,7 @@
 ---
 
 - name: Create app template
-  template: src=int_appserver_nginx_conf.j2
+  template: src=appserver_nginx_conf.j2
     dest=/etc/nginx/sites-available/appserver
     backup=yes
   notify: reload nginx

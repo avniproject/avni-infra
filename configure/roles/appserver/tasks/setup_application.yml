@@ -2,7 +2,7 @@
 
 - name: Set up config for application
   template:
-    src: int_appserver.conf.j2
+    src: appserver.conf.j2
     dest: "{{application_conf_file}}"
     owner: root
     group: root
@@ -18,7 +18,7 @@
 
 - name: Set up systemd config for application
   template:
-    src: int_appserver.service.template.j2
+    src: appserver.service.template.j2
     dest: /usr/lib/systemd/system/{{application_name}}_appserver.service
     owner: "{{application_user}}"
     group: "{{application_group}}"
