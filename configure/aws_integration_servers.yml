@@ -8,7 +8,7 @@
   vars:
     update_apt_cache: yes
   vars_files:
-    - ./group_vars/staging_vars.yml
+    - group_vars/staging_vars.yml
     - ./group_vars/staging-secret-vars.yml
   roles:
     - base
@@ -16,6 +16,3 @@
     - jdk
     - web
     - int_appserver
-    - nginx
-    - certbot
-    - nginx_appserver

@@ -5,12 +5,12 @@ terraform.tfstate.backup
 *.pem
 *.png
 .DS_Store
-user-management/users.json
-server/*override.tf
+provision/user-management/users.json
+provision/server/*override.tf
 cognito-users-mapped.json
 node_modules
-user-management/cognito-users.json
-user-management/openchs-users.json
+provision/user-management/cognito-users.json
+provision/user-management/openchs-users.json
 vars/*.tfvars
 prod-user-pool.json
 *-secret-vars.yml

@@ -8,7 +8,7 @@
   vars:
     update_apt_cache: yes
   vars_files:
-    - ./group_vars/prod_vars.yml
+    - group_vars/prod_vars.yml
     - ./group_vars/prod-secret-vars.yml
   roles:
     - base
