@@ -2,8 +2,8 @@
 
 # Application settings.
 application_name: "{{ etl_appserver_application_name }}"
-app_description: Avni Integration server
-application_jar_name: integration-server.jar
+app_description: Avni ETL server
+application_jar_name: avni-etl.jar
 application_user: "{{etl_appserver_user}}"
 application_group: "{{etl_appserver_group}}"
 application_port: "{{etl_appserver_group}}"

@@ -1,6 +1,37 @@
-OPENCHS_DATABASE_URL="jdbc:postgresql://stagingdb.openchs.org.:5432/openchs"
-nohup /opt/avni-etl/jdk-11.0.1/bin/java
--Dlogging.file=/opt/avni-etl/log/avni.log
--Dlogging.path=/opt/avni-etl/log/
--Dlogging.file.max-size=5mb -Xmx250m -XX:ErrorFile=/opt/avni-etl/log/jvm.log
--jar /opt/avni-etl/avni-etl.jar $1 >> /opt/avni-etl/log/etl.log 2>&1
+export AVNI_INT_STATIC_PATH={{static_file_path}}
+export AVNI_INT_DATASOURCE={{db_url}}
+export AVNI_INT_DB_USER={{db_user}}
+export AVNI_INT_DB_PASSWORD={{db_password}}
+export GOONJ_AVNI_API_URL={{avni_api_url}}
+export GOONJ_AVNI_API_USER={{goonj_avni_api_user}}
+export GOONJ_AVNI_API_PASSWORD={{goonj_avni_api_password}}
+export GOONJ_SF_APP_URL={{goonj_sf_app_url}}
+export GOONJ_SF_AUTH_URL={{goonj_sf_auth_url}}
+export GOONJ_SF_USER_NAME={{goonj_sf_user}}
+export GOONJ_SF_PASSWORD={{goonj_sf_password}}
+export GOONJ_SF_CLIENT={{goonj_sf_client}}
+export GOONJ_SF_CLIENT_SECRET={{goonj_sf_client_secret}}
+export GOONJ_SCHEDULE_CRON="{{goonj_schedule_cron}}"
+export GOONJ_SCHEDULE_CRON_FULL_ERROR="0 1 2 * * ?"
+export GOONJ_APP_TASKS={{goonj_app_tasks}}
+export GOONJ_RECREATE_DISPATCH_RECEIPT={{goonj_recreate_dispatch_receipt}}
+export POWER_AVNI_API_URL={{avni_api_url}}
+export POWER_AVNI_API_USER={{power_avni_api_user}}
+export POWER_AVNI_API_PASSWORD={{power_avni_api_password}}
+export POWER_EXOTEL_API_KEY={{power_exotel_api_key}}
+export POWER_EXOTEL_API_TOKEN={{power_exotel_api_token}}
+export POWER_EXOTEL_ACCOUNT_SID={{power_exotel_api_account_sid}}
+export POWER_EXOTEL_SUBDOMAIN={{power_exotel_api_subdomain}}
+export POWER_INT_SCHEDULE_CRON="{{power_schedule_cron}}"
+export POWER_INT_SCHEDULE_CRON_FULL_ERROR="0 1 3 * * ?"
+export AMRIT_SERVER_URL={{amrit_server_url}}
+export AMRIT_API_USER={{amrit_server_user}}
+export AMRIT_API_PASSWORD={{amrit_server_password}}
+export AMRIT_AVNI_API_URL={{avni_api_url}}
+export AMRIT_AVNI_API_USER={{amrit_avni_api_user}}
+export AMRIT_AVNI_API_PASSWORD={{amrit_avni_api_password}}
+export AMRIT_SCHEDULE_CRON="{{amrit_schedule_cron}}"
+export AMRIT_SCHEDULE_CRON_FULL_ERROR="0 1 4 * * ?"
+export AMRIT_APP_TASKS={{amrit_app_tasks}}
+export BUGSNAG_API_KEY={{bugsnag_api_key}}
+export BUGSNAG_RELEASE_STAGE={{environment}}

@@ -1,0 +1,6 @@
+OPENCHS_DATABASE_URL="jdbc:postgresql://stagingdb.openchs.org.:5432/openchs"
+nohup /opt/avni-etl/jdk-11.0.1/bin/java
+-Dlogging.file=/opt/avni-etl/log/avni.log
+-Dlogging.path=/opt/avni-etl/log/
+-Dlogging.file.max-size=5mb -Xmx250m -XX:ErrorFile=/opt/avni-etl/log/jvm.log
+-jar /opt/avni-etl/avni-etl.jar $1 >> /opt/avni-etl/log/etl.log 2>&1
