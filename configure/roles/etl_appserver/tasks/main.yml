@@ -1,0 +1,5 @@
+---
+
+- name: "Deploy ETL Server"
+  include_role:
+    name: appserver

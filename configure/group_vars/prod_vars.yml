@@ -1,20 +1,9 @@
 ---
 
 env: prod
-project_name: avni
-letsencrypt_email: avni@samanvayfoundation.org
-avni_cache_dir: /var/cache/avni
-
-environment: "prod"
 
 ## Integration server variables
-int_appserver_application_name: int_appserver
 int_appserver_app_url: "int-prod.avniproject.org"
-int_appserver_port: 8080
-int_appserver_user: "avni-int-user"
-int_appserver_group: "avni-int-grp"
-int_appserver_db_name: "avni-int"
-int_appserver_db_user: "avni-int"
 goonj_sf_app_url: "https://goonj--goonjtest.sandbox.my.salesforce.com/services/apexrest/v1"
 goonj_sf_auth_url: "https://test.salesforce.com/services/oauth2/token"
 amrit_server_url: "http://amritwprdev.piramalswasthya.org:8080"
