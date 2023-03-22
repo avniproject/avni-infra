@@ -4,12 +4,12 @@ env: staging
 
 ## Integration server variables
 int_appserver_app_url: "int-staging.avniproject.org"
-goonj_sf_app_url: "https://goonj--goonjstage.my.salesforce.com/services/apexrest/v1"
+goonj_sf_app_url: "https://goonj--patialv1.sandbox.my.salesforce.com/services/apexrest/v1"
 goonj_sf_auth_url: "https://test.salesforce.com/services/oauth2/token"
 amrit_server_url: "http://amritwprdev.piramalswasthya.org:8080"
-goonj_schedule_cron: "0 0 * * * ?"
+goonj_schedule_cron: "0 0/2 * * * ?"
 power_schedule_cron: "0 0 * * * ?"
 amrit_schedule_cron: "0 0/2 * * * ?"
-goonj_app_tasks: "None"
+goonj_app_tasks: "GoonjDemand,GoonjDispatch"
 amrit_app_tasks: "None"
 goonj_recreate_dispatch_receipt: "false"
