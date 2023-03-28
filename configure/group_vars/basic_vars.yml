@@ -9,8 +9,8 @@ int_appserver_application_name: avni-int-service
 int_appserver_port: 6013
 int_appserver_user: "avni-int-user"
 int_appserver_group: "avni-int-grp"
-int_appserver_db_name: "avni-int"
-int_appserver_db_user: "avni-int"
+int_appserver_db_name: "avni_int"
+int_appserver_db_user: "avni_int"
 int_service_dir: "/usr/lib/systemd/system"
 
 ## ETL server variables
