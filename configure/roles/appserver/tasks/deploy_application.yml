@@ -10,7 +10,7 @@
   copy:
     remote_src: no
     src: "{{application_zip_path}}/{{application_zip_file_name}}"
-    dest: "{{ application_dir }}/integration-server.jar"
+    dest: "{{ application_dir }}/{{application_jar_name}}"
     owner: "{{ application_user }}"
     group: "{{ application_group }}"
     mode: 0755

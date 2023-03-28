@@ -4,7 +4,7 @@
   hosts: webservers
   become: yes
   become_user: root
-  remote_user: "{{ application_user }}"
+  remote_user: "{{ int_appserver_user }}"
   vars:
     update_apt_cache: yes
   vars_files:
