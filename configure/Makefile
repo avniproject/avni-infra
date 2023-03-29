@@ -52,11 +52,11 @@ deploy-etl-prod: check-app-zip-path check-vault-pwd-file
      --extra-vars '{"deploy_app_name":"etl","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-etl-user","deploy_app_env":"prod","deploy_app_role":"etl_appserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}'
 
 deploy-int-server-staging: check-app-zip-path check-vault-pwd-file
-	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"staging","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}'
 
 deploy-int-server-prod: check-app-zip-path check-vault-pwd-file
-	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"prod","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}'
 
 deploy-int-webapp-staging: check-web-zip-path check-vault-pwd-file
