@@ -10,6 +10,6 @@
   vars_files:
     - group_vars/basic_vars.yml
     - group_vars/staging_vars.yml
-    - group_vars/staging-secret-vars.yml
+    - group_vars/staging-secret-vars.yml.enc
   roles:
     - etl_appserver
