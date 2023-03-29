@@ -1,0 +1,15 @@
+---
+
+- name: "Configure {{ deploy_app_name }} servers"
+  hosts: "{{ deploy_app_hosts }}"
+  become: yes
+  become_user: root
+  remote_user: "{{ deploy_app_remote_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - "{{ deploy_app_env_vars_file }}"
+    - "{{ deploy_app_env_secret_vars_file }}"
+  roles:
+    - "{{ deploy_app_role }}"
