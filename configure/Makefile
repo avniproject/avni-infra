@@ -27,7 +27,7 @@ int-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
 
 decrypt: check-vault-pwd-file
 	cp group_vars/prod-secret-vars.yml.enc group_vars/prod-secret-vars.yml
-	cp group_vars/staging-secret-vars.yml.enc group_vars/staging-secret-vars.yml.enc
+	cp group_vars/staging-secret-vars.yml.enc group_vars/staging-secret-vars.yml
 	ansible-vault decrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 
