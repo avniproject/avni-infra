@@ -76,25 +76,40 @@
     - Reload minio systemd
     - Restart minio
 
+- name: Generate certificate
+  ansible.builtin.shell: sudo certbot certonly -n --standalone -d {{ server_hostname }} --staple-ocsp -m {{ cert_user_email }} --agree-tos
+  args:
+    executable:
+      /bin/bash
+  when: minio_enable_tls
+
+- name: Ensure recursive directory permissions
+  file:
+    path: "/etc/letsencrypt/*"
+    recurse: yes
+    owner: "{{ minio_user }}"
+    group: "{{ minio_group }}"
+    state: directory
+
 - name: Copy SSL private key file
   copy:
+    remote_src: true
     dest: "{{ minio_cert_dir }}/private.key"
-    content: "{{ minio_key }}"
-    owner: "{{ minio_user }}"
-    group: "{{ minio_user }}"
+    src: "/etc/letsencrypt/live/{{server_hostname}}/privkey.pem"
     mode: 0644
-  become: true
+    owner: "{{ minio_user }}"
+    group: "{{ minio_group }}"
   when: minio_enable_tls
   notify: Restart minio
 
 - name: Copy cert file
   copy:
+    remote_src: true
     dest: "{{ minio_cert_dir }}/public.crt"
-    content: "{{ minio_cert }}"
-    owner: "{{ minio_user }}"
-    group: "{{ minio_user }}"
+    src: "/etc/letsencrypt/live/{{server_hostname}}/fullchain.pem"
     mode: 0644
-  become: true
+    owner: "{{ minio_user }}"
+    group: "{{ minio_group }}"
   when: minio_enable_tls
   notify: Restart minio
 
