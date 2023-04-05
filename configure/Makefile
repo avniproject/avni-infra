@@ -33,6 +33,9 @@ keycloak-local:
 keycloak-staging: check-keycloak-setup-pwd
 	KEYCLOAK_DB_PASSWORD=$(keycloak_db_password) KEYCLOAK_ADMIN_PWD=$(keycloak_admin_pwd) KEYCLOAK_ADMIN_API_SECRET=$(keycloak_admin_api_secret) ansible-playbook staging_keycloak_servers.yml --tags=keycloak -i inventory/staging
 
+minio-staging:
+	ansible-playbook staging_minio_servers.yml -i inventory/staging
+
 int-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook staging_integration_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
 

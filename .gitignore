@@ -14,3 +14,4 @@ provision/user-management/openchs-users.json
 vars/*.tfvars
 prod-user-pool.json
 *-secret-vars.yml
+/configure/certificates/**

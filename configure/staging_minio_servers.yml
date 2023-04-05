@@ -1,0 +1,45 @@
+---
+- name: Install and configure Minio Server
+  hosts: minio_server
+  become: true
+  gather_facts: true
+  vars:
+    server_hostname: minio-staging.avniproject.org
+    ssl_key_size: 4096
+    ssl_certificate_provider: selfsigned
+    minio_server_port: 442
+    minio_console_port: 443
+    minio_site_region: "asia-south1"
+
+  pre_tasks:
+    - name: Generate self-signed SSL certificates for minio
+      include_tasks: roles/minio/molecule/tls/tasks/generate_selfsigned_cert.yml
+      args:
+        apply:
+          delegate_to: localhost
+          become: false
+    - name: Load tls key and cert
+      set_fact:
+        minio_key: "{{ lookup('file','certificates/' + inventory_hostname + '_private.key') }}"
+        minio_cert: "{{ lookup('file','certificates/' + inventory_hostname + '_public.crt') }}"
+
+  roles:
+    - role: minio
+      minio_root_user: "ucA6guBUXnBEnWLz"
+      minio_root_password: "quvz3X3qWUciApRLzPjQSeQwrMp5kNmX"
+      minio_enable_tls: true
+      minio_url: "https://{{ server_hostname }}:{{ minio_server_port }}"
+      minio_validate_certificate: false
+      minio_buckets:
+        - name: staging-user-media
+          policy: read-write
+        - name: staging-apks
+          policy: read-write
+      minio_users:
+        - name: upload-user
+          password: bWj1T18eKhv98761
+          buckets_acl:
+            - name: staging-user-media
+              policy: read-write
+            - name: staging-apks
+              policy: read-only
