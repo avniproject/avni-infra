@@ -13,11 +13,25 @@ ifndef VAULT_PASSWORD_FILE
 	$(error VAULT_PASSWORD_FILE is undefined)
 endif
 
+check-keycloak-setup-pwd:
+ifndef keycloak_db_password
+	$(error keycloak_db_password is undefined)
+endif
+ifndef keycloak_admin_pwd
+	$(error keycloak_admin_pwd is undefined)
+endif
+ifndef keycloak_admin_api_secret
+	$(error keycloak_admin_api_secret is undefined)
+endif
+
 int-local: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook vagrant_integration_servers.yml -i inventory/vagrant_local  --vault-password-file ${VAULT_PASSWORD_FILE}
 
 keycloak-local:
 	ansible-playbook site.yml --tags=keycloak -i inventory/vagrant_local --vault-password-file ${VAULT_PASSWORD_FILE}
+
+keycloak-staging: check-keycloak-setup-pwd
+	KEYCLOAK_DB_PASSWORD=$(keycloak_db_password) KEYCLOAK_ADMIN_PWD=$(keycloak_admin_pwd) KEYCLOAK_ADMIN_API_SECRET=$(keycloak_admin_api_secret) ansible-playbook staging_keycloak_servers.yml --tags=keycloak -i inventory/staging
 
 int-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook staging_integration_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}

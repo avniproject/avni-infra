@@ -614,7 +614,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "**********",
+      "secret": "{{keycloak_admin_api_secret}}",
       "redirectUris": [
         "http://localhost:8080/*"
       ],
@@ -766,13 +766,13 @@
     {
       "id": "915277c7-706e-4aa8-ad41-dfc2c3818c0b",
       "clientId": "avni-client",
-      "rootUrl": "https://keycloak-staging.avniproject.org:8443",
+      "rootUrl": "https://{{public_url}}",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "https://keycloak-staging.avniproject.org:8443"
+        "https://{{public_url}}"
       ],
       "webOrigins": [],
       "notBefore": 0,
@@ -2458,7 +2458,7 @@
     "clientOfflineSessionIdleTimeout": "0",
     "cibaInterval": "5"
   },
-  "keycloakVersion": "18.0.1",
+  "keycloakVersion": "{{keycloak_version}}",
   "userManagedAccessAllowed": false,
   "clientProfiles": {
     "profiles": []

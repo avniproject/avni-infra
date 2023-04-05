@@ -1,0 +1,81 @@
+---
+
+- name: Insert/Update "Keycloak admin" configuration block in /etc/environment
+  ansible.builtin.blockinfile:
+    path: /etc/environment
+    block: |
+      KEYCLOAK_ADMIN=admin
+      KEYCLOAK_ADMIN_PASSWORD={{ keycloak_admin_pwd }}
+      KEYCLOAK_HOME={{ application_dir }}
+
+- name: Download keycloak
+  get_url:
+    url: "https://github.com/keycloak/keycloak/releases/download/{{keycloak_version}}/keycloak-{{keycloak_version}}.zip"
+    dest: "{{avni_cache_dir}}/keycloak-{{keycloak_version}}.zip"
+
+- name: Unarchive keycloak
+  unarchive:
+    remote_src: yes
+    src: "{{avni_cache_dir}}/keycloak-{{keycloak_version}}.zip"
+    dest: "/opt"
+
+- name: Set up config for application
+  template:
+    src: keycloak.conf.j2
+    dest: "{{application_conf_file}}"
+    owner: "{{application_user}}"
+    group: "{{application_group}}"
+    mode: '644'
+
+- name: Copy basic starter-realm file
+  template:
+    src: starter-realm.json.j2
+    dest: "{{application_dir}}/starter-realm.json"
+    owner: "{{application_user}}"
+    group: "{{application_group}}"
+    mode: '644'
+
+- name: Set up systemd config for application
+  template:
+    src: keycloak.service.template.j2
+    dest: "{{service_dir}}/{{application_name}}.service"
+    owner: "{{application_user}}"
+    group: "{{application_group}}"
+    mode: '755'
+
+- name: Enable server
+  service:
+    name: "{{application_name}}.service"
+    enabled: true
+
+- name: Ensure recursive directory permissions
+  file:
+    path: "{{ application_dir }}"
+    recurse: yes
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    state: directory
+
+- name: Ensure server stopped
+  service:
+    name: "{{application_name}}.service"
+    enabled: true
+    state: stopped
+
+- name: Configure keycloak to work with Postgres
+  ansible.builtin.shell:
+    cmd: bin/kc.sh build --db postgres
+    chdir: "{{application_dir}}"
+
+- name: Configure keycloak with starter-realm.json
+  ansible.builtin.shell:
+    cmd: bin/kc.sh import --file=starter-realm.json
+    chdir: "{{application_dir}}"
+
+- name: Ensure server started
+  service:
+    name: "{{application_name}}.service"
+    enabled: true
+    state: started
+
+

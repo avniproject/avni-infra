@@ -1,0 +1,6 @@
+---
+
+# Application path
+application_dir: "/opt/{{ application_name }}"
+application_user_home: "/home/{{application_user}}"
+public_url: "{{app_url}}"

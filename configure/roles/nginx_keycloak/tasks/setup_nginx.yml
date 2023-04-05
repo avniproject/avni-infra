@@ -1,0 +1,16 @@
+---
+
+- name: Create app template
+  template: src=keycloak_nginx_conf.j2
+    dest=/etc/nginx/sites-available/keycloak
+    backup=yes
+  notify: reload nginx
+
+- name: Ensure app site is enabled in nginx
+  file: src=/etc/nginx/sites-available/keycloak
+    dest=/etc/nginx/sites-enabled/keycloak
+    state=link
+  notify: reload nginx
+
+- name: Reload nginx
+  service: name=nginx state=reloaded

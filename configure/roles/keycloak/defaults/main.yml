@@ -1,0 +1,6 @@
+---
+# Application path
+application_dir: "/opt/keycloak-{{keycloak_version}}"
+application_log_dir: "/var/log/{{ application_name }}"
+application_conf_file: "/opt/keycloak-{{keycloak_version}}/conf/keycloak.conf"
+application_user_home: "/home/{{application_user}}"

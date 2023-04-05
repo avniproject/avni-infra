@@ -6,13 +6,13 @@
 db=postgres
 
 # The username of the database user.
-db-username=keycloak
+db-username={{db_user}}
 
 # The password of the database user.
-db-password=password
+db-password={{db_password}}
 
 # The full database JDBC URL. If not provided, a default URL is set based on the selected database vendor.
-db-url=jdbc:postgresql://stagingdb.openchs.org:5432/keycloak
+db-url={{db_url}}
 
 # Observability
 
@@ -25,10 +25,10 @@ metrics-enabled=true
 # HTTP
 
 # The file path to a server certificate or certificate chain in PEM format.
-https-certificate-file=/opt/keycloak-18.0.1/certs/public.crt
+https-certificate-file=/etc/letsencrypt/live/{{public_url}}/fullchain.pem
 
 # The file path to a private key in PEM format.
-https-certificate-key-file=/opt/keycloak-18.0.1/certs/private.key
+https-certificate-key-file=/etc/letsencrypt/live/{{public_url}}/privkey.pem
 
 # The proxy address forwarding mode if the server is behind a reverse proxy.
 #proxy=reencrypt
@@ -37,7 +37,4 @@ https-certificate-key-file=/opt/keycloak-18.0.1/certs/private.key
 #spi-sticky-session-encoder-infinispan-should-attach-route=false
 
 # Hostname for the Keycloak server.
-hostname=keycloak-staging.avniproject.org
-
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=password
+hostname={{public_url}}

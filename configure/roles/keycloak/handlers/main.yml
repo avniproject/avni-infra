@@ -1,0 +1,14 @@
+- name: restart keycloak socket
+  listen: restart keycloak
+  service:
+    name: "{{application_name}}.socket"
+    enabled: true
+    state: restarted
+
+
+- name: restart keycloak service
+  listen: restart keycloak
+  service:
+    name: "{{application_name}}.service"
+    enabled: true
+    state: restarted
