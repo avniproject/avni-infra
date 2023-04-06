@@ -10,7 +10,7 @@
     ssl_certificate_provider: selfsigned
     minio_server_port: 442
     minio_console_port: 443
-    minio_site_region: "asia-south1"
+    minio_site_region: "ap-south-1"
     avni_cache_dir: /var/cache/avni
 
   roles:
