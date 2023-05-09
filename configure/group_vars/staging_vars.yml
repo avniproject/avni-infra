@@ -10,7 +10,7 @@ amrit_server_url: "http://amritwprdev.piramalswasthya.org:8080"
 goonj_schedule_cron: "0 0/2 * * * ?"
 power_schedule_cron: "0 0 * * * ?"
 amrit_schedule_cron: "0 0/2 * * * ?"
-goonj_app_tasks: "GoonjDemand,GoonjDispatch"
+goonj_app_tasks: "all"
 amrit_app_tasks: "None"
 goonj_recreate_dispatch_receipt: "false"
 
