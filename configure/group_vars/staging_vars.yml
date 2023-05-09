@@ -16,3 +16,5 @@ goonj_recreate_dispatch_receipt: "false"
 
 ## ETL server variables
 etl_appserver_app_url: "int-staging.avniproject.org"
+
+bugsnag_stage: "staging"
