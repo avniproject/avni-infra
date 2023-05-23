@@ -12,7 +12,7 @@ power_schedule_cron: "0 0 * * * ?"
 amrit_schedule_cron: "0 0/2 * * * ?"
 goonj_app_tasks: "all"
 amrit_app_tasks: "None"
-goonj_recreate_dispatch_receipt: "false"
+goonj_recreate_dispatch_receipt: "true"
 
 ## ETL server variables
 etl_appserver_app_url: "int-staging.avniproject.org"
