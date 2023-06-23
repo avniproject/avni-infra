@@ -18,3 +18,5 @@ goonj_recreate_dispatch_receipt: "true"
 etl_appserver_app_url: "int-staging.avniproject.org"
 
 bugsnag_stage: "staging"
+
+etl_allowed_origins: "https://staging.avniproject.org,https://int-staging.avniproject.org"
