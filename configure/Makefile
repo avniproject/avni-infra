@@ -66,7 +66,7 @@ decrypt: check-vault-pwd-file
 	cp group_vars/prerelease-secret-vars.yml.enc group_vars/prerelease-secret-vars.yml
 	ansible-vault decrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
-	ansible-vault decrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault decrypt group_vars/prerelease-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 
 encrypt: check-vault-pwd-file
 	ansible-vault encrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
