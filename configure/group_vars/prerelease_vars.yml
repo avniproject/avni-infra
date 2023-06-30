@@ -1,0 +1,22 @@
+---
+
+env: prerelease
+
+## Integration server variables
+int_appserver_app_url: "int-prerelease.avniproject.org"
+goonj_sf_app_url: ""
+goonj_sf_auth_url: ""
+amrit_server_url: ""
+goonj_schedule_cron: ""
+power_schedule_cron: ""
+amrit_schedule_cron: ""
+goonj_app_tasks: ""
+amrit_app_tasks: ""
+goonj_recreate_dispatch_receipt: ""
+
+## ETL server variables
+etl_appserver_app_url: "int-prerelease.avniproject.org"
+
+bugsnag_stage: "prerelease"
+
+etl_allowed_origins: "https://prerelease.avniproject.org,https://int-prerelease.avniproject.org"

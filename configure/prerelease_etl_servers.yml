@@ -1,0 +1,16 @@
+---
+
+- name: Configure etl servers
+  hosts: etlservers
+  become: yes
+  become_user: root
+  remote_user: "{{ etl_appserver_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/prerelease_vars.yml
+    - group_vars/prerelease-secret-vars.yml.enc
+  roles:
+    - etl_appserver
+    - nginx_appserver
