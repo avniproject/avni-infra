@@ -1,6 +1,8 @@
 ---
 
 env: prerelease
+#Common variables
+ufw_allowed_ports: "22, 80, 443, 3000"
 
 ## Integration server variables
 int_appserver_app_url: "int-prerelease.avniproject.org"
