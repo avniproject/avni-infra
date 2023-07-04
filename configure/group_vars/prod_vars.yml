@@ -22,3 +22,4 @@ etl_appserver_app_url: "int-prod.avniproject.org"
 bugsnag_stage: "prod"
 
 etl_allowed_origins: "https://app.avniproject.org,https://int-prod.avniproject.org"
+avni_idp_type: "cognito"

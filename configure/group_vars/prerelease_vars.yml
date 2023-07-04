@@ -22,3 +22,4 @@ etl_appserver_app_url: "int-prerelease.avniproject.org"
 bugsnag_stage: "prerelease"
 
 etl_allowed_origins: "https://prerelease.avniproject.org,https://int-prerelease.avniproject.org"
+avni_idp_type: "cognito"
