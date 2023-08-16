@@ -91,9 +91,9 @@
     group: "{{ minio_group }}"
     state: directory
 
-- name: Copy SSL private key file
-  copy:
-    remote_src: true
+- name: Create symbolic link for SSL private key file
+  file:
+    state: link
     dest: "{{ minio_cert_dir }}/private.key"
     src: "/etc/letsencrypt/live/{{server_hostname}}/privkey.pem"
     mode: 0644
@@ -102,9 +102,9 @@
   when: minio_enable_tls
   notify: Restart minio
 
-- name: Copy cert file
-  copy:
-    remote_src: true
+- name: Create symbolic link for cert file
+  file:
+    state: link
     dest: "{{ minio_cert_dir }}/public.crt"
     src: "/etc/letsencrypt/live/{{server_hostname}}/fullchain.pem"
     mode: 0644
