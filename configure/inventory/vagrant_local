@@ -3,3 +3,6 @@ vagrant-server ansible_host=vagrant-server ansible_user=vagrant
 
 [keycloak_server]
 vagrant-server ansible_host=vagrant-server
+
+[avniserver]
+localhost ansible_user=vagrant ansible_port=2222 ansible_ssh_private_key_file=/data/projects/samanvay/avni/code/vagrant/.vagrant/machines/default/virtualbox/private_key

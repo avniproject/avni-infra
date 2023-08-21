@@ -21,3 +21,11 @@ etl_appserver_group: "avni-etl-grp"
 etl_appserver_db_name: "openchs"
 etl_appserver_db_user: "openchs"
 etl_service_dir: "/usr/lib/systemd/system"
+
+## Avni server variables
+java_apt_package: openjdk-8-jdk
+avni_appserver_application_name: "avni_server"
+avni_appserver_port: 8022
+avni_appserver_user: "avni_server"
+avni_appserver_group: "avni_server"
+avni_service_dir: "/usr/lib/systemd/system"
