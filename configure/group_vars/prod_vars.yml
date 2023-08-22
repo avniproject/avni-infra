@@ -24,3 +24,5 @@ bugsnag_stage: "prod"
 
 etl_allowed_origins: "https://app.avniproject.org,https://int-prod.avniproject.org"
 avni_idp_type: "cognito"
+scheduled_job_trigger_misfire_threshold: "3600000"
+scheduled_job_repeat_interval: "90"

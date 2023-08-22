@@ -24,3 +24,5 @@ bugsnag_stage: "staging"
 
 etl_allowed_origins: "https://staging.avniproject.org,https://int-staging.avniproject.org"
 avni_idp_type: "both"
+scheduled_job_trigger_misfire_threshold: "2700000"
+scheduled_job_repeat_interval: "60"
