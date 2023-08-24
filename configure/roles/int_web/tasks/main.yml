@@ -1,0 +1,5 @@
+---
+
+- name: "Deploy Integration server webapp"
+  include_role:
+    name: web

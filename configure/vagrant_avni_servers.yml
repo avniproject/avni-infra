@@ -15,4 +15,5 @@
     - base
     - security
     - jdk
+    - avni_web
     - avni_appserver

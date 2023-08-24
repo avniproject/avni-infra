@@ -14,5 +14,5 @@
     - base
     - security
     - jdk
-    - web
+    - int_web
     - int_appserver

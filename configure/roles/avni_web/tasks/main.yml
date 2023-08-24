@@ -1,0 +1,5 @@
+---
+
+- name: "Deploy Avni Server webapp"
+  include_role:
+    name: web

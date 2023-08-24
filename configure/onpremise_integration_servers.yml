@@ -15,7 +15,7 @@
     - base
     - security
     - jdk
-    - web
+    - int_web
     - postgres_db
     - int_appserver
     - nginx

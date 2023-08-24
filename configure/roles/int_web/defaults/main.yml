@@ -1,0 +1,4 @@
+application_name: "{{ int_appserver_application_name }}"
+app_description: Avni Integration webapp
+public_url: "{{int_appserver_app_url}}"
+application_dir: "/opt/{{ int_appserver_application_name }}"
