@@ -26,6 +26,6 @@ etl_service_dir: "/usr/lib/systemd/system"
 java_apt_package: openjdk-8-jdk
 avni_appserver_application_name: "avni_server"
 avni_appserver_port: 8022
-avni_appserver_user: "avni_server"
-avni_appserver_group: "avni_server"
+avni_appserver_user: "avni-server-user"
+avni_appserver_group: "avni-server-grp"
 avni_service_dir: "/usr/lib/systemd/system"

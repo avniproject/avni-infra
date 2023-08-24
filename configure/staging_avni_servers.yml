@@ -1,7 +1,7 @@
 ---
 
 - name: Configure avni servers
-  hosts: avniserver
+  hosts: avniservers
   become: yes
   become_user: root
   remote_user: "{{ avni_appserver_user }}"
