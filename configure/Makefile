@@ -77,25 +77,32 @@ avni-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
 int-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook prod_integration_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+avni-teach-security: check-web-zip-path check-app-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook teach_security_avni_servers.yml -i inventory/teach_security  --vault-password-file ${VAULT_PASSWORD_FILE}
+
 decrypt: check-vault-pwd-file
 	cp group_vars/prod-secret-vars.yml.enc group_vars/prod-secret-vars.yml
 	cp group_vars/staging-secret-vars.yml.enc group_vars/staging-secret-vars.yml
 	cp group_vars/prerelease-secret-vars.yml.enc group_vars/prerelease-secret-vars.yml
 	cp group_vars/vagrant-secret-vars.yml.enc group_vars/vagrant-secret-vars.yml
+	cp group_vars/teach-security-secret-vars.yml.enc group_vars/teach-security-secret-vars.yml
 	ansible-vault decrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/prerelease-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault decrypt group_vars/teach-security-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 
 encrypt: check-vault-pwd-file
 	ansible-vault encrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/prerelease-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault encrypt group_vars/teach-security-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	cp group_vars/prod-secret-vars.yml group_vars/prod-secret-vars.yml.enc
 	cp group_vars/staging-secret-vars.yml group_vars/staging-secret-vars.yml.enc
 	cp group_vars/prerelease-secret-vars.yml group_vars/prerelease-secret-vars.yml.enc
 	cp group_vars/vagrant-secret-vars.yml group_vars/vagrant-secret-vars.yml.enc
+	cp group_vars/teach-security-secret-vars.yml group_vars/teach-security-secret-vars.yml.enc
 
 etl-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook staging_etl_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
