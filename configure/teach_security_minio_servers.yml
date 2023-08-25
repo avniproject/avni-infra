@@ -1,0 +1,37 @@
+---
+- name: Install and configure Minio Server
+  hosts: minio_server
+  become: true
+  gather_facts: true
+  vars:
+    update_apt_cache: yes
+    server_hostname: minio.security.lfe.avniproject.org
+    ssl_key_size: 4096
+    ssl_certificate_provider: selfsigned
+    minio_server_port: 442
+    minio_console_port: 443
+    minio_site_region: "ap-south-1"
+    avni_cache_dir: /var/cache/avni
+
+  roles:
+    - role: base
+    - role: certbot
+    - role: minio
+      cert_user_email: "avni@samanvayfoundation.org"
+      minio_root_user: "{{ lookup('env','MINIO_ROOT_USER') }}"
+      minio_root_password: "{{ lookup('env','MINIO_ROOT_PASSWORD') }}"
+      minio_enable_tls: true
+      minio_url: "https://{{ server_hostname }}:{{ minio_server_port }}"
+      minio_buckets:
+        - name: security-user-media
+          policy: read-write
+        - name: security-apks
+          policy: read-write
+      minio_users:
+        - name: "{{ lookup('env','MINIO_UPLOAD_USER') }}"
+          password: "{{ lookup('env','MINIO_UPLOAD_PASSWORD') }}"
+          buckets_acl:
+            - name: security-user-media
+              policy: read-write
+            - name: security-apks
+              policy: read-only
