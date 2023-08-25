@@ -1,0 +1,3 @@
+db_url: jdbc:postgresql://db.security.lfe.avniproject.org:5432/keycloak
+public_url: "keycloak.security.lfe.avniproject.org"
+app_url: "keycloak.security.lfe.avniproject.org"

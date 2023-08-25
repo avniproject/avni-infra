@@ -11,7 +11,7 @@
   vars_files:
     - group_vars/basic_vars.yml
     - group_vars/keycloak_vars.yml
-    - group_vars/staging_keycloak_vars.yml
+    - group_vars/teach_security_keycloak_vars.yml
   roles:
     - base
     - security

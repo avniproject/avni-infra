@@ -50,6 +50,9 @@ keycloak-local:
 keycloak-staging: check-keycloak-setup-pwd
 	KEYCLOAK_DB_PASSWORD=$(keycloak_db_password) KEYCLOAK_ADMIN_PWD=$(keycloak_admin_pwd) KEYCLOAK_ADMIN_API_SECRET=$(keycloak_admin_api_secret) ansible-playbook staging_keycloak_servers.yml --tags=keycloak -i inventory/staging
 
+keycloak-teach-security: check-keycloak-setup-pwd
+	KEYCLOAK_DB_PASSWORD=$(keycloak_db_password) KEYCLOAK_ADMIN_PWD=$(keycloak_admin_pwd) KEYCLOAK_ADMIN_API_SECRET=$(keycloak_admin_api_secret) ansible-playbook teach_security_keycloak_servers.yml --tags=keycloak -i inventory/teach_security
+
 minio-staging: check-minio-setup-pwd
 	MINIO_ROOT_USER=$(minio_root_user) MINIO_ROOT_PASSWORD=$(minio_root_password) MINIO_UPLOAD_USER=$(minio_upload_user) MINIO_UPLOAD_PASSWORD=$(minio_upload_password) ansible-playbook staging_minio_servers.yml -i inventory/staging
 
