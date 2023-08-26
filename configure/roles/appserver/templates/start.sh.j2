@@ -2,4 +2,4 @@
 
 . {{application_conf_file}}
 
-/usr/bin/java -jar {{application_dir}}/{{application_jar_name}} {{application_jar_opts}}
+/usr/bin/java -jar {{application_dir}}/{{application_jar_name}} {{application_jar_opts}} >> {{application_log_dir}}/server.log

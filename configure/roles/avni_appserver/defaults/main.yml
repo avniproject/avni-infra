@@ -4,7 +4,7 @@
 application_name: "{{ avni_appserver_application_name }}"
 app_description: Avni server
 application_jar_name: avni-server.jar
-application_jar_opts: "{{avni_server_opts}}"
+application_jar_opts: "{{ avni_server_opts }}"
 application_user: "{{avni_appserver_user}}"
 application_group: "{{avni_appserver_group}}"
 public_url: "{{avni_appserver_app_url}}"

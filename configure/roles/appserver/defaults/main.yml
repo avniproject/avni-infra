@@ -11,5 +11,3 @@ application_conf_file: "/etc/{{application_name}}_appserver.conf"
 static_file_path: "/var/www/{{ application_name }}"
 
 application_user_home: "/home/{{application_user}}"
-application_jar_opts: ""
-
