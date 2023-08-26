@@ -19,7 +19,7 @@ goonj_recreate_dispatch_receipt: "true"
 
 ## ETL server variables
 etl_appserver_app_url: "int-prod.avniproject.org"
-
+avni_server_keycloak_url: ""
 bugsnag_stage: "prod"
 
 etl_allowed_origins: "https://app.avniproject.org,https://int-prod.avniproject.org"

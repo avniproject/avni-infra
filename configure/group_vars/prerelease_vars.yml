@@ -19,6 +19,7 @@ goonj_recreate_dispatch_receipt: ""
 
 ## ETL server variables
 etl_appserver_app_url: "int-prerelease.avniproject.org"
+avni_server_keycloak_url: ""
 
 bugsnag_stage: "prerelease"
 
