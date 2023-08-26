@@ -1,3 +1,4 @@
 db_url: jdbc:postgresql://stagingdb.openchs.org:5432/keycloak
 public_url: "keycloak-staging.avniproject.org"
 app_url: "keycloak-staging.avniproject.org"
+web_app_url: "staging.avniproject.org"
