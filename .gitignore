@@ -15,3 +15,4 @@ vars/*.tfvars
 prod-user-pool.json
 *-secret-vars.yml
 /configure/certificates/**
+/configure/dummy.yml

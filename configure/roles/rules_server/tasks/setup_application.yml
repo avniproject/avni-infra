@@ -1,0 +1,29 @@
+---
+
+- name: Ensure server stopped
+  become_user: "{{ application_user }}"
+  become: yes
+  command: bash -ilc "{{ pm2_path }} stop rules-server || :"
+
+- name: Delete application directory recursively
+  file:
+    path: "{{application_dir}}"
+    state: absent
+
+- name: Ensure application directory exists
+  file:
+    path: "{{application_dir}}"
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    state: directory
+    mode: '755'
+
+- name: Extract application
+  unarchive:
+    remote_src: yes
+    src: "{{application_zip_path}}/{{application_zip_file_name}}"
+    dest: "{{ application_dir }}"
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    extra_opts:
+      - '-:'

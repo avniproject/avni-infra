@@ -1,0 +1,21 @@
+---
+
+- import_tasks: setup_dependencies.yml
+
+- import_tasks: users.yml
+
+- import_tasks: install_pm2.yml
+  become: yes
+  become_user: "{{ application_user }}"
+
+- import_tasks: setup_pm2.yml
+  vars:
+    startup_type: systemd
+  become_user: "{{ application_user }}"
+  become: yes
+
+- import_tasks: setup_application.yml
+
+- import_tasks: deploy_application.yml
+  become_user: "{{ application_user }}"
+  become: yes

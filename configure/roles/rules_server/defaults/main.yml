@@ -1,0 +1,22 @@
+---
+
+application_group: rules-server-group
+application_user: rules-server-user
+
+
+# Application path
+application_name: "rules-server"
+application_dir: "/opt/{{ application_name }}"
+#application_log_dir: "/var/log/{{ application_name }}"
+#application_conf_file: "/etc/{{application_name}}_appserver.conf"
+#static_file_path: "/var/www/{{ application_name }}"
+
+application_user_home: "/home/{{application_user}}"
+
+application_zip_path: "/tmp"
+application_zip_file_name: "rules-server.zip"
+pm2_path: "/home/{{ application_user }}/.nvm/versions/node/v10.24.1/bin/pm2"
+openchs_upload_user_user_name: "upload"
+openchs_upload_user_password: ""
+
+

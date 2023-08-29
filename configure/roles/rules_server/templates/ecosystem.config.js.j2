@@ -1,0 +1,16 @@
+module.exports = {
+  apps: [{
+    name: '{{ app_name }}',
+    script: '{{ app_script }}',
+    cwd: '{{ app_directory }}',
+    instances: {{ app_instances }},
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '{{ app_max_memory }}M',
+    env_production: {
+      NODE_ENV: 'production'
+      OPENCHS_UPLOAD_USER_USER_NAME: '{{openchs_upload_user_user_name}}'
+      OPENCHS_UPLOAD_USER_PASSWORD: '{{openchs_upload_user_password}}'
+    }
+  }]
+};

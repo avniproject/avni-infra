@@ -1,0 +1,28 @@
+---
+
+- name: Ensure pm2 is not running
+  command: bash -ilc "{{ pm2_path }} kill"
+
+- name: Remove old artifacts from the ansible user's .pm2 directory
+  file:
+    path: /home/{{ application_user }}/.pm2/{{ item }}
+    state: absent
+  with_items:
+    - dump.pm2
+    - dump.pm2.bak
+    - pm2.log
+    - pm2.pid
+    - touch
+
+- name: Check if pm2-logrotate is installed
+  command: bash -ilc "{{ pm2_path }} list | grep 'pm2-logrotate'"
+  register: pm2_logrotate_output
+  ignore_errors: yes  # This prevents Ansible from failing if pm2-logrotate is not found
+
+- name: Install pm2-logrotate using PM2
+  command: bash -ilc "{{ pm2_path }} install -g pm2-logrotate"
+  when: '"pm2-logrotate" not in pm2_logrotate_output.stdout'
+
+- name: Set PM2 to start on reboot
+  become_user: root
+  command: bash -ilc "sudo env PATH=$PATH:/home/{{ application_user }}/.nvm/versions/node/v10.24.1/bin /home/{{ application_user }}/.nvm/versions/node/v10.24.1/lib/node_modules/pm2/bin/pm2 startup {{ startup_type }} -u {{ application_user }} --hp /home/{{ application_user }}"

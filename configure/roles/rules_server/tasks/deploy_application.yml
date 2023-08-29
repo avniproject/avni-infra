@@ -1,0 +1,7 @@
+---
+
+- name: Ensure server started
+  command: bash -ilc "cd {{ application_dir }} && NODE_ENV=production {{ pm2_path }} start app.js --name rules-server --update-env"
+
+- name: Save PM2
+  command: bash -ilc "{{ pm2_path }} save"

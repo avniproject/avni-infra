@@ -1,0 +1,12 @@
+---
+
+- name: Install dependencies
+  apt: name={{ dependencies }} update_cache={{ update_apt_cache }} state=present
+  become: true
+  vars:
+    dependencies:
+      - make
+      - openssl
+      - python3-pip
+      - unzip
+      - awscli
