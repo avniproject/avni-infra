@@ -7,5 +7,5 @@
 - name: Ensure server user present
   user: name={{ application_user }} group={{ application_group }}  state=present
 
-#- name: Remove shell access and set nologin for server user
-#  command: usermod -s /sbin/nologin {{ application_user }}
+- name: Remove shell access and set nologin for server user
+  command: usermod -s /sbin/nologin {{ application_user }}

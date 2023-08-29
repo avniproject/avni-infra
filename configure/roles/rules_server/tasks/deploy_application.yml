@@ -1,7 +1,7 @@
 ---
 
 - name: Ensure server started
-  command: bash -ilc "cd {{ application_dir }} && NODE_ENV=production {{ pm2_path }} start app.js --name rules-server --update-env"
+  command: bash -ilc "cd {{ application_dir }} && OPENCHS_UPLOAD_USER_USER_NAME={{ openchs_upload_user_user_name }} OPENCHS_UPLOAD_USER_PASSWORD={{ openchs_upload_user_password }} NODE_ENV=production {{ pm2_path }} start app.js --name {{ application_name }} --update-env"
 
 - name: Save PM2
   command: bash -ilc "{{ pm2_path }} save"

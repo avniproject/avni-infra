@@ -3,7 +3,7 @@
 - name: Ensure server stopped
   become_user: "{{ application_user }}"
   become: yes
-  command: bash -ilc "{{ pm2_path }} stop rules-server || :"
+  command: bash -ilc "{{ pm2_path }} stop {{ application_name }} || :"
 
 - name: Delete application directory recursively
   file:
@@ -26,4 +26,4 @@
     owner: "{{ application_user }}"
     group: "{{ application_group }}"
     extra_opts:
-      - '-:'
+      - '-:'  # This is to make it not fail when faced warnings: https://github.com/ansible/ansible/issues/30976 .The  -:  option  lets  unzip  switch  back to its previous, more liberal behaviour, to allow exact extraction of (older) archives.

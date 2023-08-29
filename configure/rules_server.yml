@@ -1,0 +1,15 @@
+---
+
+- name: Configure rules server
+  hosts: avniservers
+  become: yes
+  become_user: root
+  remote_user: "{{ application_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/teach-security-secret-vars.yml.enc
+  roles:
+    - base
+    - rules_server

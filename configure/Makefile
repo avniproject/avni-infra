@@ -62,6 +62,9 @@ minio-teach-security: check-minio-setup-pwd
 avni-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook staging_avni_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+rules-server:
+	ansible-playbook --inventory inventory/teach_security rules_server.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+
 int-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook staging_integration_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
 
