@@ -3,14 +3,14 @@ nvm_version: "v0.39.5"
 node_version: "10.24.1"
 node_folder: "v{{ node_version }}"
 
+# Application settings.
+application_zip_path:  "{{ lookup('env','APPLICATION_ZIP_PATH') }}"
+application_zip_file_name: "{{ lookup('env','APPLICATION_ZIP_FILE_NAME') }}"
+
 application_group: rules-server-group
 application_user: rules-server-user
 
 application_name: "rules-server"
 application_dir: "/opt/{{ application_name }}"
-application_zip_path: "/tmp"
-application_zip_file_name: "rules-server.zip"
 
 pm2_path: "/home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}/bin/pm2"
-
-openchs_upload_user_user_name: "upload-user"

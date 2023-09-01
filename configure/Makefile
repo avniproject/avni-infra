@@ -65,9 +65,6 @@ avni-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 configure-reverse-proxy:
 	ansible-playbook reverse_proxy_server.yml -i inventory/teach_security
 
-rules-server:
-	ansible-playbook --inventory inventory/teach_security rules_server.yml --vault-password-file ${VAULT_PASSWORD_FILE}
-
 int-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook staging_integration_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
 
@@ -85,6 +82,9 @@ int-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
 
 avni-teach-security: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook teach_security_avni_servers.yml -i inventory/teach_security  --vault-password-file ${VAULT_PASSWORD_FILE}
+
+rules-server-teach-security: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook teach_security_rules_server.yml -i inventory/teach_security  --vault-password-file ${VAULT_PASSWORD_FILE}
 
 decrypt: check-vault-pwd-file
 	cp group_vars/prod-secret-vars.yml.enc group_vars/prod-secret-vars.yml

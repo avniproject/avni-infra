@@ -29,3 +29,6 @@ avni_appserver_port: 8022
 avni_appserver_user: "avni-server-user"
 avni_appserver_group: "avni-server-grp"
 avni_service_dir: "/usr/lib/systemd/system"
+
+## Rules server variables
+openchs_upload_user_user_name: "upload-user"

@@ -20,10 +20,8 @@
 
 - name: Extract application
   unarchive:
-    remote_src: yes
+    remote_src: no
     src: "{{application_zip_path}}/{{application_zip_file_name}}"
     dest: "{{ application_dir }}"
     owner: "{{ application_user }}"
     group: "{{ application_group }}"
-    extra_opts:
-      - '-:'  # This is to make it not fail when faced warnings: https://github.com/ansible/ansible/issues/30976 .The  -:  option  lets  unzip  switch  back to its previous, more liberal behaviour, to allow exact extraction of (older) archives.
