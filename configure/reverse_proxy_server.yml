@@ -1,0 +1,16 @@
+---
+
+- name: Configure reverse proxy server
+  hosts: test_server
+  become: yes
+  become_user: root
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/vars.yml
+  roles:
+    - nginx
+    - certbot
+    - nginx_server
+

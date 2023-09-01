@@ -9,3 +9,6 @@ keycloak.security.lfe.avniproject.org ansible_user=ubuntu ansible_port=22 ansibl
 
 [minio_server]
 minio.security.lfe.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/lfe-infra.pem
+
+[test_server]
+test.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem

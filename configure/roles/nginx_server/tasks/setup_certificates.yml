@@ -1,0 +1,4 @@
+---
+
+- name: Generate cert
+  command: "certbot run --nginx -n --agree-tos -m {{ letsencrypt_email }} -d '{{ public_url }}'"

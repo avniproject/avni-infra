@@ -1,7 +1,7 @@
 ---
 
 - name: Clean deploy directory
-  command: "sudo rm -rf /vaw/www/{{application_name}}"
+  command: "sudo rm -rf /var/www/{{application_name}}"
 
 - name: Delete deploy directory
   file:

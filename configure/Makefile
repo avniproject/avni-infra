@@ -60,7 +60,10 @@ minio-teach-security: check-minio-setup-pwd
 	MINIO_ROOT_USER=$(minio_root_user) MINIO_ROOT_PASSWORD=$(minio_root_password) MINIO_UPLOAD_USER=$(minio_upload_user) MINIO_UPLOAD_PASSWORD=$(minio_upload_password) ansible-playbook teach_security_minio_servers.yml -i inventory/teach_security
 
 avni-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
-	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook staging_avni_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook staging_avni_servers.yml -i inventory/teach_security  --vault-password-file ${VAULT_PASSWORD_FILE}
+
+configure-reverse-proxy:
+	ansible-playbook reverse_proxy_server.yml -i inventory/teach_security
 
 rules-server:
 	ansible-playbook --inventory inventory/teach_security rules_server.yml --vault-password-file ${VAULT_PASSWORD_FILE}

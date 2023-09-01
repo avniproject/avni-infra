@@ -1,0 +1,16 @@
+---
+
+- name: Create app template
+  template: src={{nginx_config_file}}
+    dest=/etc/nginx/sites-available/appserver
+    backup=yes
+  notify: reload nginx
+
+- name: Ensure app site is enabled in nginx
+  file: src=/etc/nginx/sites-available/appserver
+    dest=/etc/nginx/sites-enabled/appserver
+    state=link
+  notify: reload nginx
+
+- name: Reload nginx
+  service: name=nginx state=reloaded
