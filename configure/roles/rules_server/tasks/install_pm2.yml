@@ -1,18 +1,16 @@
 ---
 
 - name: Install nvm
-  shell: wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
+  shell: wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/{{ nvm_version }}/install.sh | bash
   args:
     creates: "/home/{{ application_user }}/.nvm"
 
 - name: Install the right node version
-  command: bash -ilc 'nvm install 10.24.1'
+  command: bash -ilc 'nvm install {{ node_version }}'
   args:
-    creates: "/home/{{ application_user }}/.nvm/versions/node/v10.24.1"
-
+    creates: "/home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}"
 
 - name: Install pm2
-  command: bash -ilc "/home/{{ application_user }}/.nvm/versions/node/v10.24.1/bin/npm i -g pm2"
+  command: bash -ilc "/home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}/bin/npm i -g pm2"
   args:
-    creates: "/home/{{ application_user }}/.nvm/versions/node/v10.24.1/bin/pm2"
-
+    creates: "/home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}/bin/pm2"

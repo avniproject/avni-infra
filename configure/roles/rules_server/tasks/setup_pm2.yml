@@ -25,4 +25,4 @@
 
 - name: Set PM2 to start on reboot
   become_user: root
-  command: bash -ilc "sudo env PATH=$PATH:/home/{{ application_user }}/.nvm/versions/node/v10.24.1/bin /home/{{ application_user }}/.nvm/versions/node/v10.24.1/lib/node_modules/pm2/bin/pm2 startup {{ startup_type }} -u {{ application_user }} --hp /home/{{ application_user }}"
+  command: bash -ilc "sudo env PATH=$PATH:/home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}/bin /home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}/lib/node_modules/pm2/bin/pm2 startup {{ startup_type }} -u {{ application_user }} --hp /home/{{ application_user }}"

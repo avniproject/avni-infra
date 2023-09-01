@@ -1,4 +1,7 @@
 ---
+nvm_version: "v0.39.5"
+node_version: "10.24.1"
+node_folder: "v{{ node_version }}"
 
 application_group: rules-server-group
 application_user: rules-server-user
@@ -8,6 +11,6 @@ application_dir: "/opt/{{ application_name }}"
 application_zip_path: "/tmp"
 application_zip_file_name: "rules-server.zip"
 
-pm2_path: "/home/{{ application_user }}/.nvm/versions/node/v10.24.1/bin/pm2"
+pm2_path: "/home/{{ application_user }}/.nvm/versions/node/{{ node_folder }}/bin/pm2"
 
 openchs_upload_user_user_name: "upload-user"
