@@ -181,7 +181,7 @@ def main():
             access_key=dict(required=True, type="str"),
             secret_key=dict(required=True, type="str"),
             state=dict(required=False, type="str", default="present", choices=["absent","present"]),
-            policy=dict(required=False, type="str", choices=["read-only","write-only","read-write"]),
+            policy=dict(required=False, type="str", choices=["read-only","write-only","read-write", "private"]),
             validate_certs=dict(required=False, type="bool", default=True)
         ),
         # No changes will be made to this environment with this module
@@ -243,7 +243,7 @@ def main():
 
             if not client.bucket_exists(bucket_name):
                 client.make_bucket(bucket_name)
-                if policy:
+                if policy != 'private':
                     client.set_bucket_policy(bucket_name, json.dumps({
                         "Version": "2012-10-17",
                         "Statement": get_ro_statements(bucket_name) \

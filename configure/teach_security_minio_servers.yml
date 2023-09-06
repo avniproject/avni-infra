@@ -24,9 +24,9 @@
       minio_url: "https://{{ server_hostname }}:{{ minio_server_port }}"
       minio_buckets:
         - name: security-user-media
-          policy: read-write
+          policy: private
         - name: security-apks
-          policy: read-write
+          policy: private
       minio_users:
         - name: "{{ lookup('env','MINIO_UPLOAD_USER') }}"
           password: "{{ lookup('env','MINIO_UPLOAD_PASSWORD') }}"
