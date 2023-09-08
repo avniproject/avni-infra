@@ -8,7 +8,6 @@
     update_apt_cache: yes
   vars_files:
     - group_vars/basic_vars.yml
-    - group_vars/vars.yml
   roles:
     - nginx
     - certbot

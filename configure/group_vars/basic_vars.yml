@@ -25,10 +25,11 @@ etl_service_dir: "/usr/lib/systemd/system"
 ## Avni server variables
 java_apt_package: openjdk-8-jdk
 avni_appserver_application_name: "avni_server"
-avni_appserver_port: 8022
+avni_appserver_port: 8021
 avni_appserver_user: "avni-server-user"
 avni_appserver_group: "avni-server-grp"
 avni_service_dir: "/usr/lib/systemd/system"
+avni_server_public_url: "test.avniproject.org"
 
 ## Rules server variables
 openchs_upload_user_user_name: "upload-user"
