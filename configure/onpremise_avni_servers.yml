@@ -9,8 +9,8 @@
     update_apt_cache: yes
   vars_files:
     - group_vars/basic_vars.yml
-    - group_vars/teach_security_vars.yml
-    - group_vars/teach-security-secret-vars.yml.enc
+    - group_vars/onpremise_vars.yml
+    - group_vars/onpremise-secret-vars.yml.enc
   roles:
     - base
     - security
