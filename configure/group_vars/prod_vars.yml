@@ -21,6 +21,7 @@ goonj_recreate_dispatch_receipt: "true"
 etl_appserver_app_url: "int-prod.avniproject.org"
 avni_server_keycloak_url: ""
 bugsnag_stage: "prod"
+etl_server_opts: " -Dnewrelic.environment=production -javaagent:/opt/newrelic/newrelic.jar"
 
 etl_allowed_origins: "https://app.avniproject.org,https://int-prod.avniproject.org"
 avni_idp_type: "cognito"

@@ -4,7 +4,7 @@
 application_name: "{{ etl_appserver_application_name }}"
 app_description: Avni ETL server
 application_jar_name: avni-etl.jar
-application_jar_opts: ""
+application_jar_opts: "{{ etl_server_opts }}"
 application_user: "{{etl_appserver_user}}"
 application_group: "{{etl_appserver_group}}"
 public_url: "{{etl_appserver_app_url}}"
