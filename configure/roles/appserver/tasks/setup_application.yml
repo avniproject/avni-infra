@@ -8,6 +8,14 @@
     group: root
     mode: '644'
 
+- name: Set up LAHI Glific GCP BigQuery credentials
+  template:
+    src: lahi_glific_gcp_bigquery_conf.json.j2
+    dest: "{{lahi_glific_gcp_project_credentials_path}}"
+    owner: root
+    group: root
+    mode: '644'
+
 - name: Set up start script for application
   template:
     src: start.sh.j2
