@@ -1,0 +1,78 @@
+---
+
+- name: Install aptitude
+  apt:
+    name: aptitude
+    state: latest
+    update_cache: true
+
+- name: Install required system packages
+  apt:
+    update_cache: "{{ update_apt_cache }}"
+    state: latest
+    pkg:
+      - apt-transport-https
+      - ca-certificates
+      - python3-pip
+      - virtualenv
+      - python3-setuptools
+
+- name: Create cache dir for the rest
+  become: true
+  file:
+    state: directory
+    path: "{{ avni_cache_dir }}"
+    mode: 777
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu focal stable
+    state: present
+
+- name: Update apt and install docker-ce
+  apt:
+    name: docker-ce
+    state: latest
+    update_cache: "{{ update_apt_cache }}"
+
+- name: Install Docker Module for Python
+  pip:
+    name: docker
+
+- name: Pull default Docker image
+  community.docker.docker_image:
+    name: "{{ docker_container_image }}"
+    source: pull
+
+- name: Set environment file for application
+  template:
+    src: "{{ docker_container_env_template_file }}"
+    dest: "{{ docker_container_env_file }}"
+    owner: root
+    group: root
+    mode: '755'
+
+- name: Create default containers
+  community.docker.docker_container:
+    name: "{{ docker_container_name }}"
+    image: "{{ docker_container_image }}"
+    detach: true
+    state: started
+    restart: true
+    ports:
+      # Publish container port 3000 as host port 3000
+      - "{{ docker_container_ports_mapping }}"
+    env_file: "{{ docker_container_env_file }}"
+    healthcheck:
+      test: "{{ docker_container_healthcheck_cmd }}"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+
+

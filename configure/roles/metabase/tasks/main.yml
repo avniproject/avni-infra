@@ -1,0 +1,5 @@
+---
+
+- name: "Deploy Metabase docker Container"
+  include_role:
+    name: docker

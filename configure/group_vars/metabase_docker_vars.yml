@@ -1,0 +1,18 @@
+---
+
+  metabase_container_name: metabase
+  metabase_container_image: metabase/metabase:v0.47.6
+#  Below image is for t4g instance type (arm64/v8) architecture
+#  metabase_container_image: iwalucas/metabase:latest
+  metabase_hostname: metabase
+  metabase_container_healthcheck_cmd: "curl --fail -I http://0.0.0.0:443/api/health || exit 1"
+  metabase_container_ports_mapping: "443:3000"
+  metabase_container_env_file: "/root/metabase_docker.env"
+  metabase_container_env_template_file: metabase.docker.env.template.j2
+
+  update_apt_cache: yes
+# Application settings.
+  application_name: metabase
+  app_description: Avni metabase server
+  application_user: metabase
+  application_group: metabase

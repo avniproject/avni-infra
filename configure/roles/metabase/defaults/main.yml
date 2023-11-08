@@ -1,0 +1,9 @@
+---
+
+  app_container_name: "{{ metabase_container_name }}"
+  app_container_image: "{{ metabase_container_image }}"
+  app_hostname: "{{ metabase_hostname }}"
+  app_container_healthcheck_cmd: "{{ metabase_container_healthcheck_cmd }}"
+  app_container_ports_mapping: "{{ metabase_container_ports_mapping }}"
+  app_container_env_file: "{{ metabase_container_env_file }}"
+  app_container_env_template_file: "{{ metabase_container_env_template_file }}"

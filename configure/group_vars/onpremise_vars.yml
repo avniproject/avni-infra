@@ -46,3 +46,11 @@ openchs_csp_allowed_hosts: "\"keycloak.security.lfe.avniproject.org minio.securi
 avni_enhanced_validation: "true"
 avni_blacklisted_urls_file_path: "/etc/avni_blacklisted_urls.json"
 avni_send_exception_in_response: "false"
+
+## Metabase properties
+mb_password_complexity: "strong"
+mb_password_length: "12"
+mb_jetty_port: "3000"
+mb_db_type: "postgres"
+mb_db_port: "5432"
+java_timezone: "Asia/Kolkata"

@@ -1,0 +1,9 @@
+---
+
+# basic vars
+project_name: avni
+letsencrypt_email: avni@samanvayfoundation.org
+avni_cache_dir: /var/cache/avni
+update_apt_cache: yes
+
+# container vars

@@ -1,0 +1,10 @@
+---
+
+  docker_container_name: "{{ app_container_name }}"
+  docker_container_image: "{{ app_container_image }}"
+  docker_hostname: "{{ app_hostname }}"
+  docker_container_healthcheck_cmd: "{{ app_container_healthcheck_cmd }}"
+  docker_container_ports_mapping: "{{ app_container_ports_mapping }}"
+  docker_container_env_file: "{{ app_container_env_file }}"
+  docker_container_env_template_file: "{{ app_container_env_template_file }}"
+
