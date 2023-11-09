@@ -6,7 +6,7 @@
 #  metabase_container_image: iwalucas/metabase:latest
   metabase_hostname: metabase
   metabase_container_healthcheck_cmd: "curl --fail -I http://0.0.0.0:443/api/health || exit 1"
-  metabase_container_ports_mapping: "443:3000"
+  metabase_container_ports_mapping: "3000:3000"
   metabase_container_env_file: "/root/metabase_docker.env"
   metabase_container_env_template_file: metabase.docker.env.template.j2
 
