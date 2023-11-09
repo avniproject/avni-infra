@@ -5,7 +5,7 @@
 #  Below image is for t4g instance type (arm64/v8) architecture
 #  metabase_container_image: iwalucas/metabase:latest
   metabase_hostname: metabase
-  metabase_container_healthcheck_cmd: ["CMD", "curl", "--fail", "-I", "http://0.0.0.0:3000/api/health"]
+  metabase_container_healthcheck_cmd: "curl --fail -I http://0.0.0.0:3000/api/health || exit 1"
   metabase_container_ports_mapping: "3000:3000"
   metabase_container_env_file: "/root/metabase_docker.env"
   metabase_container_env_template_file: metabase.docker.env.template.j2
