@@ -23,7 +23,7 @@ amrit_app_tasks: "None"
 goonj_recreate_dispatch_receipt: "true"
 lahi_glific_gcp_project_id: "glific-lms-lahi"
 lahi_glific_gcp_dataset_name: "918956411022"
-lahi_glific_gcp_project_credentials_path: "file:/etc/lahi_glific_gcp_bigquery_conf.json"
+lahi_glific_gcp_project_credentials_path: "/etc/lahi_glific_gcp_bigquery_conf.json"
 lahi_avni_api_url: "https://staging.avniproject.org"
 lahi_schedule_cron: "0 0/5 * * * ?"
 
