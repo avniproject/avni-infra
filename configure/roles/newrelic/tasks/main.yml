@@ -1,0 +1,4 @@
+---
+
+- include: setup_application.yml
+- include: set_file_permissions.yml

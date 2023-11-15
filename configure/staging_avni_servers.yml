@@ -15,5 +15,6 @@
     - base
     - security
     - jdk
+    - newrelic
     - avni_web
     - avni_appserver

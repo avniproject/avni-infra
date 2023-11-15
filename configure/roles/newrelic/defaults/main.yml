@@ -1,0 +1,7 @@
+---
+# Installation path
+application_dir: "/opt/newrelic"
+application_conf_file: "{{application_dir}}/newrelic.yml"
+application_name: "Avni {{}}"
+application_user: "{{avni_appserver_user}}"
+application_group: "{{avni_appserver_group}}"

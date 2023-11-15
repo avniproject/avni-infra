@@ -65,3 +65,6 @@ avni_enhanced_validation: "true"
 avni_blacklisted_urls_file_path: ""
 avni_send_exception_in_response: "true"
 avni_webapp_timeout: "21600"
+
+newrelic_app_name: "avni"
+newrelic_application_logging_enabled: "false"

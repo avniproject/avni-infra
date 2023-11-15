@@ -1,0 +1,21 @@
+---
+
+- name: Download newrelic
+  get_url:
+    url: "https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip"
+    dest: "{{avni_cache_dir}}/newrelic-java.zip"
+
+- name: Unarchive newrelic
+  unarchive:
+    remote_src: yes
+    src: "{{avni_cache_dir}}/newrelic-java.zip"
+    dest: "/opt"
+
+- name: Set up config for application
+  template:
+    src: newrelic.yml.j2
+    dest: "{{application_conf_file}}"
+    owner: "{{application_user}}"
+    group: "{{application_group}}"
+    mode: '644'
+
