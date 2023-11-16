@@ -34,3 +34,4 @@ avni_server_public_url: "test.avniproject.org"
 
 ## Rules server variables
 openchs_upload_user_user_name: "upload-user"
+avni_tz: "Asia/Kolkata"

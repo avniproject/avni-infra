@@ -20,7 +20,7 @@
   ignore_errors: yes  # This prevents Ansible from failing if pm2-logrotate is not found
 
 - name: Install pm2-logrotate using PM2
-  command: bash -ilc "{{ pm2_path }} install -g pm2-logrotate"
+  command: bash -ilc "{{ pm2_path }} install pm2-logrotate"
   when: '"pm2-logrotate" not in pm2_logrotate_output.stdout'
 
 - name: Set PM2 to start on reboot

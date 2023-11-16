@@ -89,6 +89,9 @@ avni-onpremise: check-web-zip-path check-app-zip-path check-vault-pwd-file
 rules-server-onpremise: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook onpremise_rules_server.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+rules-server-staging: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook staging_rules_server.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
+
 decrypt: check-vault-pwd-file
 	cp group_vars/prod-secret-vars.yml.enc group_vars/prod-secret-vars.yml
 	cp group_vars/staging-secret-vars.yml.enc group_vars/staging-secret-vars.yml
