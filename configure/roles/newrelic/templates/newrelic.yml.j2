@@ -18,7 +18,7 @@ common: &default_settings
   # Agent enabled
   # Use this setting to disable the agent instead of removing it from the startup command.
   # Default is true.
-  agent_enabled: true
+  agent_enabled: {{ newrelic_agent_enabled }}
 
   # Set the name of your application as you'd like it to show up in the New Relic UI.
   # If enable_auto_app_naming is false, the agent reports all data to this application.
@@ -268,7 +268,7 @@ common: &default_settings
 
     # Set to false to disable distributed tracing.
     # Default is true.
-    enabled: true
+    enabled: {{ newrelic_distributed_tracing_enabled }}
 
     # Agent versions 5.10.0+ utilize both the newrelic header and W3C Trace Context headers for distributed tracing.
     # The newrelic distributed tracing header allows interoperability with older agents that don't support W3C Trace Context headers.
@@ -445,3 +445,7 @@ production:
 staging:
   <<: *default_settings
   app_name: {{ newrelic_app_name }} (Staging)
+
+prerelease:
+  <<: *default_settings
+  app_name: {{ newrelic_app_name }} (Prerelease)
