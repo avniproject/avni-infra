@@ -1,4 +1,11 @@
 ---
+- name: Set up blacklisted urls file
+  template:
+    src: avni_blacklisted_urls.json.j2
+    dest: "{{avni_blacklisted_urls_file_path}}"
+    owner: root
+    group: root
+    mode: '644'
 
 - name: "Deploy Avni Server"
   include_role:

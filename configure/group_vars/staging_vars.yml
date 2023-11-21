@@ -62,9 +62,11 @@ avni_web_validhosts: ""
 openchs_csp_enabled: "false"
 openchs_csp_allowed_hosts: ""
 avni_enhanced_validation: "true"
-avni_blacklisted_urls_file_path: ""
+avni_blacklisted_urls: '["/profile/**", "/manifest.json"]'
+avni_blacklisted_urls_file_path: "/etc/avni_blacklisted_urls.json"
 avni_send_exception_in_response: "true"
 avni_webapp_timeout: "21600"
+avni_server_legacy_longitudinal_export_limit: "30000"
 
 newrelic_app_name: "avni"
 newrelic_application_logging_enabled: "false"

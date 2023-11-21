@@ -1,0 +1,20 @@
+---
+
+- name: Configure avni servers
+  hosts: avniservers
+  become: yes
+  become_user: root
+  remote_user: "{{ avni_appserver_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/prod_vars.yml
+    - group_vars/prod-secret-vars.yml.enc
+  roles:
+    - base
+    - security
+    - jdk
+    - newrelic
+    - avni_web
+    - avni_appserver
