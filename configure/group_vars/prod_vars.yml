@@ -40,7 +40,7 @@ scheduled_job_repeat_interval: "90"
 
 avni_server_host: "localhost"
 avni_server_port: "8021"
-avni_server_opts: " -Dnewrelic.environment=production -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file={{avni_server_access_log_dir}}/chs.log -Dlogging.path={{avni_server_access_log_dir}} -Dlogging.file.max-size=5mb -Xmx1024m -XX:ErrorFile={{avni_server_access_log_dir}}/jvm.log -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005 -XX:-OmitStackTraceInFastThrow"
+avni_server_opts: " -Dnewrelic.environment=production -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file={{avni_server_access_log_dir}}/chs.log -Dlogging.path={{avni_server_access_log_dir}} -Dlogging.file.max-size=5mb -Xmx3072m -XX:ErrorFile={{avni_server_access_log_dir}}/jvm.log -XX:-OmitStackTraceInFastThrow"
 avni_server_db_host: "serverdb.openchs.org."
 avni_server_db_port: "5432"
 avni_server_db_schema: "public"
