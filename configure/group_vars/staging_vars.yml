@@ -61,7 +61,7 @@ avni_csrf_enabled: "false"
 avni_web_validhosts: ""
 openchs_csp_enabled: "false"
 openchs_csp_allowed_hosts: ""
-avni_enhanced_validation: "true"
+avni_enhanced_validation: "false"
 avni_blacklisted_urls: '["/profile/**", "/manifest.json"]'
 avni_blacklisted_urls_file_path: "/etc/avni_blacklisted_urls.json"
 avni_send_exception_in_response: "true"
