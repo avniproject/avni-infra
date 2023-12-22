@@ -44,8 +44,11 @@ avni_web_validhosts: "app.security.lfe.avniproject.org"
 openchs_csp_enabled: "true"
 openchs_csp_allowed_hosts: "\"keycloak.security.lfe.avniproject.org minio.security.lfe.avniproject.org\""
 avni_enhanced_validation: "false"
+avni_blacklisted_urls: '["/profile/**", "/manifest.json"]'
 avni_blacklisted_urls_file_path: "/etc/avni_blacklisted_urls.json"
 avni_send_exception_in_response: "false"
+avni_webapp_timeout: "21600"
+avni_server_legacy_longitudinal_export_limit: "30000"
 
 ## Metabase properties
 mb_password_complexity: "strong"
