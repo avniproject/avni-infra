@@ -8,13 +8,14 @@ ufw_allowed_ports:
   - "443"
   - "3000"
   - "8021"
+  - "8022"
 
 ## ETL server variables
-etl_appserver_app_url: "app.security.lfe.avniproject.org"
+etl_appserver_app_url: "etl.security.lfe.avniproject.org"
 
 bugsnag_stage: "on-premise"
-
-etl_allowed_origins: "app.security.lfe.avniproject.org"
+int_appserver_app_url: "etl.security.lfe.avniproject.org"
+etl_allowed_origins: "https://app.security.lfe.avniproject.org"
 avni_idp_type: "keycloak"
 scheduled_job_trigger_misfire_threshold: "2700000"
 scheduled_job_repeat_interval: "60"
@@ -38,7 +39,7 @@ avni_server_cache_ttl_seconds: "600"
 avni_server_cache_max_weight: "1000"
 avni_server_show_sql: "false"
 avni_server_idp_type: "keycloak"
-avni_server_etl_service_origin: "https://app.security.lfe.avniproject.org/etl"
+avni_server_etl_service_origin: "https://etl.security.lfe.avniproject.org/etl"
 avni_csrf_enabled: "true"
 avni_web_validhosts: "app.security.lfe.avniproject.org"
 openchs_csp_enabled: "true"
@@ -57,3 +58,4 @@ mb_jetty_port: "3000"
 mb_db_type: "postgres"
 mb_db_port: "5432"
 java_timezone: "Asia/Kolkata"
+java_apt_package: openjdk-17-jdk #for ETL. Comment for avni-server

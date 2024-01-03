@@ -122,6 +122,9 @@ encrypt: check-vault-pwd-file
 	cp group_vars/vagrant-secret-vars.yml group_vars/vagrant-secret-vars.yml.enc
 	cp group_vars/onpremise-secret-vars.yml group_vars/onpremise-secret-vars.yml.enc
 
+etl-onpremise: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook onpremise_etl_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
+
 etl-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook staging_etl_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}
 

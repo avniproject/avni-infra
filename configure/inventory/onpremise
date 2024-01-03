@@ -2,7 +2,7 @@
 ssh.app.security.lfe.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/lfe-infra.pem
 
 [etlservers]
-ssh.app.security.lfe.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/lfe-infra.pem
+etl.security.lfe.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/lfe-infra.pem
 
 [keycloak_server]
 keycloak.security.lfe.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/lfe-infra.pem
