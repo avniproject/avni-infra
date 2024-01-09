@@ -74,6 +74,10 @@ avni-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
 avni-onpremise: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook onpremise_avni_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+rwb-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook rwb_staging_avni_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	--extra-vars '{"application_user":"avni-server-user"}'
+
 configure-reverse-proxy:
 	ansible-playbook reverse_proxy_server.yml -i inventory/onpremise
 
@@ -110,6 +114,10 @@ decrypt: check-vault-pwd-file
 	ansible-vault decrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/onpremise-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 
+decrypt_env: check-vault-pwd-file
+	cp group_vars/$(env)-secret-vars.yml.enc group_vars/$(env)-secret-vars.yml
+	ansible-vault decrypt group_vars/$(env)-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+
 encrypt: check-vault-pwd-file
 	ansible-vault encrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
@@ -121,6 +129,10 @@ encrypt: check-vault-pwd-file
 	cp group_vars/prerelease-secret-vars.yml group_vars/prerelease-secret-vars.yml.enc
 	cp group_vars/vagrant-secret-vars.yml group_vars/vagrant-secret-vars.yml.enc
 	cp group_vars/onpremise-secret-vars.yml group_vars/onpremise-secret-vars.yml.enc
+
+encrypt_env: check-vault-pwd-file
+	ansible-vault encrypt group_vars/$(env)-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	cp group_vars/$(env)-secret-vars.yml group_vars/$(env)-secret-vars.yml.enc
 
 etl-onpremise: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook onpremise_etl_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
