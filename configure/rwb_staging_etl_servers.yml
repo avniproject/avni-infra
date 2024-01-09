@@ -10,6 +10,12 @@
   vars_files:
     - group_vars/basic_vars.yml
     - group_vars/rwb_staging_vars.yml
-    - group_vars/rwb-staging-secret-vars.yml.enc
+    - group_vars/rwb_staging-secret-vars.yml.enc
   roles:
+    - base     # Required if int server is not pre deployed.
+    - security # Required if int server is not pre deployed.
+    - jdk      # Required if int server is not pre deployed.
+    - nginx    # Required if int server is not pre deployed.
+    - certbot  # Required if int server is not pre deployed.
     - etl_appserver
+    - nginx_appserver

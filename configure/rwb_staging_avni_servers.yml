@@ -12,9 +12,9 @@
     - group_vars/rwb_staging_vars.yml
     - group_vars/rwb_staging-secret-vars.yml.enc
   roles:
-#    - base
-#    - security
-#    - jdk
-##    - newrelic
-#    - avni_web
+    - base
+    - security
+    - jdk
+#    - newrelic
+    - avni_web
     - avni_appserver

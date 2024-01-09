@@ -12,7 +12,7 @@
   vars_files:
     - group_vars/basic_vars.yml
     - group_vars/rwb_staging_vars.yml
-    - group_vars/rwb-staging-secret-vars.yml.enc
+    - group_vars/rwb_staging-secret-vars.yml.enc
   roles:
     - base
     - rules_server

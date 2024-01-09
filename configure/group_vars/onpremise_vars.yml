@@ -58,4 +58,4 @@ mb_jetty_port: "3000"
 mb_db_type: "postgres"
 mb_db_port: "5432"
 java_timezone: "Asia/Kolkata"
-java_apt_package: openjdk-17-jdk #for ETL. Comment for avni-server
+#java_apt_package: openjdk-17-jdk #for ETL. Comment for avni-server

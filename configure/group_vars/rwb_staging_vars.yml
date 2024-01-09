@@ -10,7 +10,7 @@ ufw_allowed_ports:
   - "8021"
 
 ### Integration server variables
-#int_appserver_app_url: "int-staging.avniproject.org"
+int_appserver_app_url: "etl-staging.rwb.avniproject.org"
 #goonj_sf_app_url: "https://goonj--patialv1.sandbox.my.salesforce.com/services/apexrest/v1"
 #goonj_sf_auth_url: "https://test.salesforce.com/services/oauth2/token"
 #goonj_sf_media_url_prefix: "https://staging.avniproject.org/web/media?url="
@@ -74,3 +74,5 @@ avni_server_legacy_longitudinal_export_limit: "30000"
 #newrelic_agent_enabled: "false"
 #newrelic_application_logging_enabled: "false"
 #newrelic_distributed_tracing_enabled: "false"
+
+#java_apt_package: openjdk-17-jdk       #for ETL. Comment for avni-server

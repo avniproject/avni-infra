@@ -102,17 +102,22 @@ rules-server-prerelease: check-app-zip-path check-vault-pwd-file
 rules-server-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook prod_rules_server.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+rules-server-rwb-staging: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook rwb_staging_rules_server.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}
+
 decrypt: check-vault-pwd-file
 	cp group_vars/prod-secret-vars.yml.enc group_vars/prod-secret-vars.yml
 	cp group_vars/staging-secret-vars.yml.enc group_vars/staging-secret-vars.yml
 	cp group_vars/prerelease-secret-vars.yml.enc group_vars/prerelease-secret-vars.yml
 	cp group_vars/vagrant-secret-vars.yml.enc group_vars/vagrant-secret-vars.yml
 	cp group_vars/onpremise-secret-vars.yml.enc group_vars/onpremise-secret-vars.yml
+	cp group_vars/rwb_staging-secret-vars.yml.enc group_vars/rwb_staging-secret-vars.yml
 	ansible-vault decrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/prerelease-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/onpremise-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault decrypt group_vars/rwb_staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 
 decrypt_env: check-vault-pwd-file
 	cp group_vars/$(env)-secret-vars.yml.enc group_vars/$(env)-secret-vars.yml
@@ -124,11 +129,13 @@ encrypt: check-vault-pwd-file
 	ansible-vault encrypt group_vars/prerelease-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/onpremise-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault encrypt group_vars/rwb_staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	cp group_vars/prod-secret-vars.yml group_vars/prod-secret-vars.yml.enc
 	cp group_vars/staging-secret-vars.yml group_vars/staging-secret-vars.yml.enc
 	cp group_vars/prerelease-secret-vars.yml group_vars/prerelease-secret-vars.yml.enc
 	cp group_vars/vagrant-secret-vars.yml group_vars/vagrant-secret-vars.yml.enc
 	cp group_vars/onpremise-secret-vars.yml group_vars/onpremise-secret-vars.yml.enc
+	cp group_vars/rwb_staging-secret-vars.yml group_vars/rwb_staging-secret-vars.yml.enc
 
 encrypt_env: check-vault-pwd-file
 	ansible-vault encrypt group_vars/$(env)-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
@@ -145,6 +152,9 @@ etl-prerelease: check-app-zip-path check-vault-pwd-file
 
 etl-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook prod_etl_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}
+
+etl-rwb-staging: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook rwb_staging_etl_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}
 
 metabase-onpremise:
 	ansible-playbook onpremise_metabase_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
