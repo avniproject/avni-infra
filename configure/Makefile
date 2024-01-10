@@ -154,7 +154,8 @@ etl-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook prod_etl_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}
 
 etl-rwb-staging: check-app-zip-path check-vault-pwd-file
-	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook rwb_staging_etl_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook rwb_staging_etl_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	--extra-vars '{"java_apt_package":"openjdk-17-jdk"}'
 
 metabase-onpremise:
 	ansible-playbook onpremise_metabase_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
