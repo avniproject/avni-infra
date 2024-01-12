@@ -1,0 +1,21 @@
+---
+
+jasperserver_db_type: postgresql
+jasperserver_allow_empty_password: no
+jasperserver_skip_bootstrap: no
+jasperserver_use_root_url: true
+
+public_url: jasper.rwb.avniproject.org
+etl_appserver_port: 8080
+int_appserver_port: 8080
+
+jasperserver_db_host: stagingdb.rwb.avniproject.org
+jasperserver_db_port: 5432
+jasperserver_db_user: jasperreports
+jasperserver_db_name: jasperreports
+jasperserver_username: jasperadmin
+  
+ufw_allowed_ports:
+  - "22"
+  - "80"
+  - "443"

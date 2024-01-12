@@ -1,0 +1,22 @@
+---
+
+- name: Configure Jasperserver server
+  hosts: jasperservers
+  become: yes
+  become_user: root
+  remote_user: "{{ application_user }}"
+  tags:
+    - jasper
+#  vars:
+  vars_files:
+    - group_vars/basic_docker_vars.yml
+    - group_vars/jasperserver_docker_vars.yml
+    - group_vars/rwb_jasper_vars.yml
+    - group_vars/rwb_jasper-secret-vars.yml.enc
+  roles:
+#    - base
+#    - security
+#    - nginx
+#    - certbot
+#    - jasperserver
+    - nginx_appserver

@@ -1,0 +1,9 @@
+---
+
+  app_container_name: "{{ jasperserver_container_name }}"
+  app_container_image: "{{ jasperserver_container_image }}"
+  app_hostname: "{{ jasperserver_hostname }}"
+  app_container_healthcheck_cmd: "{{ jasperserver_container_healthcheck_cmd }}"
+  app_container_ports_mapping: "{{ jasperserver_container_ports_mapping }}"
+  app_container_env_file: "{{ jasperserver_container_env_file }}"
+  app_container_env_template_file: "{{ jasperserver_container_env_template_file }}"

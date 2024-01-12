@@ -1,0 +1,5 @@
+---
+
+- name: "Deploy Jasperserver Docker Container"
+  include_role:
+    name: docker

@@ -1,0 +1,16 @@
+---
+
+  jasperserver_container_name: jasperserver
+  jasperserver_container_image: bitnami/jasperreports:8.2.0
+  jasperserver_hostname: jasperserver
+  jasperserver_container_healthcheck_cmd: "curl --fail -I http://0.0.0.0:8080/jasperserver/rest_v2/serverInfo || exit 1"
+  jasperserver_container_ports_mapping: "8080:8080"
+  jasperserver_container_env_file: "/root/jasperserver_docker.env"
+  jasperserver_container_env_template_file: jasperserver.docker.env.template.j2
+
+  update_apt_cache: yes
+# Application settings.
+  application_name: jasperserver
+  app_description: Avni Jasper server
+  application_user: jasperserver
+  application_group: jasperserver

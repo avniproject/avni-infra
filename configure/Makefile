@@ -160,6 +160,9 @@ etl-rwb-staging: check-app-zip-path check-vault-pwd-file
 metabase-onpremise:
 	ansible-playbook onpremise_metabase_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+jasper-rwb-staging: check-vault-pwd-file
+	ansible-playbook rwb_jasperserver_servers.yml -i inventory/rwb_staging --vault-password-file ${VAULT_PASSWORD_FILE}
+
 deploy-etl-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE} \
 	--extra-vars '{"deploy_app_name":"etl","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-etl-user","deploy_app_env":"staging","deploy_app_role":"etl_appserver","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}'

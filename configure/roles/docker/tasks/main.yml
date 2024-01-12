@@ -44,7 +44,7 @@
   pip:
     name: docker
 
-- name: Pull default Docker image
+- name: Pull Docker image
   community.docker.docker_image:
     name: "{{ docker_container_image }}"
     source: pull
@@ -65,7 +65,6 @@
     state: started
     restart: true
     ports:
-      # Publish container port 3000 as host port 3000
       - "{{ docker_container_ports_mapping }}"
     env_file: "{{ docker_container_env_file }}"
     healthcheck:
