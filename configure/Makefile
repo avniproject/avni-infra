@@ -78,6 +78,10 @@ rwb-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook rwb_staging_avni_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE} \
 	--extra-vars '{"application_user":"avni-server-user"}'
 
+rwb-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook rwb_prod_avni_servers.yml -i inventory/rwb_prod  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	--extra-vars '{"application_user":"avni-server-user"}'
+
 configure-reverse-proxy:
 	ansible-playbook reverse_proxy_server.yml -i inventory/onpremise
 
@@ -104,6 +108,9 @@ rules-server-prod: check-app-zip-path check-vault-pwd-file
 
 rules-server-rwb-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook rwb_staging_rules_server.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}
+
+rules-server-rwb-prod: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook rwb_prod_rules_server.yml -i inventory/rwb_prod  --vault-password-file ${VAULT_PASSWORD_FILE}
 
 decrypt: check-vault-pwd-file
 	cp group_vars/prod-secret-vars.yml.enc group_vars/prod-secret-vars.yml
@@ -155,6 +162,10 @@ etl-prod: check-app-zip-path check-vault-pwd-file
 
 etl-rwb-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook rwb_staging_etl_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	--extra-vars '{"java_apt_package":"openjdk-17-jdk"}'
+
+etl-rwb-prod: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook rwb_prod_etl_servers.yml -i inventory/rwb_prod  --vault-password-file ${VAULT_PASSWORD_FILE} \
 	--extra-vars '{"java_apt_package":"openjdk-17-jdk"}'
 
 metabase-onpremise:

@@ -1,10 +1,10 @@
 
 
 [webservers]
-int-prod.rwb.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/rwb-infra.pem
+etl.rwb.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/rwb-infra.pem
 
 [avniservers]
-ssh.prod.rwb.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/rwb-infra.pem
+ssh.app.rwb.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/rwb-infra.pem
 
 [etlservers]
-int-prod.rwb.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/rwb-infra.pem
+etl.rwb.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/rwb-infra.pem
