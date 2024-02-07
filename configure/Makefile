@@ -119,12 +119,14 @@ decrypt: check-vault-pwd-file
 	cp group_vars/vagrant-secret-vars.yml.enc group_vars/vagrant-secret-vars.yml
 	cp group_vars/onpremise-secret-vars.yml.enc group_vars/onpremise-secret-vars.yml
 	cp group_vars/rwb_staging-secret-vars.yml.enc group_vars/rwb_staging-secret-vars.yml
+	cp group_vars/rwb_prod-secret-vars.yml.enc group_vars/rwb_prod-secret-vars.yml
 	ansible-vault decrypt group_vars/prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/prerelease-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/onpremise-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault decrypt group_vars/rwb_staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault decrypt group_vars/rwb_prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 
 decrypt_env: check-vault-pwd-file
 	cp group_vars/$(env)-secret-vars.yml.enc group_vars/$(env)-secret-vars.yml
@@ -137,12 +139,14 @@ encrypt: check-vault-pwd-file
 	ansible-vault encrypt group_vars/vagrant-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/onpremise-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	ansible-vault encrypt group_vars/rwb_staging-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
+	ansible-vault encrypt group_vars/rwb_prod-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	cp group_vars/prod-secret-vars.yml group_vars/prod-secret-vars.yml.enc
 	cp group_vars/staging-secret-vars.yml group_vars/staging-secret-vars.yml.enc
 	cp group_vars/prerelease-secret-vars.yml group_vars/prerelease-secret-vars.yml.enc
 	cp group_vars/vagrant-secret-vars.yml group_vars/vagrant-secret-vars.yml.enc
 	cp group_vars/onpremise-secret-vars.yml group_vars/onpremise-secret-vars.yml.enc
 	cp group_vars/rwb_staging-secret-vars.yml group_vars/rwb_staging-secret-vars.yml.enc
+	cp group_vars/rwb_prod-secret-vars.yml group_vars/rwb_prod-secret-vars.yml.enc
 
 encrypt_env: check-vault-pwd-file
 	ansible-vault encrypt group_vars/$(env)-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
