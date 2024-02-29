@@ -1,4 +1,13 @@
 ---
+- name: Check deployable exists
+  ansible.builtin.stat:
+    path: "{{application_zip_path}}/{{application_zip_file_name}}"
+  register: st
+
+- name: Fail if deployable does not exist
+  ansible.builtin.fail:
+    msg: "Deployable not present at {{application_zip_path}}/{{application_zip_file_name}}"
+  when: not st.stat.exists
 
 - name: Ensure server stopped
   become_user: "{{ application_user }}"
