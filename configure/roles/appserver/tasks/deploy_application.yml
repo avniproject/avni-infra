@@ -1,6 +1,7 @@
 ---
 - name: Check deployable exists
-  ansible.builtin.stat:
+  local_action:
+    module: ansible.builtin.stat
     path: "{{application_zip_path}}/{{application_zip_file_name}}"
   register: st
 

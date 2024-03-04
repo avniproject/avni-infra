@@ -1,13 +1,15 @@
 ---
-#- name: Check deployable exists
-#  ansible.builtin.stat:
-#    path: "{{webapp_zip_path}}/{{webapp_zip_file_name}}"
-#  register: st
-#
-#- name: Fail if deployable does not exist
-#  ansible.builtin.fail:
-#    msg: "Deployable not present at {{webapp_zip_path}}/{{webapp_zip_file_name}}"
-#  when: not st.stat.exists
+- name: Check deployable exists
+  local_action:
+    module: ansible.builtin.stat
+    path: "{{webapp_zip_path}}/{{webapp_zip_file_name}}"
+  register: st
+  become: no
+
+- name: Fail if deployable does not exist
+  ansible.builtin.fail:
+    msg: "Deployable not present at {{webapp_zip_path}}/{{webapp_zip_file_name}}"
+  when: not st.stat.exists
 
 - name: Clean deploy directory
   command: "sudo rm -rf /var/www/{{application_name}}"
