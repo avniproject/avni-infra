@@ -35,8 +35,8 @@ etl_server_opts: " -Dnewrelic.environment=production -javaagent:/opt/newrelic/ne
 
 etl_allowed_origins: "https://app.avniproject.org,https://int-prod.avniproject.org"
 avni_idp_type: "cognito"
-scheduled_job_trigger_misfire_threshold: "3600000"
-scheduled_job_repeat_interval: "90"
+scheduled_job_trigger_misfire_threshold: "4800000"
+scheduled_job_repeat_interval: "120"
 
 avni_server_host: "localhost"
 avni_server_port: "8021"
