@@ -1,11 +1,11 @@
 ---
 
-- include: setup_firewall_rules.yml
-- include: setup_nginx.yml
+- include_tasks: setup_firewall_rules.yml
+- include_tasks: setup_nginx.yml
   vars:
     nginx_config_file: "appserver_nginx_conf_initial.j2"
-- include: setup_certificates.yml
-- include: setup_nginx.yml
+- include_tasks: setup_certificates.yml
+- include_tasks: setup_nginx.yml
   vars:
     nginx_config_file: "appserver_nginx_conf_updated.j2"
 
