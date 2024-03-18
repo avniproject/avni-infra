@@ -1,5 +1,5 @@
 ---
 
-- include: users.yml
-- include: set_file_permissions.yml
-- include: setup_application.yml
+- include_tasks: users.yml
+- include_tasks: set_file_permissions.yml
+- include_tasks: setup_application.yml
