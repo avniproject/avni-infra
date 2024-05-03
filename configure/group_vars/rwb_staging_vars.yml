@@ -75,3 +75,8 @@ newrelic_application_logging_enabled: "false"
 newrelic_distributed_tracing_enabled: "false"
 
 #java_apt_package: openjdk-17-jdk       #for ETL. Comment for avni-server
+
+avni_reporting_system_0_name: "Jasper Reports"
+avni_reporting_system_0_url: "https://jasper.rwb.avniproject.org/jasperserver/login.html"
+avni_reporting_system_1_name: ""
+avni_reporting_system_1_url: ""
