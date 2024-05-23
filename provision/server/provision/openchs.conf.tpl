@@ -1,6 +1,6 @@
 export OPENCHS_SERVER=localhost
 export OPENCHS_SERVER_PORT=${server_port}
-export OPENCHS_SERVER_OPTS="-Dnewrelic.environment=${environment} -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file=/var/log/openchs/chs.log -Dlogging.path=/var/log/openchs/ -Dlogging.file.max-size=5mb -Xmx250m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/avni_server/ -XX:ErrorFile=/var/log/openchs/jvm.log"
+export OPENCHS_SERVER_OPTS="-Dnewrelic.environment=${environment} -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file=/var/log/openchs/chs.log -Dlogging.path=/var/log/openchs/ -Dlogging.file.max-size=5mb -Dlogging.file.max-history=90 -Xmx250m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/avni_server/ -XX:ErrorFile=/var/log/openchs/jvm.log"
 export OPENCHS_DATABASE_HOST=${database_host}
 export OPENCHS_DATABASE_USER=${database_user}
 export OPENCHS_DATABASE_PASSWORD=${database_password}
