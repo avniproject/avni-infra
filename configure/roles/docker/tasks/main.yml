@@ -64,6 +64,7 @@
     detach: true
     state: started
     restart: true
+    restart_policy: always
     ports:
       - "{{ docker_container_ports_mapping }}"
     env_file: "{{ docker_container_env_file }}"
