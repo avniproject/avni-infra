@@ -24,6 +24,10 @@
     group: "{{application_group}}"
     mode: '755'
 
+- name: Daemon Reload systemd
+  systemd:
+    daemon_reload: true
+
 - name: Enable server
   service:
     name: "{{application_name}}_appserver.service"
