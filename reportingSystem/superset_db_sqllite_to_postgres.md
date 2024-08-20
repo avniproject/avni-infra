@@ -92,6 +92,8 @@ vi superset_config.py
 cd /home/ubuntu/supersetdata
 wget https://avniproject.org/static/avni-logo-color-b42a730b01c55efe37722027d9cddd95.png
 mv avni-logo-color-b42a730b01c55efe37722027d9cddd95.png avni.png
+wget https://app.avniproject.org/favicon.ico
+mv favicon.ico avni-favicon.ico
 ```
 
 3. run docker for 4.0.1
@@ -102,6 +104,7 @@ docker run -d -p 8088:8088 \
   -e SUPERSET_CONFIG_PATH=/app/superset_config.py \
   -v /home/ubuntu/supersetdata/superset_config.py:/app/superset_config.py \
   -v /home/ubuntu/supersetdata/avni.png:/app/superset/static/assets/images/avni.png \
+  -v /home/ubuntu/supersetdata/avni-favicon.ico:/app/superset/static/assets/images/avni-favicon.ico \
   apache/superset:4.0.1
 docker logs -f superset_4.0.1  
 ```

@@ -18,4 +18,8 @@ APP_ICON = "/static/assets/images/avni.png"
 
 LOGO_TARGET_PATH = '/'
 
-LOGO_TOOLTIP = "Avni Superset"
+LOGO_TOOLTIP = "Go Home"
+
+APP_NAME = "Avni Superset"
+
+FAVICONS = [{"href": "/static/assets/images/avni-favicon.ico"}]
