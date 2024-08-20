@@ -115,3 +115,8 @@ docker stop superset_4.0.1
 docker restart superset_4.0.1
 ```
 
+5. generate certificate for testing superset (optional)
+```shell
+sudo certbot --nginx -d test-reporting-superset.avniproject.org
+sudo certbot renew --cert-name test-reporting-superset.avniproject.org 
+```
