@@ -66,9 +66,11 @@ pgloader pgloaderdataonly.conf > db_transfer.txt
 
 
 6. reset the sequence [/assets/reset_sequence.sql](https://github.com/avniproject/avni-infra/blob/master/reportingSystem/superset/assets/reset_sequence.sql) .so, we don't get error for further update. if sequence not used and give error ignore that.
-   
 
-7. go to container and run db commands. if any error then try to resolve here. don't move further
+7. remove schema from the table [/assets/remove_schema.sql](https://github.com/avniproject/avni-infra/blob/master/reportingSystem/superset/assets/remove_schema.sql). 
+Superset removed schema search for public. [Reference](https://github.com/apache/superset/blob/4.0.2/superset/db_engine_specs/postgres.py#L256)
+
+8. go to container and run db commands. if any error then try to resolve here. don't move further
 ```shell
 docker exec -it  -u root superset_2.0.1 bash
 superset db upgrade
