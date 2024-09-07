@@ -1,6 +1,7 @@
-SECRET_KEY = # secret key add
+import os
 
-PREVIOUS_SECRET_KEY = # add details
+# secret key add
+SECRET_KEY = os.getenv('SUPERSET_SECRET_KEY')
 
 CONTENT_SECURITY_POLICY_WARNING = False
 
@@ -12,7 +13,12 @@ FEATURE_FLAGS = {
     "ALLOW_FULL_CSV_EXPORT": True
 }
 
-SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://<user>:<password>@<url>:5432/supersetdb'
+DB_USER = os.getenv('SUPERSET_DB_USER')
+DB_PASSWORD = os.getenv('SUPERSET_DB_PASSWORD')
+DB_URL = os.getenv('SUPERSET_DB_URL')
+DB_PORT = os.getenv('SUPERSET_DB_PORT')
+
+SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://"+DB_USER+":"+DB_PASSWORD+"@"+DB_URL+":"+DB_PORT+"/supersetdb"
 
 APP_ICON = "/static/assets/images/avni.png"
 
