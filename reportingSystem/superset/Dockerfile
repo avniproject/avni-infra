@@ -1,6 +1,6 @@
 ARG TAG=latest
 
-FROM apache/superset:${TAG}
+FROM --platform=linux/amd64  apache/superset:${TAG}
 
 
 #Copy avni logo and favicon
