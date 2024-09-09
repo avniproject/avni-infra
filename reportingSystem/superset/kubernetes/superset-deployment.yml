@@ -1,0 +1,33 @@
+kind: Deployment
+
+apiVersion: apps/v1
+
+metadata:
+  name: supersetdeployment
+  labels:
+    environment: prod
+    app: superset
+  annotations:
+    kubernetes.io/autoupdate-spec: "work for superset 4.0.1"    # need to change in every deployment
+spec:
+  replicas: 2
+  minReadySeconds: 30
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      environment: prod
+      app: superset
+  template:
+    metadata:
+      name: supersetpod
+      labels:
+        environment: prod
+        app: superset
+    spec:
+      containers:
+        - name: supersetcontainer
+          image: vedfordocker/superset:4.0.1
