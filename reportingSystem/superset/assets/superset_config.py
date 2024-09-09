@@ -17,8 +17,9 @@ DB_USER = os.getenv('SUPERSET_DB_USER')
 DB_PASSWORD = os.getenv('SUPERSET_DB_PASSWORD')
 DB_URL = os.getenv('SUPERSET_DB_URL')
 DB_PORT = os.getenv('SUPERSET_DB_PORT')
+DB_NAME = os.getenv('SUPERSET_DB_NAME')
 
-SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://"+DB_USER+":"+DB_PASSWORD+"@"+DB_URL+":"+DB_PORT+"/supersetdb"
+SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://"+DB_USER+":"+DB_PASSWORD+"@"+DB_URL+":"+DB_PORT+"/"+DB_NAME
 
 APP_ICON = "/static/assets/images/avni.png"
 

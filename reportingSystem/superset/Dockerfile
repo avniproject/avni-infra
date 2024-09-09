@@ -11,11 +11,12 @@ ADD --chown=superset https://github.com/avniproject/avni-webapp/raw/master/publi
 COPY --chown=superset ./assets/superset_config.py /app/
 
 #Environment variable
-ENV SUPERSET_SECRET_KEY=""
-ENV SUPERSET_DB_USER=postgres
-ENV SUPERSET_DB_PASSWORD=password
-ENV SUPERSET_DB_URL=host.docker.internal
-ENV SUPERSET_DB_PORT=5432
+ENV SUPERSET_SECRET_KEY=dummy
+ENV SUPERSET_DB_NAME=dummy
+ENV SUPERSET_DB_USER=dummy
+ENV SUPERSET_DB_PASSWORD=dummy
+ENV SUPERSET_DB_URL=dummy
+ENV SUPERSET_DB_PORT=dummy
 ENV SUPERSET_CONFIG_PATH=/app/superset_config.py
 
 
