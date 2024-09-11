@@ -1,0 +1,24 @@
+apiVersion: eksctl.io/v1alpha5
+
+kind: ClusterConfig
+
+metadata:
+  name: avni-cluster
+  region: ap-south-1
+  tags:
+    creator: avni-cluster
+
+nodeGroups:
+  - name: supersetprod
+    instanceType: t2.micro
+    amiFamily: Ubuntu2204   # need to check
+    instancePrefix: "avni-cluster-superset"
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    tags:
+      environment: prod
+      app: superset
+    labels:
+      environment: prod
+      app: superset

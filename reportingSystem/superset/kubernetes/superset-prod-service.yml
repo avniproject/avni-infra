@@ -1,0 +1,19 @@
+apiVersion: v1
+
+kind: Service
+
+metadata:
+  name: superset-prod-service
+  labels:
+    app: superset
+    environment: prod
+
+spec:
+  type: ClusterIP
+  selector:
+    app: superset
+    environment: prod
+  ports:
+    - protocol: TCP
+      port: 8088        # Service port
+      targetPort: 8088  # Target port on the Superset container
