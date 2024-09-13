@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset-prod-proxy
+  namespace: ingress-nginx
+spec:
+  type: ExternalName
+  externalName: superset-prod-service.superset-prod.svc.cluster.local

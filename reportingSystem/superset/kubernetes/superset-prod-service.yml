@@ -4,6 +4,7 @@ kind: Service
 
 metadata:
   name: superset-prod-service
+  namespace: superset-prod
   labels:
     app: superset
     environment: prod

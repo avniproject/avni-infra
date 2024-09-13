@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-prod-configmap
+  namespace: superset-prod
+data:
+  SUPERSET_SECRET_KEY: "dummy"
+  SUPERSET_DB_NAME: "dummy"
+  SUPERSET_DB_USER: "dummy"
+  SUPERSET_DB_PASSWORD: "dummy"
+  SUPERSET_DB_URL: "dummy"
+  SUPERSET_DB_PORT: 5432

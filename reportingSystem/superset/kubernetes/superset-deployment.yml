@@ -4,6 +4,7 @@ apiVersion: apps/v1
 
 metadata:
   name: supersetdeployment
+  namespace: superset-prod
   labels:
     environment: prod
     app: superset
@@ -28,6 +29,40 @@ spec:
         environment: prod
         app: superset
     spec:
+      nodeSelector:
+        environment: prod
+        app: superset
       containers:
         - name: supersetcontainer
-          image: vedfordocker/superset:4.0.1
+          image: vedfordocker/superset:4.0.1    # need to change after setting up avni
+          env:
+            - name: SUPERSET_SECRET_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-prod-configmap
+                  key: SUPERSET_SECRET_KEY
+            - name: SUPERSET_DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-prod-configmap
+                  key: SUPERSET_DB_NAME
+            - name: SUPERSET_DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-prod-configmap
+                  key: SUPERSET_DB_USER
+            - name: SUPERSET_DB_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-prod-configmap
+                  key: SUPERSET_DB_PASSWORD
+            - name: SUPERSET_DB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-prod-configmap
+                  key: SUPERSET_DB_URL
+            - name: SUPERSET_DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-prod-configmap
+                  key: SUPERSET_DB_PORT

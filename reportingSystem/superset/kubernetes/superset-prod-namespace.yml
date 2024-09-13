@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: superset-prod
+  labels:
+    environment: prod
+    app: superset
