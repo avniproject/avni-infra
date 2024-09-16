@@ -4,7 +4,7 @@
 
 ### Backup
 
-1. copy superset db into your local and take backup
+1. Stop superset service. copy superset db into your local and take backup
 
 ```shell
 scp -i ~/.ssh/openchs-infra.pem  ubuntu@reporting-superset.avniproject.org:/home/superset/.superset/superset.db .
@@ -59,7 +59,7 @@ superset db upgrade
 ```shell
 ssh -o ConnectTimeout=30 -N  -L 5433:prereleasedb.avniproject.org:5432 ubuntu@ssh.prerelease.avniproject.org -i ~/.ssh/openchs-infra.pem
 ## go to second windoow
-pgloader pgloaderdataonly.conf > db_transfer.txt
+pgloader pgloaderdataonly.conf | tee db_transfer.txt
 ```
 
 5. now check the db_transfer.txt and if error then try to resolve and don't move ahead

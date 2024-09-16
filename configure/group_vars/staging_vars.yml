@@ -25,7 +25,7 @@ lahi_glific_gcp_project_id: "glific-lms-lahi"
 lahi_glific_gcp_dataset_name: "918956411022"
 lahi_glific_gcp_project_credentials_path: "/etc/lahi_glific_gcp_bigquery_conf.json"
 lahi_avni_api_url: "https://app.avniproject.org"
-lahi_schedule_cron: "0 0/5 * * * ?"
+lahi_schedule_cron: "-"
 
 ## ETL server variables
 etl_appserver_app_url: "int-staging.avniproject.org"
@@ -34,6 +34,7 @@ bugsnag_stage: "staging"
 
 etl_allowed_origins: "https://staging.avniproject.org,https://int-staging.avniproject.org"
 avni_idp_type: "both"
+avni_endpoint_end_of_life_1: "2024-09-05"
 scheduled_job_trigger_misfire_threshold: "2700000"
 scheduled_job_repeat_interval: "60"
 avni_server_host: "localhost"
