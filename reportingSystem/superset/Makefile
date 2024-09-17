@@ -1,4 +1,4 @@
-IMAGE := vedfordocker/superset
+IMAGE := public.ecr.aws/m1p7h9p1/avniproject/reporting-superset
 TAG ?= 4.0.1
 
 build-image:
