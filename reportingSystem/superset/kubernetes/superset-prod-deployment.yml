@@ -34,7 +34,7 @@ spec:
         app: superset
       containers:
         - name: supersetcontainer
-          image: vedfordocker/superset:4.0.1    # need to change after setting up avni
+          image: public.ecr.aws/m1p7h9p1/avniproject/reporting-superset:4.0.1    # need to change after setting up avni
           env:
             - name: SUPERSET_SECRET_KEY
               valueFrom:
