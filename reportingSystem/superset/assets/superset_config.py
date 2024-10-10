@@ -22,6 +22,7 @@ DB_NAME = os.getenv('SUPERSET_DB_NAME')
 
 SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://"+DB_USER+":"+DB_PASSWORD+"@"+DB_URL+":"+DB_PORT+"/"+DB_NAME
 
+#icon flags
 APP_ICON = "/static/assets/images/avni.png"
 
 LOGO_TARGET_PATH = '/'
@@ -31,3 +32,10 @@ LOGO_TOOLTIP = "Go Home"
 APP_NAME = "Avni Superset"
 
 FAVICONS = [{"href": "/static/assets/images/avni-favicon.ico"}]
+
+#logger flags
+ENABLE_TIME_ROTATE = True
+
+BACKUP_COUNT = 30
+
+ROLLOVER = "midnight"
