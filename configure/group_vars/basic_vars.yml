@@ -12,6 +12,7 @@ int_appserver_group: "avni-int-grp"
 int_appserver_db_name: "avni_int"
 int_appserver_db_user: "avni_int"
 int_service_dir: "/usr/lib/systemd/system"
+int_server_opts: " --enable-preview"
 
 ## ETL server variables
 etl_appserver_application_name: avni-etl-service

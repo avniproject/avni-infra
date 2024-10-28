@@ -26,6 +26,7 @@ lahi_glific_gcp_dataset_name: "918956411022"
 lahi_glific_gcp_project_credentials_path: "/etc/lahi_glific_gcp_bigquery_conf.json"
 lahi_avni_api_url: "https://prerelease.avniproject.org"
 lahi_schedule_cron: "-"
+int_server_opts: " --enable-preview"
 
 ## ETL server variables
 etl_appserver_app_url: "int-prerelease.avniproject.org"

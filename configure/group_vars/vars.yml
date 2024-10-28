@@ -14,7 +14,7 @@ amrit_schedule_cron: "0 0/2 * * * ?"
 goonj_app_tasks: "None"
 amrit_app_tasks: "None"
 goonj_recreate_dispatch_receipt: "false"
-
+int_server_opts: " --enable-preview"
 
 avni_server_host: "localhost"
 avni_server_port: "8021"
