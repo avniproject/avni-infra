@@ -4,7 +4,7 @@
 application_name: "{{ int_appserver_application_name }}"
 app_description: Avni Integration server
 application_jar_name: integration-server.jar
-application_jar_opts: ""
+application_jar_opts: "{{ int_server_opts }}"
 application_user: "{{int_appserver_user}}"
 application_group: "{{int_appserver_group}}"
 public_url: "{{int_appserver_app_url}}"
