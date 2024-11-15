@@ -57,6 +57,7 @@ superset db upgrade
 
 4. change source & destination in [/assets/pgloaderdataonly.conf](https://github.com/avniproject/avni-infra/blob/master/reportingSystem/superset/assets/pgloaderdataonly.conf) tunnel the postgres db and transfer the data.
 ```shell
+## change as per environment
 ssh -o ConnectTimeout=30 -N  -L 5433:prereleasedb.avniproject.org:5432 ubuntu@ssh.prerelease.avniproject.org -i ~/.ssh/openchs-infra.pem
 ## go to second windoow
 pgloader pgloaderdataonly.conf | tee db_transfer.txt
@@ -78,49 +79,64 @@ superset db init
 ```
 
 ---
-### Upgrate to superset docker 4.0.1
+### Upgrate to superset docker 4.0.1 (from avni ecr image)
 
 
-1. stop the superset_2.0.1. copy data from  [/assets/superset_config.py](https://github.com/avniproject/avni-infra/blob/master/reportingSystem/superset/assets/superset_config.py) and add require flags and configuration
+1. stop the superset_2.0.1. 
 ```shell
 docker stop superset_2.0.1
-#check /home/ubuntu/supersetdata exist or not if not then create
-cd /home/ubuntu/supersetdata
-vi superset_config.py
 ```
 
-2. get logo of avni
+2. image push to ecr repo (do if image is not set)
 ```shell
-cd /home/ubuntu/supersetdata
-wget https://avniproject.org/static/avni-logo-color-b42a730b01c55efe37722027d9cddd95.png
-mv avni-logo-color-b42a730b01c55efe37722027d9cddd95.png avni.png
-wget https://app.avniproject.org/favicon.ico
-mv favicon.ico avni-favicon.ico
+aws configure #if not done
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 118388513628.dkr.ecr.ap-south-1.amazonaws.com
+make push-image REPO_URI=118388513628.dkr.ecr.ap-south-1.amazonaws.com
 ```
 
-3. run docker for 4.0.1
+3. copy environment file to supersetdata and configure aws [AWS CLI download reference](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 ```shell
+aws --version
+# if error then install aws cli
+aws configure
+#provide access key and secret
+mkdir supersetdata
+cd supersetdata
+# paste file superset.env from secrets
+```
+
+4. run docker for 4.0.1
+```shell
+sudo mkdir -p /var/log/superset
+
+sudo chmod -R 777 /var/log/superset
+
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 118388513628.dkr.ecr.ap-south-1.amazonaws.com
+
+docker pull 118388513628.dkr.ecr.ap-south-1.amazonaws.com/avniproject/reporting-superset:4.0.1
+
 docker run -d -p 8088:8088 \
-  --network superset_network \
-  --name superset_4.0.1 \
-  -e SUPERSET_CONFIG_PATH=/app/superset_config.py \
-  -v /home/ubuntu/supersetdata/superset_config.py:/app/superset_config.py \
-  -v /home/ubuntu/supersetdata/avni.png:/app/superset/static/assets/images/avni.png \
-  -v /home/ubuntu/supersetdata/avni-favicon.ico:/app/superset/static/assets/images/avni-favicon.ico \
-  apache/superset:4.0.1
-docker logs -f superset_4.0.1  
+    --name avnisuperset_4.0.1 \
+    --env-file ~/supersetdata/superset.env \
+    -v /var/log/superset:/app/superset_home \
+    118388513628.dkr.ecr.ap-south-1.amazonaws.com/avniproject/reporting-superset:4.0.1
+    
+docker logs -f superset_4.0.1
+
+tail -f /var/log/superset/superset.log  
 ```
 
-4. important commands for docker container
+5. important commands for docker container
 ```shell
 docker logs -f superset_4.0.1
 docker exec -it  -u root superset_4.0.1 bash
 docker start superset_4.0.1
 docker stop superset_4.0.1
 docker restart superset_4.0.1
+docker inspect avnisuperset_4.0.1
 ```
 
-5. generate certificate for testing superset (optional)
+6. generate certificate for testing superset (optional)
 ```shell
 sudo certbot --nginx -d test-reporting-superset.avniproject.org
 sudo certbot renew --cert-name test-reporting-superset.avniproject.org 

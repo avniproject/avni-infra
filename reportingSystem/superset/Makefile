@@ -1,4 +1,4 @@
-IMAGE := public.ecr.aws/m1p7h9p1/avniproject/reporting-superset
+IMAGE := avniproject/reporting-superset
 TAG ?= 4.0.1
 
 build-image:
@@ -18,8 +18,26 @@ delete-image:
 	fi
 
 push-image:
-	docker push $(IMAGE):$(TAG)
+	@if [ -z "$(REPO_URI)" ]; then \
+		echo "REPO_URI is not set"; \
+		exit 1; \
+	fi
+	@if docker image inspect $(REPO_URI)/$(IMAGE):$(TAG) > /dev/null 2>&1; then \
+		echo "Image $(REPO_URI)/$(IMAGE):$(TAG) found. deleting from the local"; \
+		docker image rm -f $(IMAGE):$(TAG); \
+	else \
+		echo "Image $(REPO_URI)/$(IMAGE):$(TAG) not found in local."; \
+	fi
+	docker tag $(IMAGE):$(TAG) $(REPO_URI)/$(IMAGE):$(TAG)
+	echo "pushing image $(REPO_URI)/$(IMAGE):$(TAG)";
+	docker push $(REPO_URI)/$(IMAGE):$(TAG)
 
+delete-repo-image:
+	@if [ -z "$(REPO_URI)" ]; then \
+		echo "REPO_URI is not set"; \
+		exit 1; \
+	fi
+	docker image rm $(REPO_URI)/$(IMAGE):$(TAG)
 
 inspect-image:
 	docker image inspect $(IMAGE):$(TAG)
