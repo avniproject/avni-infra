@@ -37,7 +37,7 @@ etl_allowed_origins: "https://prerelease.avniproject.org,https://int-prerelease.
 avni_idp_type: "cognito"
 avni_endpoint_end_of_life_1: "2024-09-07"
 scheduled_job_trigger_misfire_threshold: "2700000"
-scheduled_job_repeat_interval: "60"
+scheduled_job_repeat_interval: "600"
 
 avni_server_host: "localhost"
 avni_server_port: "8021"
