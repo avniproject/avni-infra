@@ -6,7 +6,7 @@ const roleIds = []; // add roles
 
 const permissionIdList = []; // add permission Ids
 
-const baseurl = "https://test-reporting-superset.avniproject.org";
+const baseurl = ""; // provide url
 
 let auth_token = null;
 
