@@ -141,3 +141,22 @@ docker inspect avnisuperset_4.0.1
 sudo certbot --nginx -d test-reporting-superset.avniproject.org
 sudo certbot renew --cert-name test-reporting-superset.avniproject.org 
 ```
+
+
+
+### Post Deployment Task
+1. Go to ec2 and flag and after completing task remove that
+```shell
+#ssh to ec2
+docker exec -it -u root avnisuperset_4.0.1 bash
+#you are inside docker
+vi superset_config.py
+# add flag : FAB_ADD_SECURITY_API = True
+superset init
+exit
+#outside container
+docker restart avnisuperset_4.0.1
+```
+
+2. Add permissions to role. First take ids from file [/assets/role_permission_upgrade.sql](https://github.com/avniproject/avni-infra/blob/superset/reportingSystem/superset/assets/role_permission_upgrade.sql). put iy into [/assets/RoleUpgrade.js](https://github.com/avniproject/avni-infra/blob/superset/reportingSystem/superset/assets/RoleUpgrade.js)
+and run scripts.
