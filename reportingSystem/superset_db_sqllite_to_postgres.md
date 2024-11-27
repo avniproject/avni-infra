@@ -158,5 +158,12 @@ exit
 docker restart avnisuperset_4.0.1
 ```
 
-2. Add permissions to role. First take ids from file [/assets/role_permission_upgrade.sql](https://github.com/avniproject/avni-infra/blob/superset/reportingSystem/superset/assets/role_permission_upgrade.sql). put iy into [/assets/RoleUpgrade.js](https://github.com/avniproject/avni-infra/blob/superset/reportingSystem/superset/assets/RoleUpgrade.js)
+2. Add permissions to role. First take ids from file [/assets/role_permission_upgrade.sql](https://github.com/avniproject/avni-infra/blob/superset/reportingSystem/superset/assets/role_permission_upgrade.sql). put it into [/assets/RoleUpgrade.js](https://github.com/avniproject/avni-infra/blob/superset/reportingSystem/superset/assets/RoleUpgrade.js)
 and run scripts.
+
+```bash
+nvm use;
+npm install
+node superset/assets/RoleUpgrade.js
+```
+

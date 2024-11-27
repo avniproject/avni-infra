@@ -1,6 +1,4 @@
-const username = ""; // add admin username
-
-const password = ""; // add password
+import fetch from 'node-fetch';
 
 const roleIds = []; // add roles
 
@@ -13,16 +11,14 @@ let auth_token = null;
 
 const  login = async () => {
 
-    const request = new Request(`${baseurl}/api/v1/security/login`,{
+    const response = await fetch(`${baseurl}/api/v1/security/login`,{
         method : "POST",
         headers:{
             'Accept': 'application/json',
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({"username":username, "password":password, "provider": "db", "refresh": true})
-    });
-
-    const response = await fetch(request).then((response)=>{
+    }).then((response)=>{
         if(response.status === 200 && response.headers.get("content-type").includes("application/json")) {
             return  response.json();
         }
@@ -53,14 +49,13 @@ const addPermissionInRole = async (roleId,permissionSet,newPermission) => {
             "Authorization":`Bearer ${auth_token}`
         },
         body: JSON.stringify({
-            "permission_view_menu_ids": permissionSet
+            "permission_view_menu_ids": [...permissionSet]
         })
     }).then((response)=>{
         if(response.status === 200) {
             return response.json();
-        }
-        else{
-            console.log("Not updated");
+        } else{
+            console.log("Not updated", response);
             process.exit(0);
         }
     }).catch((error)=>{
@@ -103,10 +98,10 @@ const getPermissionSet = async(roleId)=>{
 
 const doTask = async () => {
     await login();
-    for(role of roleIds){
-        for(permission of permissionIdList) {
-            const permissionList = await getPermissionSet(role);
-            await addPermissionInRole(role, permissionList, permission);
+    for(var role of roleIds){
+        for(var permission of permissionIdList) {
+            const permissionSet = await getPermissionSet(role);
+            await addPermissionInRole(role, permissionSet, permission);
         }
     }
 };
