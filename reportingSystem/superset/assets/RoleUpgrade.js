@@ -8,6 +8,10 @@ const baseurl = ""; // provide url
 
 let auth_token = null;
 
+const username = ""; // admin user
+
+const password = "";
+
 
 const  login = async () => {
 

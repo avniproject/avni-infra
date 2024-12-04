@@ -121,18 +121,22 @@ docker run -d -p 8088:8088 \
     -v /var/log/superset:/app/superset_home \
     118388513628.dkr.ecr.ap-south-1.amazonaws.com/avniproject/reporting-superset:4.0.1
     
-docker logs -f superset_4.0.1
+docker logs -f avnisuperset_4.0.1
 
-tail -f /var/log/superset/superset.log  
+tail -f /var/log/superset/superset.log
+
+docker exec -it  -u root avnisuperset_4.0.1 bash
+superset db upgrade
+superset db init  
 ```
 
 5. important commands for docker container
 ```shell
-docker logs -f superset_4.0.1
-docker exec -it  -u root superset_4.0.1 bash
-docker start superset_4.0.1
-docker stop superset_4.0.1
-docker restart superset_4.0.1
+docker logs -f avnisuperset_4.0.1
+docker exec -it  -u root avnisuperset_4.0.1 bash
+docker start avnisuperset_4.0.1
+docker stop avnisuperset_4.0.1
+docker restart avnisuperset_4.0.1
 docker inspect avnisuperset_4.0.1
 ```
 
