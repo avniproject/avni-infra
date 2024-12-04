@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-prod-configmap
+  namespace: superset-prod
+data:
+  SUPERSET_SECRET_KEY: "kDnVi2zakdL92ENzJecU2ZRqb1+NSAU1CdTzSxKlNYcDaHFloADLMf9j"
+  SUPERSET_DB_NAME: "supersetdb"
+  SUPERSET_DB_USER: "postgres"
+  SUPERSET_DB_PASSWORD: "password"
+  SUPERSET_DB_URL: "host.minikube.internal"
+  SUPERSET_DB_PORT: "5433"
