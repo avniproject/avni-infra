@@ -1,3 +1,8 @@
 ---
-- include_tasks: java_pre.yml
-- include_tasks: java_install.yml
+- name: Pre-install Java JDK
+  include_tasks: java_pre.yml
+  when: install_jdk
+
+- name: Install Java JDK
+  include_tasks: java_install.yml
+  when: install_jdk
