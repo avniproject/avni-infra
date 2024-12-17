@@ -12,4 +12,5 @@
     - "{{ deploy_app_env_vars_file }}"
     - "{{ deploy_app_env_secret_vars_file }}"
   roles:
+    - jdk
     - "{{ deploy_app_role }}"
