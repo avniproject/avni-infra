@@ -4,8 +4,6 @@ project_name: avni
 letsencrypt_email: avni@samanvayfoundation.org
 avni_cache_dir: /var/cache/avni
 
-install_jdk: true
-
 ## Integration server variables
 int_appserver_application_name: avni-int-service
 int_appserver_port: 6013

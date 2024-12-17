@@ -7,11 +7,11 @@
   remote_user: "{{ deploy_app_remote_user }}"
   vars:
     update_apt_cache: yes
-    install_jdk: false
   vars_files:
     - group_vars/basic_vars.yml
     - "{{ deploy_app_env_vars_file }}"
     - "{{ deploy_app_env_secret_vars_file }}"
   roles:
-    - jdk
+    - role: jdk
+      when: install_jdk
     - "{{ deploy_app_role }}"
