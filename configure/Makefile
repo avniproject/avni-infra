@@ -61,7 +61,7 @@ minio-onpremise: check-minio-setup-pwd
 
 avni-staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook staging_avni_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE} \
-	--extra-vars '{"application_user":"avni-server-user"}'
+	--extra-vars '{"application_user":"avni-server-user", "java_apt_package":"openjdk-21-jdk"}'
 
 avni-prerelease: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-webapp.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook prerelease_avni_servers.yml -i inventory/prerelease  --vault-password-file ${VAULT_PASSWORD_FILE} \
