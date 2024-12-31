@@ -4,7 +4,7 @@ select * from  information_schema.tables where table_schema = 'public' and table
 
 select 'update '|| table_name || ' set ' || column_name || ' = null where id > 0 and '|| column_name ||' is not null;' from  information_schema.columns where table_schema = 'public' and column_name like '%schema%';
 
-
+-- Execute the Update commands generated from Select Sql command above, a subset of which would be as follows:
 update saved_query set schema = null where id > 0 and schema is not null;
 update table_schema set schema = null where id > 0 and schema is not null;
 update query set schema = null where id > 0 and schema is not null;
@@ -20,7 +20,7 @@ update sl_tables set schema = null where id > 0 and schema is not null;
 
 select 'select '|| column_name || ' from ' || table_name || ' where id > 0 and '|| column_name ||' is not null limit 1;' from  information_schema.columns where table_schema = 'public' and column_name like '%schema%';
 
-
+-- Execute the Select commands generated from Select Sql command above to validate no pending updates, a subset of which would be as follows:
 select schema from saved_query where id > 0 and schema is not null limit 1;
 select schema from table_schema where id > 0 and schema is not null limit 1;
 select schema from query where id > 0 and schema is not null limit 1;
