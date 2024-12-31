@@ -2,6 +2,7 @@
 select * from  information_schema.tables where table_schema = 'public' and table_name like '%schema%';
 
 
+-- Generate the update commands to be invoked to remove schema config
 select 'update '|| table_name || ' set ' || column_name || ' = null where id > 0 and '|| column_name ||' is not null;' from  information_schema.columns where table_schema = 'public' and column_name like '%schema%';
 
 -- Execute the Update commands generated from Select Sql command above, a subset of which would be as follows:
@@ -17,7 +18,7 @@ update tables set schema_perm = null where id > 0 and schema_perm is not null;
 update sl_tables set schema = null where id > 0 and schema is not null;
 
 
-
+-- Generate the select commands to be invoked to CHECK for config where org_schema has been set, these should return empty results
 select 'select '|| column_name || ' from ' || table_name || ' where id > 0 and '|| column_name ||' is not null limit 1;' from  information_schema.columns where table_schema = 'public' and column_name like '%schema%';
 
 -- Execute the Select commands generated from Select Sql command above to validate no pending updates, a subset of which would be as follows:
