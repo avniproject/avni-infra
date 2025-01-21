@@ -77,7 +77,7 @@ newrelic_application_logging_enabled: "false"
 newrelic_distributed_tracing_enabled: "false"
 
 avni_reporting_system_0_name: "Metabase Reports"
-avni_reporting_system_0_url: "https://reporting.avniproject.org"
+avni_reporting_system_0_url: "https://reporting-green.avniproject.org"
 avni_reporting_system_1_name: "Jasper Reports"
 avni_reporting_system_1_url: "https://reporting-jasper.avniproject.org/jasperserver/login.html"
 avni_reporting_system_2_name: "Superset Reports"
