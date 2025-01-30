@@ -42,7 +42,7 @@ scheduled_job_repeat_interval: "360"
 
 avni_server_host: "localhost"
 avni_server_port: "8021"
-avni_server_opts: " -Dnewrelic.environment={{ newrelic_environment }} -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file.name={{avni_server_access_log_dir}}/chs.log -Dlogging.logback.rollingpolicy.max-file-size=5mb -Dlogging.logback.rollingpolicy.max-history=90 -Xms2560m -Xmx12288m -XX:MaxMetaspaceSize=512m -XX:CompressedClassSpaceSize=256m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{avni_server_access_log_dir}}/ -XX:OnOutOfMemoryError=\"/bin/kill -9 %p\" -XX:ErrorFile={{avni_server_access_log_dir}}/jvm.log -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=50M -Xloggc:{{avni_server_access_log_dir}}/gc.log"
+avni_server_opts: " -Dnewrelic.environment={{ newrelic_environment }} -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file.name={{avni_server_access_log_dir}}/chs.log -Dlogging.logback.rollingpolicy.max-file-size=5mb -Dlogging.logback.rollingpolicy.max-history=90 -Xms2560m -Xmx12288m -XX:MaxMetaspaceSize=512m -XX:CompressedClassSpaceSize=256m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{avni_server_access_log_dir}}/ -XX:OnOutOfMemoryError=\"/bin/kill -9 %p\" -XX:ErrorFile={{avni_server_access_log_dir}}/jvm.log -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"
 avni_server_db_host: "serverdb.openchs.org."
 avni_server_db_port: "5432"
 avni_server_db_schema: "public"
