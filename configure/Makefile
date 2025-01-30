@@ -220,7 +220,7 @@ deploy-avni-server-staging: check-app-zip-path check-vault-pwd-file
 
 deploy-avni-server-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
-     --extra-vars '{"deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"prod","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}'
+     --extra-vars '{"install_jdk":"true","java_apt_package":"openjdk-21-jdk","deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"prod","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}'
 
 deploy-avni-server-prerelease: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/prerelease  --vault-password-file ${VAULT_PASSWORD_FILE}  \
