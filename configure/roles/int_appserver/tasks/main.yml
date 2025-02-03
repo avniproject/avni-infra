@@ -7,7 +7,6 @@
     owner: root
     group: root
     mode: '644'
-  when: lahi_glific_gcp_project_credentials_path is defined
 
 - name: "Deploy Integration Server"
   include_role:
