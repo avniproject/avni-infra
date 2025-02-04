@@ -23,7 +23,6 @@ export AMRIT_APP_TASKS={{amrit_app_tasks}}
 export BUGSNAG_API_KEY={{bugsnag_api_key}}
 export BUGSNAG_RELEASE_STAGE={{bugsnag_stage}}
 export HEALTHCHECK_PING_KEY={{healthcheck_ping_key}}
-export LAHI_AVNI_GCP_BIGQUERY_ENABLED={{lahi_avni_gcp_bigquery_enabled}}
 export LAHI_GLIFIC_GCP_PROJECT_ID={{lahi_glific_gcp_project_id}}
 export LAHI_GLIFIC_GCP_DATASET_NAME={{lahi_glific_gcp_dataset_name}}
 export LAHI_AVNI_API_USER={{lahi_avni_api_user}}
@@ -31,7 +30,9 @@ export LAHI_AVNI_API_PASSWORD={{lahi_avni_api_password}}
 export LAHI_AVNI_API_URL={{lahi_avni_api_url}}
 export LAHI_INT_SCHEDULE_CRON="{{lahi_schedule_cron}}"
 export LAHI_INT_SCHEDULE_CRON_FULL_ERROR="-"
+{% if lahi_glific_gcp_project_credentials_path is defined %}
 export GLIFIC_GCP_CREDENTIALS_FILE=file:{{lahi_glific_gcp_project_credentials_path}}
+{% endif %}
 export RWB_INT_SCHEDULE_CRON="{{rwb_schedule_cron}}"
 export RWB_AVNI_API_USER={{rwb_avni_api_user}}
 export RWB_AVNI_API_PASSWORD{{rwb_avni_api_password}}
