@@ -28,6 +28,7 @@ lahi_schedule_cron: "-"
 rwb_schedule_cron: "0 0/2 * * * ?"
 rwb_avni_nudge_custom_since_days: "03"
 rwb_avni_nudge_custom_within_days: "03"
+rwb_avni_api_url: "https://staging.rwb.avniproject.org"
 
 ## ETL server variables
 etl_appserver_app_url: "etl-staging.rwb.avniproject.org"
