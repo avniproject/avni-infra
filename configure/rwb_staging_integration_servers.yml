@@ -1,0 +1,16 @@
+---
+
+- name: Configure rwb integration apps on etl servers
+  hosts: etlservers
+  become: yes
+  become_user: root
+  remote_user: "{{ int_appserver_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/rwb_staging_vars.yml
+    - group_vars/rwb_staging-secret-vars.yml.enc
+  roles:
+    - int_web
+    - int_appserver

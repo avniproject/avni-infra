@@ -94,6 +94,9 @@ int-prerelease: check-vault-pwd-file
 int-prod: check-web-zip-path check-app-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook prod_integration_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}
 
+int-rwb_staging: check-web-zip-path check-app-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook rwb_staging_integration_servers.yml -i inventory/rwb_staging_integration_servers  --vault-password-file ${VAULT_PASSWORD_FILE}
+
 rules-server-onpremise: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=rules-server.tgz ansible-playbook onpremise_rules_server.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
 
@@ -206,6 +209,10 @@ deploy-int-server-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"prod","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}'
 
+deploy-int-server-rwb-staging: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"rwb_staging","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/rwb_staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/rwb_staging-secret-vars.yml.enc"}'
+
 deploy-int-webapp-staging: check-web-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"staging","deploy_app_role":"int_web","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}'
@@ -213,6 +220,10 @@ deploy-int-webapp-staging: check-web-zip-path check-vault-pwd-file
 deploy-int-webapp-prod: check-web-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"prod","deploy_app_role":"int_web","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}'
+
+deploy-int-webapp-rwb-staging: check-web-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"rwb_staging","deploy_app_role":"int_web","deploy_app_env_vars_file":"group_vars/rwb_staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/rwb_staging-secret-vars.yml.enc"}'
 
 deploy-avni-server-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
