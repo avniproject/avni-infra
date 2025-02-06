@@ -1,7 +1,7 @@
 update_apt_cache: yes
 db_name: keycloak
 db_user: keycloak
-keycloak_version: "21.0.2"
+keycloak_version: "24.0.1"
 db_password: "{{ lookup('env','KEYCLOAK_DB_PASSWORD') }}"
 keycloak_admin_pwd: "{{ lookup('env','KEYCLOAK_ADMIN_PWD') }}"
 keycloak_admin_api_secret: "{{ lookup('env','KEYCLOAK_ADMIN_API_SECRET') }}"
