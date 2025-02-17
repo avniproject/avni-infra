@@ -225,6 +225,10 @@ deploy-int-webapp-rwb-staging: check-web-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/rwb_staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"rwb_staging","deploy_app_role":"int_web","deploy_app_env_vars_file":"group_vars/rwb_staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/rwb_staging-secret-vars.yml.enc"}'
 
+deploy-int-webapp-rwb-prod: check-web-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/rwb_prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"rwb_prod","deploy_app_role":"int_web","deploy_app_env_vars_file":"group_vars/rwb_prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/rwb_prod-secret-vars.yml.enc"}'
+
 deploy-avni-server-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=avni-server-0.0.1-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"install_jdk":"true","java_apt_package":"openjdk-21-jdk","deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"staging","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}'
