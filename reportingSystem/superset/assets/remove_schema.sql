@@ -1,9 +1,15 @@
+-- IMPORTANT: This has to be run only against Superset DB and NOT on openchs database
+
 -- to get information about where schema used
 select * from  information_schema.tables where table_schema = 'public' and table_name like '%schema%';
+
+-- IMPORTANT: This has to be run only against Superset DB and NOT on openchs database
 
 
 -- Generate the update commands to be invoked to remove schema config
 select 'update '|| table_name || ' set ' || column_name || ' = null where id > 0 and '|| column_name ||' is not null;' from  information_schema.columns where table_schema = 'public' and column_name like '%schema%';
+
+-- IMPORTANT: This has to be run only against Superset DB and NOT on openchs database
 
 -- Execute the Update commands generated from Select Sql command above, a subset of which would be as follows:
 update saved_query set schema = null where id > 0 and schema is not null;
