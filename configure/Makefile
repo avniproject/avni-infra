@@ -158,6 +158,15 @@ encrypt_env: check-vault-pwd-file
 	ansible-vault encrypt group_vars/$(env)-secret-vars.yml --vault-password-file ${VAULT_PASSWORD_FILE}
 	cp group_vars/$(env)-secret-vars.yml group_vars/$(env)-secret-vars.yml.enc
 
+drop-all-decrypted-files:
+	rm -f group_vars/prod-secret-vars.yml
+	rm -f group_vars/staging-secret-vars.yml
+	rm -f group_vars/prerelease-secret-vars.yml
+	rm -f group_vars/vagrant-secret-vars.yml
+	rm -f group_vars/onpremise-secret-vars.yml
+	rm -f group_vars/rwb_staging-secret-vars.yml
+	rm -f group_vars/rwb_prod-secret-vars.yml
+
 etl-onpremise: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook onpremise_etl_servers.yml -i inventory/onpremise  --vault-password-file ${VAULT_PASSWORD_FILE}
 
