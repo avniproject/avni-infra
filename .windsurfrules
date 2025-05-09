@@ -1,0 +1,4 @@
+# IMPORTANT: Ignore all secret and secret-vars files in avni-infra repo
+ignore:
+  - **/*secret*
+  - **/*secret-vars*
