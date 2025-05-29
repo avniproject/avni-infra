@@ -17,3 +17,4 @@ prod-user-pool.json
 /configure/certificates/**
 /configure/dummy.yml
 /reportingSystem/superset/superset.env
+/local/keycloak/On-premise-realm.json
