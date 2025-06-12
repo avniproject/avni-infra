@@ -57,3 +57,6 @@ export METABASE_DB_PASSWORD="{{metabase_db_password}}"
 {% endif %}
 export AVNI_ENVIRONMENT={{env}}
 export AVNI_DEFAULT_ORG_USER_DB_PASSWORD="{{avni_default_org_user_db_password}}"
+{% if avni_scheduled_job_storage_management_cron is defined %}
+export AVNI_JOB_STORAGE_MANAGEMENT_CRON={{avni_scheduled_job_storage_management_cron}}
+{% endif %}
