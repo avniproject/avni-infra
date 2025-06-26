@@ -1,5 +1,61 @@
 ---
-
 - name: "Deploy Metabase docker Container"
   include_role:
     name: docker
+
+- name: Install psycopg2-binary
+  ansible.builtin.pip:
+    name: psycopg2-binary
+    state: present
+    executable: pip3
+  become: yes
+  become_user: root
+  tags:
+    - metabase_db_trigger
+
+- name: Check if protect_schedule_trigger exists
+  community.postgresql.postgresql_query:
+    db: "{{ mb_db_dbname }}"
+    login_user: "{{ mb_db_user }}"
+    login_password: "{{ mb_db_pass }}"
+    login_host: "{{ mb_db_host }}"
+    query: "SELECT 1 FROM pg_trigger WHERE tgname = 'protect_schedule_trigger'"
+  register: trigger_check
+  ignore_errors: true
+  tags:
+    - metabase_db_trigger
+
+- name: Create prevent_schedule_update function
+  community.postgresql.postgresql_query:
+    db: "{{ mb_db_dbname }}"
+    login_user: "{{ mb_db_user }}"
+    login_password: "{{ mb_db_pass }}"
+    login_host: "{{ mb_db_host }}"
+    query: |
+      CREATE OR REPLACE FUNCTION prevent_schedule_update() RETURNS TRIGGER AS $$
+      BEGIN
+          IF NEW.metadata_sync_schedule <> OLD.metadata_sync_schedule OR 
+             NEW.cache_field_values_schedule <> OLD.cache_field_values_schedule THEN
+              RAISE EXCEPTION 'Manual updates to metabase database schedule are not allowed';
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+  when: trigger_check is defined and trigger_check.rowcount == 0
+  tags:
+    - metabase_db_trigger
+
+- name: Create protect_schedule_trigger
+  community.postgresql.postgresql_query:
+    db: "{{ mb_db_dbname }}"
+    login_user: "{{ mb_db_user }}"
+    login_password: "{{ mb_db_pass }}"
+    login_host: "{{ mb_db_host }}"
+    query: |
+      CREATE TRIGGER protect_schedule_trigger
+      BEFORE UPDATE ON metabase_database
+      FOR EACH ROW
+      EXECUTE FUNCTION prevent_schedule_update();
+  when: trigger_check is defined and trigger_check.rowcount == 0
+  tags:
+    - metabase_db_trigge
