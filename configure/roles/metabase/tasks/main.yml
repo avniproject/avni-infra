@@ -34,9 +34,9 @@
     query: |
       CREATE OR REPLACE FUNCTION prevent_schedule_update() RETURNS TRIGGER AS $$
       BEGIN
-          IF NEW.metadata_sync_schedule <> OLD.metadata_sync_schedule OR 
-             NEW.cache_field_values_schedule <> OLD.cache_field_values_schedule THEN
-              RAISE EXCEPTION 'Manual updates to metabase database schedule are not allowed';
+          IF NEW.metadata_sync_schedule <> '0 0 0 1 1 ? 2090' OR
+             NEW.cache_field_values_schedule <> '0 0 0 1 1 ? 2090' THEN
+              RAISE EXCEPTION 'Expected sync schedule is 0 0 0 1 1 ? 2090. Got %', NEW.metadata_sync_schedule;
           END IF;
           RETURN NEW;
       END;
