@@ -1,0 +1,111 @@
+---
+- name: Stop existing MCP server service if running
+  systemd:
+    name: "{{ application_name }}"
+    state: stopped
+  become: yes
+  ignore_errors: yes
+
+- name: Check if current deployment exists
+  stat:
+    path: "{{ application_dir }}/current"
+  register: current_deployment
+
+- name: Backup current deployment
+  block:
+    - name: Generate backup name
+      set_fact:
+        backup_name: "backup-{{ ansible_date_time.year }}{{ ansible_date_time.month }}{{ ansible_date_time.day }}-{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}{{ ansible_date_time.second }}"
+    
+    - name: Create new deployment directory
+      file:
+        path: "{{ application_dir }}/current"
+        state: directory
+        owner: "{{ application_user }}"
+        group: "{{ application_group }}"
+        mode: '0755'
+      become: yes
+
+    - name: Create the current deployment directory
+      stat:
+        path: "{{ application_dir }}/current"
+
+    - name: Keep only last 5 backups
+      shell: |
+        cd {{ mcp_backup_dir }}
+        ls -t | tail -n +6 | xargs -r rm -rf
+      become: yes
+      become_user: "{{ application_user }}"
+  when: current_deployment.stat.exists
+  become: yes
+
+- name: Copy deployable
+  copy:
+    remote_src: no
+    src: "{{application_zip_path}}/{{application_zip_file_name}}"
+    dest: "{{ application_dir }}/current"
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    mode: 0755
+
+- name: Extract deployment archive
+  unarchive:
+    src: "{{ application_dir }}/current/{{application_zip_file_name}}"
+    dest: "{{ application_dir }}/current"
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    remote_src: yes
+  become: yes
+
+- name: Install Python dependencies with uv
+  shell: |
+    cd {{ application_dir }}/current
+    export PATH="$HOME/.local/bin:$PATH"
+    uv sync --no-dev
+  become: yes
+  become_user: "{{ application_user }}"
+
+- name: Start MCP server service
+  systemd:
+    name: "{{ application_name }}"
+    state: started
+  become: yes
+
+- name: Wait for service to start
+  wait_for:
+    port: "{{ appserver_port }}"
+    host: "{{ mcp_server_host }}"
+    delay: 5
+    timeout: 30
+
+- name: Display service status
+  command: systemctl status {{ application_name }} --no-pager
+  become: yes
+  register: service_status
+
+- name: Show service status
+  debug:
+    msg: "{{ service_status.stdout_lines }}"
+
+- name: Show recent service logs
+  command: journalctl -u {{ application_name }} --no-pager -n 10
+  become: yes
+  register: recent_logs
+
+- name: Display recent logs
+  debug:
+    msg: "{{ recent_logs.stdout_lines }}"
+
+- name: Clean up temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  become: yes
+  loop:
+    - "/tmp/{{ application_zip_file_name }}"
+    - "/tmp/avni-mcp-server.service"
+  ignore_errors: yes
+
+- name: Log deployment completion
+  debug:
+    msg: "🎉 Avni MCP Server deployment completed successfully!"

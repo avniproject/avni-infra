@@ -1,0 +1,7 @@
+---
+
+- name: Ensure server group present
+  group: name={{ application_group }} state=present
+
+- name: Ensure server user present
+  user: name={{ application_user }} group={{ application_group }} home="/home/{{ application_user }}"  state=present

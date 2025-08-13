@@ -1,0 +1,41 @@
+---
+- name: Install uv for Python dependency management
+  shell: |
+    if ! command -v uv &> /dev/null; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+  become: yes
+  become_user: "{{ application_user }}"
+
+- name: Set up config for MCP application
+  template:
+    src: mcp_env.j2
+    dest: "{{ application_conf_file }}"
+    owner: root
+    group: root
+    mode: '644'
+  become: yes
+
+- name: Set up systemd config for MCP application
+  template:
+    src: avni-mcp-server.service.j2
+    dest: "{{ service_dir }}/{{ application_name }}.service"
+    owner: root
+    group: root
+    mode: '644'
+  become: yes
+  notify: 
+    - reload systemd
+    - restart mcp server
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: Enable MCP server service
+  systemd:
+    name: "{{ application_name }}"
+    enabled: yes
+  become: yes
