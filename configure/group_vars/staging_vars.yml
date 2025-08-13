@@ -8,6 +8,7 @@ ufw_allowed_ports:
   - "443"
   - "3000"
   - "8021"
+  - "8023"
 
 ## Integration server variables
 int_appserver_app_url: "int-staging.avniproject.org"
