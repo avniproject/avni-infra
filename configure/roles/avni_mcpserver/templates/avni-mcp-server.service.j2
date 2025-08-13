@@ -1,0 +1,57 @@
+[Unit]
+Description=Avni MCP Server
+Documentation=https://github.com/avniproject/avni-mcp-server
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User={{ application_user }}
+Group={{ application_group }}
+WorkingDirectory={{ application_dir }}/current
+Environment=PATH={{ application_dir }}/current/.venv/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile={{ application_conf_file }}
+
+# Start command using uv to run the server
+ExecStart={{ mcp_python_executable }} run python {{ mcp_main_script }}
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=no
+ReadWritePaths={{ application_dir }}/current {{ application_log_dir }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Network security
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+
+# System call filtering
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Process limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Memory and CPU limits (adjust based on your server capacity)
+MemoryLimit=1G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ application_name }}
+
+[Install]
+WantedBy=multi-user.target
