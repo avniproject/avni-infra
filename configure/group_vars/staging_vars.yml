@@ -91,6 +91,7 @@ avni_scheduled_job_storage_management_cron: "0 0 * * * *"
 
 ## MCP server variables
 avni_mcp_server_url: "https://staging-mcp.avniproject.org/sse"
+avni_base_url: "https://staging.avniproject.org"
 
 # Copilot variables
 avni_copilot_enabled: "true"

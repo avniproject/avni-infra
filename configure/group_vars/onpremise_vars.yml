@@ -9,6 +9,7 @@ ufw_allowed_ports:
   - "3000"
   - "8021"
   - "8022"
+  - "8023"
 
 ## ETL server variables
 etl_appserver_app_url: "etl.security.lfe.avniproject.org"
@@ -70,6 +71,7 @@ avni_reporting_system_1_url: ""
 
 ## MCP server variables
 avni_mcp_server_url: "https://<tbd>-mcp.avniproject.org/sse"
+avni_base_url: "https://<tbd>.avniproject.org"
 
 # Copilot variables
 avni_copilot_enabled: "false"

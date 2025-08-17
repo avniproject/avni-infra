@@ -8,6 +8,7 @@ ufw_allowed_ports:
   - "443"
   - "3000"
   - "8021"
+  - "8023"
 
 ### Integration server variables
 int_appserver_app_url: "etl-staging.rwb.avniproject.org"
@@ -86,6 +87,7 @@ avni_reporting_system_2_url: ""
 
 ## MCP server variables
 avni_mcp_server_url: "https://<tbd>-mcp.rwb.avniproject.org/sse"
+avni_base_url: "https://staging.avniproject.org"
 
 # Copilot variables
 avni_copilot_enabled: "false"
