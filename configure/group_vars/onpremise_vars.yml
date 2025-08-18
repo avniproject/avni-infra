@@ -70,7 +70,7 @@ avni_reporting_system_1_name: ""
 avni_reporting_system_1_url: ""
 
 ## MCP server variables
-avni_mcp_server_url: "https://<tbd>-mcp.avniproject.org/sse"
+avni_mcp_server_url: "https://<tbd>-mcp.avniproject.org"
 avni_base_url: "https://<tbd>.avniproject.org"
 
 # Copilot variables
