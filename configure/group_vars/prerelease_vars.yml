@@ -31,7 +31,7 @@ int_server_opts: " --enable-preview"
 
 ## ETL server variables
 etl_appserver_app_url: "int-prerelease.avniproject.org"
-
+etl_server_opts: " -Xms1228m -Xmx1228m -XX:MaxMetaspaceSize=256m -XX:CompressedClassSpaceSize=128m -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"
 bugsnag_stage: "prerelease"
 
 etl_allowed_origins: "https://prerelease.avniproject.org,https://int-prerelease.avniproject.org"

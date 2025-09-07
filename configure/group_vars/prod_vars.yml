@@ -33,7 +33,7 @@ int_server_opts: " --enable-preview"
 ## ETL server variables
 etl_appserver_app_url: "int-prod.avniproject.org"
 bugsnag_stage: "prod"
-etl_server_opts: " -Dnewrelic.environment=production -javaagent:/opt/newrelic/newrelic.jar"
+etl_server_opts: " -Dnewrelic.environment=production -javaagent:/opt/newrelic/newrelic.jar -Xms1228m -Xmx1228m -XX:MaxMetaspaceSize=256m -XX:CompressedClassSpaceSize=128m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/avni-etl-service/ -XX:OnOutOfMemoryError=\"/bin/kill -9 %p\" -XX:ErrorFile=/var/log/avni-etl-service/jvm.log -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"
 
 etl_allowed_origins: "https://app.avniproject.org,https://int-prod.avniproject.org"
 avni_idp_type: "cognito"
