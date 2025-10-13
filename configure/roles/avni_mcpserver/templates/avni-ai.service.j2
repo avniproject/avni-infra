@@ -1,6 +1,6 @@
 [Unit]
 Description=Avni MCP Server
-Documentation=https://github.com/avniproject/avni-mcp-server
+Documentation=https://github.com/avniproject/avni-ai
 After=network.target network-online.target
 Wants=network-online.target
 
@@ -13,7 +13,7 @@ Environment=PATH={{ application_dir }}/current/.venv/bin:/usr/local/bin:/usr/bin
 EnvironmentFile={{ application_conf_file }}
 
 # Start command using uv to run the server
-ExecStart={{ mcp_python_executable }} run python {{ mcp_main_script }}
+ExecStart={{ mcp_python_executable }} run {{ mcp_main_script }}
 ExecReload=/bin/kill -HUP $MAINPID
 
 # Restart policy

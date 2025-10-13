@@ -103,7 +103,7 @@
   become: yes
   loop:
     - "/tmp/{{ application_zip_file_name }}"
-    - "/tmp/avni-mcp-server.service"
+    - "/tmp/avni-ai.service"
   ignore_errors: yes
 
 - name: Log deployment completion

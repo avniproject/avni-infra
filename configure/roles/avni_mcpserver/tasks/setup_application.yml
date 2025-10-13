@@ -19,7 +19,7 @@
 
 - name: Set up systemd config for MCP application
   template:
-    src: avni-mcp-server.service.j2
+    src: avni-ai.service.j2
     dest: "{{ service_dir }}/{{ application_name }}.service"
     owner: root
     group: root
