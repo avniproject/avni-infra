@@ -221,6 +221,10 @@ deploy-etl-rwb-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=etl-1.0.0-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/rwb_prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"etl","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-etl-user","deploy_app_env":"rwb_prod","deploy_app_role":"etl_appserver","deploy_app_env_vars_file":"group_vars/rwb_prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/rwb_prod-secret-vars.yml.enc"}'
 
+deploy-int-server-prerelease: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/prerelease  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"prerelease","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/prerelease_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prerelease-secret-vars.yml.enc"}'
+
 deploy-int-server-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"staging","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}'
@@ -236,6 +240,10 @@ deploy-int-server-rwb-staging: check-app-zip-path check-vault-pwd-file
 deploy-int-server-rwb-prod: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=integrator-0.0.2-SNAPSHOT.jar ansible-playbook deploy_app_to_servers.yml -i inventory/rwb_prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"etlservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"rwb_prod","deploy_app_role":"int_appserver","deploy_app_env_vars_file":"group_vars/rwb_prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/rwb_prod-secret-vars.yml.enc"}'
+
+deploy-int-webapp-prerelease: check-web-zip-path check-vault-pwd-file
+	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/prerelease  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"int","deploy_app_hosts":"webservers","deploy_app_remote_user":"avni-int-user","deploy_app_env":"prerelease","deploy_app_role":"int_web","deploy_app_env_vars_file":"group_vars/prerelease_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prerelease-secret-vars.yml.enc"}'
 
 deploy-int-webapp-staging: check-web-zip-path check-vault-pwd-file
 	WEBAPP_ZIP_PATH=$(web_zip_path) WEBAPP_ZIP_FILE_NAME=avni-int-admin-app.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
