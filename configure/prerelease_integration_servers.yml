@@ -15,8 +15,8 @@
     - base
     - security
     - jdk
-#    - int_web
-#    - int_appserver
+    - int_web
+    - int_appserver
     - nginx
     - certbot
-#    - nginx_appserver
+    - nginx_appserver

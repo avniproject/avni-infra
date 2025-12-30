@@ -29,6 +29,12 @@ lahi_avni_api_url: "https://prerelease.avniproject.org"
 lahi_schedule_cron: "-"
 int_server_opts: " --enable-preview"
 
+## Bahmni Integration variables (JSS)
+bahmni_schedule_cron: "0 0/10 * * * ?"
+bahmni_schedule_cron_full_error: "0 0 2 * * ?"
+bahmni_app_tasks: "all"
+bahmni_avni_idp_type: "Cognito"
+
 ## ETL server variables
 etl_appserver_app_url: "int-prerelease.avniproject.org"
 etl_server_opts: " -Xms1228m -Xmx1228m -XX:MaxMetaspaceSize=256m -XX:CompressedClassSpaceSize=128m -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"

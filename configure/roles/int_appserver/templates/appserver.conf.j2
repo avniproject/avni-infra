@@ -33,3 +33,15 @@ export LAHI_INT_SCHEDULE_CRON_FULL_ERROR="-"
 {% if lahi_glific_gcp_project_credentials_path is defined %}
 export GLIFIC_GCP_CREDENTIALS_FILE=file:{{lahi_glific_gcp_project_credentials_path}}
 {% endif %}
+{% if bahmni_openmrs_base_url is defined %}
+export OPENMRS_BASE_URL={{bahmni_openmrs_base_url}}
+export OPENMRS_USER={{bahmni_openmrs_user}}
+export OPENMRS_PASSWORD={{bahmni_openmrs_password}}
+export BAHMNI_AVNI_API_URL={{bahmni_avni_api_url}}
+export BAHMNI_AVNI_API_USER={{bahmni_avni_api_user}}
+export BAHMNI_AVNI_API_PASSWORD={{bahmni_avni_api_password}}
+export BAHMNI_AVNI_IDP_TYPE={{bahmni_avni_idp_type}}
+export BAHMNI_SCHEDULE_CRON="{{bahmni_schedule_cron}}"
+export BAHMNI_SCHEDULE_CRON_FULL_ERROR="{{bahmni_schedule_cron_full_error}}"
+export BAHMNI_INT_APP_TASKS={{bahmni_app_tasks}}
+{% endif %}
