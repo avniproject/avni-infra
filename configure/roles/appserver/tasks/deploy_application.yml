@@ -3,6 +3,7 @@
   local_action:
     module: ansible.builtin.stat
     path: "{{application_zip_path}}/{{application_zip_file_name}}"
+  become: no
   register: st
 
 - name: Fail if deployable does not exist
