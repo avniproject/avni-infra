@@ -90,7 +90,7 @@ metabase_db_url: "jdbc:postgresql://stagingdb.openchs.org:5432/reportingdb"
 avni_scheduled_job_storage_management_cron: "0 0 * * * *"
 
 ## MCP server variables
-avni_mcp_server_url: "https://staging-mcp.avniproject.org"
+avni_mcp_server_url: "https://prerelease-mcp.avniproject.org"
 
 # Copilot variables
 avni_copilot_token: "ynGfdvGlFWJhmetX"
