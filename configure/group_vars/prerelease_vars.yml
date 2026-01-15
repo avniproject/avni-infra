@@ -95,7 +95,7 @@ avni_reporting_metabase_api_url: "https://reporting-green.avniproject.org/api"
 metabase_db_url: "jdbc:postgresql://stagingdb.openchs.org:5432/reportingdb"
 
 ## AI server variables
-avni_ai_server_url: "https://tbd-ai.avniproject.org"
+avni_ai_server_url: "https://prerelease-ai.avniproject.org"
 
 # Copilot variables
 avni_copilot_token: "UEeH2KZWV4vhACd2"
