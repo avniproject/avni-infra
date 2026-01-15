@@ -94,8 +94,8 @@ avni_reporting_system_2_url: "https://reporting-superset.avniproject.org/login/"
 avni_reporting_metabase_api_url: "https://reporting-green.avniproject.org/api"
 metabase_db_url: "jdbc:postgresql://stagingdb.openchs.org:5432/reportingdb"
 
-## MCP server variables
-avni_mcp_server_url: "https://tbd-mcp.avniproject.org"
+## AI server variables
+avni_ai_server_url: "https://tbd-ai.avniproject.org"
 
 # Copilot variables
 avni_copilot_token: "UEeH2KZWV4vhACd2"

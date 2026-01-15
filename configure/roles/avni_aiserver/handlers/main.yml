@@ -4,8 +4,8 @@
     daemon_reload: yes
   become: yes
 
-- name: restart mcp server
+- name: restart ai server
   systemd:
-    name: "{{ mcp_appserver_application_name }}"
+    name: "{{ ai_appserver_application_name }}"
     state: restarted
   become: yes

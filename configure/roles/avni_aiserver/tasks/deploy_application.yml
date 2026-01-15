@@ -1,5 +1,5 @@
 ---
-- name: Stop existing MCP server service if running
+- name: Stop existing AI server service if running
   systemd:
     name: "{{ application_name }}"
     state: stopped
@@ -32,7 +32,7 @@
 
     - name: Keep only last 5 backups
       shell: |
-        cd {{ mcp_backup_dir }}
+        cd {{ ai_backup_dir }}
         ls -t | tail -n +6 | xargs -r rm -rf
       become: yes
       become_user: "{{ application_user }}"
@@ -65,7 +65,7 @@
   become: yes
   become_user: "{{ application_user }}"
 
-- name: Start MCP server service
+- name: Start AI server service
   systemd:
     name: "{{ application_name }}"
     state: started
@@ -74,7 +74,7 @@
 - name: Wait for service to start
   wait_for:
     port: "{{ appserver_port }}"
-    host: "{{ mcp_server_host }}"
+    host: "{{ ai_server_host }}"
     delay: 5
     timeout: 30
 
@@ -108,4 +108,4 @@
 
 - name: Log deployment completion
   debug:
-    msg: "🎉 Avni MCP Server deployment completed successfully!"
+    msg: "🎉 Avni AI Server deployment completed successfully!"

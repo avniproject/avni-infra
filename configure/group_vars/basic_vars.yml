@@ -33,19 +33,19 @@ avni_appserver_group: "avni-server-grp"
 avni_service_dir: "/usr/lib/systemd/system"
 avni_server_public_url: "test.avniproject.org"
 
-## Avni MCP server variables
-mcp_appserver_application_name: "avni-ai"
-mcp_appserver_port: 8023
-mcp_appserver_user: "avni-ai-user"
-mcp_appserver_group: "avni-ai-grp"
-mcp_service_dir: "/usr/lib/systemd/system"
-mcp_appserver_root_dir: "/opt/avni-ai"
-mcp_backup_dir: "/opt/backups/avni-ai"
-mcp_log_dir: "/var/log/avni-ai"
-mcp_python_executable: "/home/avni-ai-user/.local/bin/uv"
-mcp_main_script: "avni-mcp-server"
-mcp_transport: "https"
-mcp_host: "0.0.0.0"
+## Avni AI server variables
+ai_appserver_application_name: "avni-ai"
+ai_appserver_port: 8023
+ai_appserver_user: "avni-ai-user"
+ai_appserver_group: "avni-ai-grp"
+ai_service_dir: "/usr/lib/systemd/system"
+ai_appserver_root_dir: "/opt/avni-ai"
+ai_backup_dir: "/opt/backups/avni-ai"
+ai_log_dir: "/var/log/avni-ai"
+ai_python_executable: "/home/avni-ai-user/.local/bin/uv"
+ai_main_script: "avni-ai-server"
+ai_transport: "https"
+ai_host: "0.0.0.0"
 
 ## Rules server variables
 openchs_upload_user_user_name: "upload-user"

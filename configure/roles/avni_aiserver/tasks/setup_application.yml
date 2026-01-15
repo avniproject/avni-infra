@@ -8,16 +8,16 @@
   become: yes
   become_user: "{{ application_user }}"
 
-- name: Set up config for MCP application
+- name: Set up config for AI application
   template:
-    src: mcp_env.j2
+    src: ai_env.j2
     dest: "{{ application_conf_file }}"
     owner: root
     group: root
     mode: '644'
   become: yes
 
-- name: Set up systemd config for MCP application
+- name: Set up systemd config for AI application
   template:
     src: avni-ai.service.j2
     dest: "{{ service_dir }}/{{ application_name }}.service"
@@ -27,14 +27,14 @@
   become: yes
   notify: 
     - reload systemd
-    - restart mcp server
+    - restart ai server
 
 - name: Reload systemd daemon
   systemd:
     daemon_reload: yes
   become: yes
 
-- name: Enable MCP server service
+- name: Enable AI server service
   systemd:
     name: "{{ application_name }}"
     enabled: yes

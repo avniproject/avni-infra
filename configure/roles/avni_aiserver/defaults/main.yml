@@ -1,0 +1,24 @@
+---
+# Application settings
+application_name: "{{ ai_appserver_application_name }}"
+app_description: Avni AI Server
+application_user: "{{ ai_appserver_user }}"
+application_group: "{{ ai_appserver_group }}"
+appserver_port: "{{ ai_appserver_port }}"
+service_dir: "{{ ai_service_dir }}"
+
+# Application path
+application_dir: "{{ ai_appserver_root_dir }}"
+application_log_dir: "{{ ai_log_dir }}"
+application_conf_file: "/etc/{{ ai_appserver_application_name }}.conf"
+
+# AI Server specific settings
+ai_python_executable: "{{ ai_python_executable }}"
+ai_main_script: "{{ ai_main_script }}"
+ai_transport_type: "{{ ai_transport }}"
+ai_server_host: "{{ ai_host }}"
+log_level: "info"
+
+# Application archive settings
+application_zip_path: "{{ lookup('env','APPLICATION_ZIP_PATH') }}"
+application_zip_file_name: "{{ lookup('env','APPLICATION_ZIP_FILE_NAME') }}"

@@ -9,7 +9,7 @@
   become: yes
   loop:
     - "{{ application_dir }}"
-    - "{{ mcp_backup_dir }}"
+    - "{{ ai_backup_dir }}"
     - "{{ application_log_dir }}"
 
 - name: Create new deployment directory

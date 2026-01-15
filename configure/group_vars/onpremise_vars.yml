@@ -69,8 +69,8 @@ avni_reporting_system_0_url: ""
 avni_reporting_system_1_name: ""
 avni_reporting_system_1_url: ""
 
-## MCP server variables
-avni_mcp_server_url: "https://tbd-mcp.avniproject.org"
+## AI server variables
+avni_ai_server_url: "https://tbd-ai.avniproject.org"
 
 # Copilot variables
 avni_copilot_token: "zzLh8cQNeOZFRVzv"
