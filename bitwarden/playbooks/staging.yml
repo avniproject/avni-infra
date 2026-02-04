@@ -1,0 +1,27 @@
+---
+- name: Deploy Bitwarden to Staging
+  hosts: bitwarden
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/all.yml"
+    - "{{ playbook_dir }}/../group_vars/staging.yml"
+    - "{{ playbook_dir }}/../group_vars/staging-secret-vars.yml"
+
+  pre_tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - bitwarden_domain is defined
+          - bitwarden_installation_id is defined
+          - bitwarden_installation_key is defined
+        fail_msg: "Required variables are not defined. Check your group_vars and secret files."
+
+  roles:
+    - bitwarden
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "✅ Bitwarden staging deployment completed!"

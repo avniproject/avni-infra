@@ -1,0 +1,225 @@
+---
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install system packages for Bitwarden
+  apt:
+    name: "{{ system_packages }}"
+    state: present
+  become: yes
+
+# Docker setup (fix existing installation if needed)
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_installed
+  failed_when: false
+  changed_when: false
+
+- name: Add ubuntu user to docker group (fix existing Docker)
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+  become: yes
+  when: docker_installed.rc == 0
+
+- name: Start and enable Docker service (if installed)
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+  become: yes
+  when: docker_installed.rc == 0
+
+- name: Install Docker if not present
+  block:
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      become: yes
+
+    - name: Add Docker repository
+      lineinfile:
+        path: /etc/apt/sources.list.d/docker.list
+        line: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        create: yes
+      become: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        update_cache: yes
+        state: present
+      become: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+      become: yes
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+  when: docker_installed.rc != 0
+
+- name: Ensure bitwarden group present
+  group:
+    name: "{{ bitwarden_group }}"
+    state: present
+  become: yes
+
+- name: Ensure bitwarden user present
+  user:
+    name: "{{ bitwarden_user }}"
+    group: "{{ bitwarden_group }}"
+    groups: docker
+    state: present
+  become: yes
+
+- name: Create bitwarden directory
+  file:
+    path: "{{ bitwarden_install_dir }}"
+    state: directory
+    owner: "{{ bitwarden_user }}"
+    group: "{{ bitwarden_group }}"
+    mode: '0700'
+  become: yes
+
+- name: Create bitwarden subdirectories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ bitwarden_user }}"
+    group: "{{ bitwarden_group }}"
+    mode: '0755'
+  loop:
+    - "{{ bitwarden_install_dir }}/backups"
+    - "{{ bitwarden_install_dir }}/logs"
+  become: yes
+
+- name: Download official Bitwarden installation script
+  get_url:
+    url: "https://func.bitwarden.com/api/dl/?app=self-host&platform=linux"
+    dest: "{{ bitwarden_install_dir }}/bitwarden.sh"
+    owner: "{{ bitwarden_user }}"
+    group: "{{ bitwarden_group }}"
+    mode: '0700'
+  become: yes
+
+- name: Check if Bitwarden is already installed
+  stat:
+    path: "{{ bitwarden_install_dir }}/bwdata"
+  register: bitwarden_installed
+
+- name: Run official Bitwarden installation (non-interactive)
+  expect:
+    command: ./bitwarden.sh install
+    chdir: "{{ bitwarden_install_dir }}"
+    responses:
+      "Enter the domain name for your Bitwarden instance": "{{ bitwarden_domain }}"
+      "Do you want to use Let's Encrypt": "n"
+      "Enter the database name for your Bitwarden instance": "vault"
+      "Enter your installation id": "{{ bitwarden_installation_id }}"
+      "Enter your installation key": "{{ bitwarden_installation_key }}"
+      "Enter your region": "US"
+      "Do you have a SSL certificate to use": "n"
+      "Do you want to generate a self-signed SSL certificate": "n"
+    timeout: 600
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+  when: not bitwarden_installed.stat.exists
+
+- name: Configure Bitwarden environment variables
+  template:
+    src: global.override.env.j2
+    dest: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+    owner: "{{ bitwarden_user }}"
+    group: "{{ bitwarden_group }}"
+    mode: '0600'
+  become: yes
+  notify: restart bitwarden
+
+
+- name: Configure Bitwarden for ALB proxy (HTTP backend)
+  blockinfile:
+    path: "{{ bitwarden_install_dir }}/bwdata/config.yml"
+    marker: "# {mark} ALB PROXY CONFIGURATION"
+    block: |
+      # ALB Proxy Configuration - HTTP backend with HTTPS frontend
+      http_port: 80
+      ssl: false
+      ssl_managed_lets_encrypt: false
+    insertafter: EOF
+  become: yes
+  become_user: "{{ bitwarden_user }}"
+  notify: rebuild bitwarden
+  when: bitwarden_installed.stat.exists
+
+- name: Create systemd service file
+  template:
+    src: bitwarden.service.j2
+    dest: /etc/systemd/system/bitwarden.service
+    mode: '0644'
+  become: yes
+  notify:
+    - reload systemd
+    - restart bitwarden
+
+- name: Create backup script (wraps official backup)
+  template:
+    src: backup.sh.j2
+    dest: "{{ bitwarden_install_dir }}/backup-enhanced.sh"
+    owner: "{{ bitwarden_user }}"
+    group: "{{ bitwarden_group }}"
+    mode: '0755'
+  become: yes
+  when: bitwarden_backup_enabled
+
+- name: Create systemd backup service
+  template:
+    src: bitwarden-backup.service.j2
+    dest: /etc/systemd/system/bitwarden-backup.service
+    mode: '0644'
+  become: yes
+  when: bitwarden_backup_enabled
+
+- name: Create systemd backup timer
+  template:
+    src: bitwarden-backup.timer.j2
+    dest: /etc/systemd/system/bitwarden-backup.timer
+    mode: '0644'
+  become: yes
+  when: bitwarden_backup_enabled
+  notify:
+    - reload systemd
+    - enable backup timer
+
+- name: Start Bitwarden using official script
+  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh start"
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+  register: bitwarden_start_result
+
+- name: Enable Bitwarden systemd service for auto-start
+  systemd:
+    name: bitwarden
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+
+- name: Display deployment status
+  debug:
+    msg: 
+      - "✅ Bitwarden deployment completed!"

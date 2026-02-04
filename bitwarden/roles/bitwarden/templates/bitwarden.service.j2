@@ -1,0 +1,19 @@
+[Unit]
+Description=Bitwarden Password Manager
+Documentation=https://bitwarden.com/
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory={{ bitwarden_install_dir }}
+ExecStart={{ bitwarden_install_dir }}/bitwarden.sh start
+ExecStop={{ bitwarden_install_dir }}/bitwarden.sh stop
+ExecReload={{ bitwarden_install_dir }}/bitwarden.sh restart
+TimeoutStartSec=300
+User={{ bitwarden_user }}
+Group={{ bitwarden_group }}
+
+[Install]
+WantedBy=multi-user.target

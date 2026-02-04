@@ -1,0 +1,3 @@
+---
+bitwarden_domain: vault.avniproject.org
+bitwarden_backup_retention_days: 90

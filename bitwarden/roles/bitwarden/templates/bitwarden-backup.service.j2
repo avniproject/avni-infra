@@ -1,0 +1,10 @@
+[Unit]
+Description=Enhanced Bitwarden Backup Service
+After=bitwarden.service
+
+[Service]
+Type=oneshot
+ExecStart={{ bitwarden_install_dir }}/backup-enhanced.sh
+User={{ bitwarden_user }}
+Group={{ bitwarden_group }}
+WorkingDirectory={{ bitwarden_install_dir }}

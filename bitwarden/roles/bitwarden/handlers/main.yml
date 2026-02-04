@@ -1,0 +1,22 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: restart bitwarden
+  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh restart"
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+
+- name: rebuild bitwarden
+  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh rebuild"
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+
+- name: enable backup timer
+  systemd:
+    name: bitwarden-backup.timer
+    enabled: yes
+    state: started
+  become: yes

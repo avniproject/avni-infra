@@ -1,0 +1,40 @@
+---
+- name: Deploy Bitwarden to Production
+  hosts: bitwarden
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - "{{ playbook_dir }}/../group_vars/all.yml"
+    - "{{ playbook_dir }}/../group_vars/production.yml"
+    - "{{ playbook_dir }}/../group_vars/production-secret-vars.yml"
+
+  pre_tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - bitwarden_domain is defined
+          - bitwarden_installation_id is defined
+          - bitwarden_installation_key is defined
+        fail_msg: "Required variables are not defined. Check your group_vars and secret files."
+
+  roles:
+    - bitwarden
+
+  post_tasks:
+    - name: Final fix - Ensure base vault URI is HTTPS (after rebuild)
+      lineinfile:
+        path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+        regexp: '^globalSettings__baseServiceUri__vault=http'
+        line: 'globalSettings__baseServiceUri__vault=https://{{ bitwarden_domain }}'
+      become: yes
+      become_user: "{{ bitwarden_user }}"
+
+    - name: Final restart after URI fix
+      shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh restart"
+      become_user: "{{ bitwarden_user }}"
+      become: yes
+
+    - name: Display deployment summary
+      debug:
+        msg:
+          - "✅ Bitwarden production deployment completed!"
