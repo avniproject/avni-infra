@@ -15,18 +15,15 @@ cd {{ bitwarden_install_dir }}
 echo "Running official database backup..."
 docker exec -i bitwarden-mssql /backup-db.sh
 
-# Find the latest database backup file
 LATEST_DB_BACKUP=$(ls -t bwdata/mssql/backups/vault_FULL_*.BAK 2>/dev/null | head -1)
 if [ -n "$LATEST_DB_BACKUP" ]; then
     cp "$LATEST_DB_BACKUP" "$BACKUP_DIR/database_backup_$DATE.bak"
     echo "Database backup: $BACKUP_DIR/database_backup_$DATE.bak"
 fi
 
-# Backup complete configuration  
 tar czf "$BACKUP_DIR/config_backup_$DATE.tar.gz" -C {{ bitwarden_install_dir }} bwdata/
 echo "Configuration backup: $BACKUP_DIR/config_backup_$DATE.tar.gz"
 
-# Create backup manifest
 cat > "$BACKUP_DIR/backup_manifest_$DATE.txt" << 'EOF'
 Official Bitwarden Backup
 Domain: {{ bitwarden_domain }}
@@ -36,7 +33,6 @@ Backup ID: $DATE
 Backup Method: Official ./bitwarden.sh backup command
 EOF
 
-# Clean old backups
 find "$BACKUP_DIR" -name "database_backup_*.bak" -mtime +$RETENTION_DAYS -delete
 find "$BACKUP_DIR" -name "config_backup_*.tar.gz" -mtime +$RETENTION_DAYS -delete
 find "$BACKUP_DIR" -name "backup_manifest_*.txt" -mtime +$RETENTION_DAYS -delete
