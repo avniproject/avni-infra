@@ -181,12 +181,6 @@
     - reload systemd
     - enable backup timer
 
-- name: Start Bitwarden using official script
-  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh start"
-  become_user: "{{ bitwarden_user }}"
-  become: yes
-  register: bitwarden_start_result
-
 - name: Initialize database for new installation
   shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh updatedb"
   become_user: "{{ bitwarden_user }}"
@@ -194,8 +188,8 @@
   failed_when: false
   when: not bitwarden_installed.stat.exists
 
-- name: Restart Bitwarden after configuration
-  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh restart"
+- name: Start Bitwarden with complete configuration
+  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh start"
   become_user: "{{ bitwarden_user }}"
   become: yes
 
