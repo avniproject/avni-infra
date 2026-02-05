@@ -1,6 +1,12 @@
 ---
 system_packages:
+  - curl
+  - wget
   - expect
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
 
 bitwarden_user: bitwarden
 bitwarden_group: bitwarden
@@ -11,6 +17,7 @@ bitwarden_installation_key: "{{ bitwarden_installation_key }}"
 bitwarden_smtp_host: "{{ bitwarden_smtp_host }}"
 bitwarden_smtp_username: "{{ bitwarden_smtp_username }}"
 bitwarden_smtp_password: "{{ bitwarden_smtp_password }}"
+bitwarden_identity_cert_password: "{{ bitwarden_identity_cert_password }}"
 bitwarden_disable_user_registration: false
 bitwarden_enable_cloud_communication: false
 bitwarden_backup_enabled: true

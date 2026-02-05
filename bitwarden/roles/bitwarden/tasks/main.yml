@@ -12,14 +12,13 @@
     state: present
   become: yes
 
-# Docker setup (fix existing installation if needed)
 - name: Check if Docker is installed
   command: which docker
   register: docker_installed
   failed_when: false
   changed_when: false
 
-- name: Add ubuntu user to docker group (fix existing Docker)
+- name: Add ubuntu user to docker group (if Docker exists)
   user:
     name: ubuntu
     groups: docker
@@ -27,7 +26,7 @@
   become: yes
   when: docker_installed.rc == 0
 
-- name: Start and enable Docker service (if installed)
+- name: Start and enable Docker service (if already installed)
   systemd:
     name: docker
     state: started
@@ -118,54 +117,30 @@
     mode: '0700'
   become: yes
 
-- name: Check if Bitwarden is already installed
+- name: Check if Bitwarden is already installed  
   stat:
-    path: "{{ bitwarden_install_dir }}/bwdata"
+    path: "{{ bitwarden_install_dir }}/bwdata/docker/docker-compose.yml"
   register: bitwarden_installed
 
-- name: Run official Bitwarden installation (non-interactive)
+- name: Run official Bitwarden installation
   expect:
     command: ./bitwarden.sh install
     chdir: "{{ bitwarden_install_dir }}"
     responses:
       "Enter the domain name for your Bitwarden instance": "{{ bitwarden_domain }}"
-      "Do you want to use Let's Encrypt": "n"
+      "Do you want to use Let's Encrypt": "y"
+      "Enter your email address": "{{ bitwarden_admin_email }}"
       "Enter the database name for your Bitwarden instance": "vault"
       "Enter your installation id": "{{ bitwarden_installation_id }}"
       "Enter your installation key": "{{ bitwarden_installation_key }}"
       "Enter your region": "US"
-      "Do you have a SSL certificate to use": "n"
-      "Do you want to generate a self-signed SSL certificate": "n"
-    timeout: 600
+    timeout: 900
   become_user: "{{ bitwarden_user }}"
   become: yes
   when: not bitwarden_installed.stat.exists
 
-- name: Configure Bitwarden environment variables
-  template:
-    src: global.override.env.j2
-    dest: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
-    owner: "{{ bitwarden_user }}"
-    group: "{{ bitwarden_group }}"
-    mode: '0600'
-  become: yes
-  notify: restart bitwarden
-
-
-- name: Configure Bitwarden for ALB proxy (HTTP backend)
-  blockinfile:
-    path: "{{ bitwarden_install_dir }}/bwdata/config.yml"
-    marker: "# {mark} ALB PROXY CONFIGURATION"
-    block: |
-      # ALB Proxy Configuration - HTTP backend with HTTPS frontend
-      http_port: 80
-      ssl: false
-      ssl_managed_lets_encrypt: false
-    insertafter: EOF
-  become: yes
-  become_user: "{{ bitwarden_user }}"
-  notify: rebuild bitwarden
-  when: bitwarden_installed.stat.exists
+- name: Configure Bitwarden settings safely
+  include_tasks: config.yml
 
 - name: Create systemd service file
   template:
@@ -211,6 +186,18 @@
   become_user: "{{ bitwarden_user }}"
   become: yes
   register: bitwarden_start_result
+
+- name: Initialize database for new installation
+  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh updatedb"
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+  failed_when: false
+  when: not bitwarden_installed.stat.exists
+
+- name: Restart Bitwarden after configuration
+  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh restart"
+  become_user: "{{ bitwarden_user }}"
+  become: yes
 
 - name: Enable Bitwarden systemd service for auto-start
   systemd:

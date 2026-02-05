@@ -1,5 +1,5 @@
 [bitwarden]
-ssh.prod.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+vault.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
 
 [bitwarden:vars]
 bitwarden_domain=vault.avniproject.org

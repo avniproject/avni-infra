@@ -1,0 +1,78 @@
+---
+
+- name: Ensure HTTPS base service URLs (override HTTP defaults)
+  lineinfile:
+    path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+    regexp: '^globalSettings__baseServiceUri__vault='
+    line: 'globalSettings__baseServiceUri__vault=https://{{ bitwarden_domain }}'
+    create: yes
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+
+- name: Configure SMTP settings (only if SMTP host provided)
+  lineinfile:
+    path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+    regexp: '^globalSettings__mail__smtp__{{ item.key }}='
+    line: 'globalSettings__mail__smtp__{{ item.key }}={{ item.value }}'
+    create: yes
+  loop:
+    - { key: 'host', value: '{{ bitwarden_smtp_host }}' }
+    - { key: 'port', value: '587' }
+    - { key: 'ssl', value: 'false' }
+    - { key: 'username', value: '{{ bitwarden_smtp_username }}' }
+    - { key: 'password', value: '{{ bitwarden_smtp_password }}' }
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+  when: bitwarden_smtp_host and bitwarden_smtp_host != ''
+
+- name: Configure admin email access
+  lineinfile:
+    path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+    regexp: '^adminSettings__admins='
+    line: 'adminSettings__admins={{ bitwarden_admin_email }}'
+    create: yes
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+
+- name: Ensure identity certificate password exists
+  lineinfile:
+    path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+    regexp: '^globalSettings__identityServer__certificatePassword='
+    line: 'globalSettings__identityServer__certificatePassword={{ bitwarden_identity_cert_password }}'
+    create: yes
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+
+- name: Extract database password for new installations
+  shell: "docker exec bitwarden-mssql env | grep SA_PASSWORD | cut -d'=' -f2"
+  register: actual_db_password
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+  failed_when: false
+  when: not bitwarden_installed.stat.exists
+
+- name: Configure database connection for new installations
+  lineinfile:
+    path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+    regexp: '^globalSettings__sqlServer__connectionString='
+    line: 'globalSettings__sqlServer__connectionString="Data Source=tcp:mssql,1433;Initial Catalog=vault;Persist Security Info=False;User ID=sa;Password={{ actual_db_password.stdout }};MultipleActiveResultSets=False;Connect Timeout=30;Encrypt=True;TrustServerCertificate=True"'
+    create: yes
+  become_user: "{{ bitwarden_user }}"
+  become: yes
+  when: 
+    - not bitwarden_installed.stat.exists
+    - actual_db_password.stdout is defined 
+    - actual_db_password.stdout != ""
+
+- name: Generate RSA identity certificate for new installation (Let's Encrypt compatibility)
+  shell: |
+    openssl req -x509 -newkey rsa:4096 -keyout /tmp/identity-rsa.key -out /tmp/identity-rsa.crt -days 365 -nodes -subj "/CN={{ bitwarden_domain }}"
+    openssl pkcs12 -export -out {{ bitwarden_install_dir }}/bwdata/identity/identity.pfx \
+      -inkey /tmp/identity-rsa.key \
+      -in /tmp/identity-rsa.crt \
+      -name "IdentityServer" \
+      -passout pass:{{ bitwarden_identity_cert_password }}
+    rm /tmp/identity-rsa.key /tmp/identity-rsa.crt
+    chown {{ bitwarden_user }}:{{ bitwarden_group }} {{ bitwarden_install_dir }}/bwdata/identity/identity.pfx
+  become: yes
+  when: not bitwarden_installed.stat.exists
