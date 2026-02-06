@@ -22,12 +22,22 @@ DB_NAME = os.getenv('SUPERSET_DB_NAME')
 
 SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://"+DB_USER+":"+DB_PASSWORD+"@"+DB_URL+":"+DB_PORT+"/"+DB_NAME
 
-#icon flags
-APP_ICON = "/static/assets/images/avni.png"
+THEME_DEFAULT = {
+    "token": {
+        "brandLogoUrl": "/static/assets/images/avni.png",
+        "brandLogoHref": "/",
+        "brandLogoAlt": "Avni Superset",
+    }
+}
 
-LOGO_TARGET_PATH = '/'
-
-LOGO_TOOLTIP = "Go Home"
+THEME_DARK = {
+    "algorithm": "dark",
+    "token": {
+        "brandLogoUrl": "/static/assets/images/avni.png",
+        "brandLogoHref": "/",
+        "brandLogoAlt": "Avni Superset",
+    }
+}
 
 APP_NAME = "Avni Superset"
 

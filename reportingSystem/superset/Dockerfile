@@ -2,6 +2,26 @@ ARG TAG=latest
 
 FROM --platform=linux/amd64  apache/superset:${TAG}
 
+# Switch to root to install dependencies
+USER root
+
+# Install additional dependencies for 6.0.0
+# - chromium and chromium-driver for screenshots/reports
+# - PostgreSQL client libraries for psycopg2
+RUN apt-get update && \
+    apt-get install -y \
+        chromium \
+        chromium-driver \
+        build-essential \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN uv pip install --no-cache \
+        psycopg2-binary \
+        Pillow
+
+# Switch back to superset user
+USER superset
 
 #Copy avni logo and favicon
 ADD --chown=superset https://raw.githubusercontent.com/avniproject/avni-website/master/src/img/avni-logo-color.png /app/superset/static/assets/images/avni.png
