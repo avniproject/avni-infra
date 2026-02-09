@@ -1,3 +1,4 @@
 ---
 bitwarden_domain: vault.avniproject.org
-bitwarden_backup_retention_days: 90
+bitwarden_backup_retention_days: 30
+bitwarden_disable_mssql_backup: true

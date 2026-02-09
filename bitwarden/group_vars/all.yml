@@ -20,5 +20,5 @@ bitwarden_smtp_password: "{{ bitwarden_smtp_password }}"
 bitwarden_identity_cert_password: "{{ bitwarden_identity_cert_password }}"
 bitwarden_disable_user_registration: false
 bitwarden_enable_cloud_communication: false
-bitwarden_backup_enabled: true
+bitwarden_backup_enabled: false
 bitwarden_backup_retention_days: 30

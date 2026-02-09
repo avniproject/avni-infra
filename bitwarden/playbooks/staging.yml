@@ -21,6 +21,28 @@
     - bitwarden
 
   post_tasks:
+    - name: Final fix - Ensure base vault URI is HTTPS (after rebuild)
+      lineinfile:
+        path: "{{ bitwarden_install_dir }}/bwdata/env/global.override.env"
+        regexp: '^globalSettings__baseServiceUri__vault=http'
+        line: 'globalSettings__baseServiceUri__vault=https://{{ bitwarden_domain }}'
+      become: yes
+      become_user: "{{ bitwarden_user }}"
+
+    - name: Start/restart Bitwarden after URI fix
+      shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh restart"
+      become_user: "{{ bitwarden_user }}"
+      become: yes
+
+    - name: Disable MSSQL internal backup after final restart
+      shell: |
+        sleep 30
+        docker exec bitwarden-mssql sh -c "pkill -f backup-db.sh; pkill sleep" || true
+      become_user: "{{ bitwarden_user }}"
+      become: yes
+      ignore_errors: yes
+      when: bitwarden_disable_mssql_backup | default(false)
+
     - name: Display deployment summary
       debug:
         msg:

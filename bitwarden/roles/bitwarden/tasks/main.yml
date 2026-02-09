@@ -188,11 +188,6 @@
   failed_when: false
   when: not bitwarden_installed.stat.exists
 
-- name: Start Bitwarden with complete configuration
-  shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh start"
-  become_user: "{{ bitwarden_user }}"
-  become: yes
-
 - name: Enable Bitwarden systemd service for auto-start
   systemd:
     name: bitwarden
