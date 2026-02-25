@@ -12,6 +12,33 @@
     state: present
   become: yes
 
+- name: Configure UFW firewall - allow SSH
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+  become: yes
+
+- name: Configure UFW firewall - allow HTTP (Let's Encrypt renewal)
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+  become: yes
+
+- name: Configure UFW firewall - allow HTTPS (Bitwarden)
+  ufw:
+    rule: allow
+    port: '443'
+    proto: tcp
+  become: yes
+
+- name: Enable UFW firewall with default deny
+  ufw:
+    state: enabled
+    policy: deny
+  become: yes
+
 - name: Check if Docker is installed
   command: which docker
   register: docker_installed
