@@ -31,6 +31,7 @@ lahi_schedule_cron: "-"
 etl_appserver_app_url: "etl-staging.rwb.avniproject.org"
 
 bugsnag_stage: "staging"
+etl_server_opts: " -Xms1228m -Xmx1228m -XX:MaxMetaspaceSize=256m -XX:CompressedClassSpaceSize=128m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/log/avni-etl-service/ -XX:OnOutOfMemoryError=\"/bin/kill -9 %p\" -XX:ErrorFile=/var/log/avni-etl-service/jvm.log -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"
 
 etl_allowed_origins: "https://staging.rwb.avniproject.org,https://etl-staging.rwb.avniproject.org"
 avni_idp_type: "cognito"
