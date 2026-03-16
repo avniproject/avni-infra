@@ -16,6 +16,9 @@ TimeoutStopSec=5
 PrivateTmp=true
 # Let systemd restart this service always.
 Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
 
 [Install]
 WantedBy=multi-user.target

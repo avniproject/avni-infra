@@ -5,17 +5,21 @@
     path: "{{application_zip_path}}/{{application_zip_file_name}}"
   become: no
   register: st
+  when: skip_jar_deployment is not defined or not skip_jar_deployment
 
 - name: Fail if deployable does not exist
   ansible.builtin.fail:
     msg: "Deployable not present at {{application_zip_path}}/{{application_zip_file_name}}"
-  when: not st.stat.exists
+  when: 
+    - skip_jar_deployment is not defined or not skip_jar_deployment
+    - not st.stat.exists
 
 - name: Ensure server stopped
   service:
     name: "{{application_name}}_appserver.service"
     enabled: true
     state: stopped
+  when: skip_jar_deployment is not defined or not skip_jar_deployment
 
 - name: Copy appserver jar file
   copy:
@@ -25,9 +29,11 @@
     owner: "{{ application_user }}"
     group: "{{ application_group }}"
     mode: 0755
+  when: skip_jar_deployment is not defined or not skip_jar_deployment
 
 - name: Ensure server started
   service:
     name: "{{application_name}}_appserver.service"
     enabled: true
     state: started
+  when: skip_jar_deployment is not defined or not skip_jar_deployment
