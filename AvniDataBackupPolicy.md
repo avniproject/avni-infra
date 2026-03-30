@@ -9,7 +9,6 @@
 ### Avni Prod Media Content
 - **Versioning** enabled — all file versions retained indefinitely
 - **Cross-region replication** enabled to **AWS Singapore (ap-southeast-1)** for disaster recovery
-- **Delete protection**: Bucket policy prevents accidental deletion of objects by any IAM user (only root account can delete)
 - **Delete isolation**: Deletes on the primary bucket do **not** propagate to the DR copy
 - All existing data (~1.4 TB, ~1.9M files) has been synced to the DR bucket
 
