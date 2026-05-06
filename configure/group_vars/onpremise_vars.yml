@@ -55,14 +55,6 @@ avni_send_exception_in_response: "false"
 avni_webapp_timeout: "21600"
 avni_server_legacy_longitudinal_export_limit: "30000"
 
-## Metabase properties
-mb_password_complexity: "strong"
-mb_password_length: "12"
-mb_jetty_port: "3000"
-mb_db_type: "postgres"
-mb_db_port: "5432"
-java_timezone: "Asia/Kolkata"
-
 #java_apt_package: openjdk-17-jdk #for ETL. Comment for avni-server
 
 avni_reporting_system_0_name: ""

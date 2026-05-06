@@ -7,4 +7,8 @@
   docker_container_ports_mapping: "{{ app_container_ports_mapping }}"
   docker_container_env_file: "{{ app_container_env_file }}"
   docker_container_env_template_file: "{{ app_container_env_template_file }}"
+  docker_container_log_driver: "{{ app_container_log_driver | default(omit) }}"
+  docker_container_log_options: "{{ app_container_log_options | default(omit) }}"
+  docker_container_etc_hosts: "{{ app_container_etc_hosts | default(omit) }}"
+  docker_container_runtime: "{{ app_container_runtime | default(omit) }}"
 

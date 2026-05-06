@@ -1,0 +1,20 @@
+---
+
+- name: Configure Metabase server
+  hosts: metabase_server
+  become: yes
+  become_user: root
+  remote_user: "{{ application_user }}"
+  tags:
+    - metabase
+  vars:
+    perform_aptitude_dist_upgrade: no
+  vars_files:
+    - group_vars/basic_docker_vars.yml
+    - group_vars/metabase_docker_vars.yml
+    - group_vars/staging_vars.yml
+    - group_vars/staging-secret-vars.yml.enc
+  roles:
+    - base
+    - security
+    - metabase

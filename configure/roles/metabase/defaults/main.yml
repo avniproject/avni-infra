@@ -7,3 +7,7 @@
   app_container_ports_mapping: "{{ metabase_container_ports_mapping }}"
   app_container_env_file: "{{ metabase_container_env_file }}"
   app_container_env_template_file: "{{ metabase_container_env_template_file }}"
+  app_container_log_driver: "{{ metabase_container_log_driver }}"
+  app_container_log_options: "{{ metabase_container_log_options }}"
+  app_container_etc_hosts: "{{ metabase_container_etc_hosts }}"
+  app_container_runtime: "{{ metabase_container_runtime }}"

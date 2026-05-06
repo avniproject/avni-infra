@@ -1,12 +1,13 @@
 ---
 
-- name: Perform apt dist-upgrade
-  become: true
-  apt: update_cache={{ update_apt_cache }}
-    upgrade=dist
-  tags:
-    - packages
-    - skip_ansible_lint
+# OS dist-upgrade disabled — was pulling in 100+ unrelated package updates on every deploy
+#- name: Perform apt dist-upgrade
+#  become: true
+#  apt: update_cache={{ update_apt_cache }}
+#    upgrade=dist
+#  tags:
+#    - packages
+#    - skip_ansible_lint
 
 - name: Install base packages
   apt: name={{ packages }} update_cache={{ update_apt_cache }} state=present

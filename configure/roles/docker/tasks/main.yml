@@ -68,6 +68,10 @@
     ports:
       - "{{ docker_container_ports_mapping }}"
     env_file: "{{ docker_container_env_file }}"
+    log_driver: "{{ docker_container_log_driver }}"
+    log_options: "{{ docker_container_log_options }}"
+    etc_hosts: "{{ docker_container_etc_hosts }}"
+    runtime: "{{ docker_container_runtime }}"
     healthcheck:
       test: "{{ docker_container_healthcheck_cmd }}"
       interval: 15s

@@ -9,6 +9,13 @@
   metabase_container_ports_mapping: "3000:3000"
   metabase_container_env_file: "/root/metabase_docker.env"
   metabase_container_env_template_file: metabase.docker.env.template.j2
+  metabase_container_log_driver: "json-file"
+  metabase_container_log_options:
+    max-file: "10"
+    max-size: "10m"
+  metabase_container_etc_hosts:
+    serverdb.openchs.org: "3.108.111.44"
+  metabase_container_runtime: "runc"
 
   update_apt_cache: yes
 # Application settings.
@@ -16,3 +23,12 @@
   app_description: Avni metabase server
   application_user: metabase
   application_group: metabase
+
+# Metabase env-file properties (shared across environments)
+  mb_password_complexity: "strong"
+  mb_password_length: "12"
+  mb_jetty_port: "3000"
+  mb_db_type: "postgres"
+  mb_db_port: "5432"
+  java_timezone: "Asia/Kolkata"
+  java_opts: "-Xmx3072m"

@@ -3,5 +3,6 @@
 - name: Update APT packages cache
   apt: update_cache={{ update_apt_cache }} cache_valid_time=86400
 
-- name: Perform aptitude dist-upgrade
-  apt: upgrade=dist
+# OS dist-upgrade disabled — was pulling in 100+ unrelated package updates on every deploy
+#- name: Perform aptitude dist-upgrade
+#  apt: upgrade=dist
