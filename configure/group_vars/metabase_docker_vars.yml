@@ -1,7 +1,7 @@
 ---
 
   metabase_container_name: metabase
-  metabase_container_image: metabase/metabase:v0.47.6
+  metabase_container_image: metabase/metabase:v0.60.4.1
 #  Below image is for t4g instance type (arm64/v8) architecture
 #  metabase_container_image: iwalucas/metabase:latest
   metabase_hostname: metabase
