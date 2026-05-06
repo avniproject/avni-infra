@@ -1,5 +1,5 @@
 IMAGE := avniproject/reporting-superset
-TAG ?= 4.0.1
+TAG ?= 6.0.0
 
 build-image:
 	@echo "building image $(IMAGE):$(TAG)"

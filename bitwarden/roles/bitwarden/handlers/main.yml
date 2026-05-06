@@ -20,3 +20,10 @@
     enabled: yes
     state: started
   become: yes
+
+- name: enable renewcert timer
+  systemd:
+    name: bitwarden-renewcert.timer
+    enabled: yes
+    state: started
+  become: yes

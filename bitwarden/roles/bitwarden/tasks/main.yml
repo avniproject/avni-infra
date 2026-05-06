@@ -208,6 +208,26 @@
     - reload systemd
     - enable backup timer
 
+- name: Create systemd renewcert service
+  template:
+    src: bitwarden-renewcert.service.j2
+    dest: /etc/systemd/system/bitwarden-renewcert.service
+    mode: '0644'
+  become: yes
+  notify:
+    - reload systemd
+    - enable renewcert timer
+
+- name: Create systemd renewcert timer
+  template:
+    src: bitwarden-renewcert.timer.j2
+    dest: /etc/systemd/system/bitwarden-renewcert.timer
+    mode: '0644'
+  become: yes
+  notify:
+    - reload systemd
+    - enable renewcert timer
+
 - name: Initialize database for new installation
   shell: "cd {{ bitwarden_install_dir }} && ./bitwarden.sh updatedb"
   become_user: "{{ bitwarden_user }}"
