@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew Bitwarden Let's Encrypt certificate
+Requires=docker.service
+After=docker.service bitwarden.service
+
+[Service]
+Type=oneshot
+ExecStart={{ bitwarden_install_dir }}/bitwarden.sh renewcert
+User={{ bitwarden_user }}
+Group={{ bitwarden_group }}
+WorkingDirectory={{ bitwarden_install_dir }}
