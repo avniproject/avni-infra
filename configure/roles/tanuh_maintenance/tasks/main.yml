@@ -1,0 +1,35 @@
+---
+
+- name: Ensure logrotate is installed
+  ansible.builtin.apt:
+    name: logrotate
+    state: present
+    update_cache: "{{ update_apt_cache | default(true) }}"
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Install daily docker prune cron entry
+  ansible.builtin.cron:
+    name: tanuh-docker-prune
+    user: root
+    minute: "30"
+    hour: "3"
+    job: >-
+      /usr/bin/docker system prune -af --filter "until={{ tanuh_docker_prune_until }}"
+      >> {{ tanuh_docker_prune_log }} 2>&1
+    cron_file: tanuh-docker-prune
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Configure logrotate for the prune log
+  ansible.builtin.template:
+    src: tanuh-docker-prune.logrotate.j2
+    dest: /etc/logrotate.d/tanuh-docker-prune
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  tags:
+    - tanuh_maintenance

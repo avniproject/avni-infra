@@ -12,3 +12,8 @@ int-prod.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private
 
 [metabase_server]
 ssh.reporting-metabase.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+
+# Tanuh stack — distinct host group; do NOT merge into [metabase_server].
+# Driven by configure/prod_tanuh_metabase_servers.yml and `make tanuh-metabase-prod`.
+[tanuh_metabase_server]
+ssh.tanuh-reporting.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem

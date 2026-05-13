@@ -1,0 +1,27 @@
+---
+
+- name: Configure Tanuh Metabase server
+  hosts: tanuh_metabase_server
+  become: yes
+  become_user: root
+  remote_user: "{{ application_user }}"
+  tags:
+    - tanuh_metabase
+  vars:
+    perform_aptitude_dist_upgrade: no
+  vars_files:
+    # Load order matters. `prod-secret-vars.yml.enc` contains the EXISTING
+    # prod metabase's `mb_db_*` keys (consumed by `prod_metabase_servers.yml`).
+    # `tanuh_metabase_docker_vars.yml` MUST be loaded LAST so its
+    # `mb_db_*: "{{ tanuh_mb_db_* }}"` mappings override the existing values
+    # for this playbook only.
+    - group_vars/basic_docker_vars.yml
+    - group_vars/prod_vars.yml
+    - group_vars/prod-secret-vars.yml.enc
+    - group_vars/tanuh_metabase_docker_vars.yml
+  roles:
+    - base
+    - security
+    - ecr_docker_auth
+    - metabase
+    - tanuh_maintenance

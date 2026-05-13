@@ -58,4 +58,4 @@
       EXECUTE FUNCTION prevent_schedule_update();
   when: trigger_check is defined and trigger_check.rowcount == 0
   tags:
-    - metabase_db_trigge
+    - metabase_db_trigger

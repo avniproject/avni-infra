@@ -31,7 +31,7 @@
 
 - name: Add Docker Repository
   apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu focal stable
+    repo: "deb https://download.docker.com/linux/ubuntu {{ docker_apt_release | default('focal') }} stable"
     state: present
 
 - name: Update apt and install docker-ce
@@ -39,6 +39,12 @@
     name: docker-ce
     state: latest
     update_cache: "{{ update_apt_cache }}"
+
+- name: Ensure docker service is started and enabled
+  service:
+    name: docker
+    state: started
+    enabled: yes
 
 - name: Install Docker Module for Python
   pip:
@@ -72,6 +78,9 @@
     log_options: "{{ docker_container_log_options }}"
     etc_hosts: "{{ docker_container_etc_hosts }}"
     runtime: "{{ docker_container_runtime }}"
+    # Memory cap is optional and omitted when undefined (the existing prod
+    # metabase deploy leaves this unset, preserving prior behavior).
+    memory: "{{ docker_container_memory_limit | default(omit) }}"
     healthcheck:
       test: "{{ docker_container_healthcheck_cmd }}"
       interval: 15s

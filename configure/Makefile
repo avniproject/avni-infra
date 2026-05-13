@@ -201,6 +201,19 @@ metabase-staging: check-vault-pwd-file
 metabase-prod: check-vault-pwd-file
 	ansible-playbook prod_metabase_servers.yml -i inventory/prod --vault-password-file ${VAULT_PASSWORD_FILE}
 
+# Tanuh-branded Metabase deployment.
+# First run: invoke with `make tanuh-metabase-prod EXTRA_ARGS="--skip-tags metabase_db_trigger"`
+# until Metabase has finished first-start migrations; then re-run with
+# `EXTRA_ARGS="--tags metabase_db_trigger"` to install the schedule-protection trigger.
+tanuh-metabase-prod: check-vault-pwd-file
+	@TAG=$$(cat ../reportingSystem/tanuh-metabase/VERSION); \
+	echo "Verifying ECR image avniproject/tanuh-metabase:$$TAG is present..."; \
+	aws ecr describe-images --region ap-south-1 \
+		--repository-name avniproject/tanuh-metabase \
+		--image-ids imageTag=$$TAG > /dev/null \
+		|| (echo "Image tag $$TAG not found in ECR. Build/push it first (CI tag push or local make push-image)." && exit 1)
+	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod --vault-password-file ${VAULT_PASSWORD_FILE} $(EXTRA_ARGS)
+
 metabase-schedule-protection: check-vault-pwd-file
 	ansible-playbook -i inventory/staging staging_metabase_servers.yml --tags "metabase_db_trigger_2" --vault-password-file ${VAULT_PASSWORD_FILE}
 

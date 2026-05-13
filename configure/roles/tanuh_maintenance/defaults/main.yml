@@ -1,0 +1,7 @@
+---
+
+# Daily docker prune retention window (Docker --filter "until=<duration>").
+# 720 hours = 30 days. Older unused images/layers are removed; in-use images
+# (i.e., the currently running container's image) are never touched.
+tanuh_docker_prune_until: "720h"
+tanuh_docker_prune_log: "/var/log/tanuh-docker-prune.log"

@@ -1,0 +1,31 @@
+---
+
+- name: Install amazon-ecr-credential-helper (from Ubuntu universe)
+  ansible.builtin.apt:
+    name: amazon-ecr-credential-helper
+    state: present
+    update_cache: "{{ update_apt_cache | default(true) }}"
+  become: true
+
+- name: Ensure /root/.docker exists
+  ansible.builtin.file:
+    path: /root/.docker
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  become: true
+
+- name: Write /root/.docker/config.json with ECR credential helper
+  ansible.builtin.copy:
+    dest: /root/.docker/config.json
+    owner: root
+    group: root
+    mode: '0600'
+    content: |
+      {
+        "credHelpers": {
+          "{{ ecr_registry }}": "ecr-login"
+        }
+      }
+  become: true

@@ -1,0 +1,66 @@
+---
+
+# -------- Image source --------
+# Image tag single source of truth: reportingSystem/tanuh-metabase/VERSION
+  tanuh_metabase_image_tag: "{{ lookup('file', playbook_dir + '/../reportingSystem/tanuh-metabase/VERSION') | trim }}"
+  ecr_account_id: "118388513628"
+  ecr_region: "ap-south-1"
+  ecr_registry: "{{ ecr_account_id }}.dkr.ecr.{{ ecr_region }}.amazonaws.com"
+# Use the host's actual Ubuntu release (jammy on the Tanuh EC2). The shared
+# docker role defaults to 'focal' for backward-compat with the existing prod
+# metabase host; this override targets the newer Tanuh EC2.
+  docker_apt_release: "{{ ansible_distribution_release }}"
+
+# -------- Container settings (override metabase_docker_vars.yml) --------
+  metabase_container_name: tanuh_metabase
+  metabase_container_image: "{{ ecr_registry }}/avniproject/tanuh-metabase:{{ tanuh_metabase_image_tag }}"
+  metabase_hostname: tanuh-metabase
+  metabase_container_healthcheck_cmd: "curl --fail -I http://0.0.0.0:3000/api/health || exit 1"
+  metabase_container_ports_mapping: "3000:3000"
+  metabase_container_env_file: "/root/tanuh_metabase_docker.env"
+  metabase_container_env_template_file: metabase.docker.env.template.j2
+  metabase_container_log_driver: "json-file"
+  metabase_container_log_options:
+    max-file: "10"
+    max-size: "10m"
+# Explicit empty override: the shared metabase_docker_vars.yml pins a stale IP
+# for serverdb.openchs.org which is irrelevant for Tanuh (we connect via the
+# prod RDS DNS endpoint directly).
+  metabase_container_etc_hosts: {}
+  metabase_container_runtime: "runc"
+
+  update_apt_cache: yes
+# Application settings
+  application_name: tanuh_metabase
+  app_description: Tanuh-branded Metabase server
+  application_user: tanuh-metabase
+  application_group: tanuh-metabase
+
+# -------- Container resource limits --------
+# Memory cap on the container itself (in addition to the JVM -Xmx). Defense
+# against Metabase OOM-killing the EC2.
+  mb_memory_limit: "3.5g"
+# Mapped through to the generic docker role's `docker_container_memory_limit`,
+# which is wired to `community.docker.docker_container`'s `memory` param.
+  docker_container_memory_limit: "{{ mb_memory_limit }}"
+
+# -------- Metabase env-file properties --------
+  mb_password_complexity: "strong"
+  mb_password_length: "12"
+  mb_jetty_port: "3000"
+  mb_db_type: "postgres"
+  mb_db_port: "5432"
+  java_timezone: "Asia/Kolkata"
+  java_opts: "-Xmx3072m"
+# Cap Metabase's app-DB pool so we don't blow through prod RDS connections.
+# Picked up by the additive {% if %} block in the env template.
+  mb_max_conn_pool_size: 15
+
+# -------- DB targets (mapped from namespaced secrets) --------
+# Real values live in configure/group_vars/prod-secret-vars.yml.enc under
+# `tanuh_mb_db_*` keys (namespaced to avoid colliding with the existing
+# prod metabase's `mb_db_*` in the same vault file).
+  mb_db_dbname: "{{ tanuh_mb_db_dbname }}"
+  mb_db_user:   "{{ tanuh_mb_db_user }}"
+  mb_db_pass:   "{{ tanuh_mb_db_pass }}"
+  mb_db_host:   "{{ tanuh_mb_db_host }}"

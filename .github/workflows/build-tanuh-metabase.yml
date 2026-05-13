@@ -1,0 +1,76 @@
+name: Build & push Tanuh Metabase image
+
+on:
+  push:
+    tags:
+      - 'tanuh-metabase-v*'
+  workflow_dispatch:
+    inputs:
+      tag_suffix:
+        description: 'Tag suffix for the dev image (default: dev-<sha>)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write   # required for OIDC AssumeRoleWithWebIdentity
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ap-south-1
+      ECR_REPO: avniproject/tanuh-metabase
+      # Replace this with the GHA role ARN printed by aws_setup.sh.
+      AWS_ROLE_ARN: arn:aws:iam::118388513628:role/tanuh-metabase-gha-role
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read image tag
+        id: tag
+        working-directory: reportingSystem/tanuh-metabase
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            # Strip the "tanuh-metabase-" prefix from the git tag to get the image tag
+            IMAGE_TAG="${GITHUB_REF_NAME#tanuh-metabase-}"
+          else
+            SUFFIX="${{ github.event.inputs.tag_suffix }}"
+            if [[ -z "$SUFFIX" ]]; then
+              SUFFIX="dev-${GITHUB_SHA::7}"
+            fi
+            IMAGE_TAG="$(cat VERSION)-$SUFFIX"
+          fi
+          VERSION_FILE="$(cat VERSION)"
+          BASE_TAG="${VERSION_FILE%-tanuh-*}"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "base_tag=$BASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Image tag will be: $IMAGE_TAG (base metabase tag: $BASE_TAG)"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr_login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: reportingSystem/tanuh-metabase
+          file: reportingSystem/tanuh-metabase/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.ecr_login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.tag.outputs.image_tag }}
+          build-args: |
+            TAG=${{ steps.tag.outputs.base_tag }}
+          provenance: false

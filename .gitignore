@@ -4,6 +4,8 @@
 terraform.tfstate.backup
 *.pem
 *.png
+# Allow branding assets baked into Docker images
+!reportingSystem/tanuh-metabase/assets/*.png
 .DS_Store
 provision/user-management/users.json
 provision/server/*override.tf

@@ -1,0 +1,7 @@
+---
+
+# AWS account ID hosting the ECR registry.
+# Override per playbook.
+ecr_account_id: "118388513628"
+ecr_region: "ap-south-1"
+ecr_registry: "{{ ecr_account_id }}.dkr.ecr.{{ ecr_region }}.amazonaws.com"
