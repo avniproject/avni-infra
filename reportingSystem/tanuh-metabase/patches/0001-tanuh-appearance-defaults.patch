@@ -1,0 +1,53 @@
+Patch: change Metabase's hard-coded "Metabase" defaults to "Tanuh", and
+point the favicon at our overlaid logo.png so the browser tab icon is
+the Tanuh logo.
+
+Three settings live in src/metabase/appearance/settings.clj:
+
+  - application-name: the word substituted in user-facing copy, including
+    the browser tab title (rendered via {{{applicationName}}} in
+    resources/frontend_client/index_template.html).
+
+  - site-name: the instance display name shown in admin and emails.
+
+  - application-favicon-url: the URL the HTML <link rel="icon"> resolves
+    to. We point it at app/assets/img/logo.png — the Tanuh PNG that the
+    Dockerfile overlays at resources/frontend_client/app/assets/img/logo.png.
+    Browsers will scale it down for the tab.
+
+application-name and application-favicon-url are :feature :whitelabel for
+write access on OSS, meaning the admin UI cannot change them, but the
+default value is what runs.
+
+If this patch fails to apply on a Metabase upgrade, re-anchor against the
+new content of src/metabase/appearance/settings.clj — see
+reportingSystem/tanuh-metabase/BUILD_GUIDE.md "Upgrading Metabase".
+
+diff --git a/src/metabase/appearance/settings.clj b/src/metabase/appearance/settings.clj
+--- a/src/metabase/appearance/settings.clj
++++ b/src/metabase/appearance/settings.clj
+@@ -17,13 +17,13 @@
+   :type       :string
+   :audit      :getter
+   :feature    :whitelabel
+-  :default    "Metabase")
++  :default    "Tanuh")
+
+ (defsetting site-name
+   (deferred-tru "The name used for this instance of {0}."
+                 (setting/application-name-for-setting-descriptions application-name))
+   :encryption :no
+-  :default    "Metabase"
++  :default    "Tanuh"
+   :audit      :getter
+   :visibility :settings-manager
+   :export?    true)
+@@ -201,7 +201,7 @@
+   :type       :string
+   :audit      :getter
+   :feature    :whitelabel
+-  :default    "app/assets/img/favicon.ico")
++  :default    "app/assets/img/logo.png")
+
+ (defsetting show-metabot
+   (deferred-tru "Enables Metabot character on the home page")

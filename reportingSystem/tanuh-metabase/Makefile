@@ -1,14 +1,19 @@
 IMAGE := avniproject/tanuh-metabase
 TAG ?= $(shell cat VERSION)
-BASE_TAG ?= $(shell echo $(TAG) | sed 's/-tanuh-.*//')
+# Upstream Metabase release we build on top of (strips the -tanuh-N suffix).
+METABASE_VERSION ?= $(shell echo $(TAG) | sed 's/-tanuh-.*//')
+
+# Source build is heavy (~30–60 min). Enable BuildKit so cache mounts and
+# parallel stages work; use buildx in CI for layer caching across runs.
+export DOCKER_BUILDKIT=1
 
 build-image:
-	@echo "building image $(IMAGE):$(TAG) (FROM metabase/metabase:$(BASE_TAG))"
-	docker image build --build-arg TAG=$(BASE_TAG) -t $(IMAGE):$(TAG) .
+	@echo "building image $(IMAGE):$(TAG) (Metabase source $(METABASE_VERSION))"
+	docker image build --build-arg METABASE_VERSION=$(METABASE_VERSION) -t $(IMAGE):$(TAG) .
 
 re-build-image: delete-image
 	@echo "rebuilding image $(IMAGE):$(TAG)"
-	docker image build --build-arg TAG=$(BASE_TAG) -t $(IMAGE):$(TAG) .
+	docker image build --build-arg METABASE_VERSION=$(METABASE_VERSION) -t $(IMAGE):$(TAG) .
 
 delete-image:
 	@if docker image inspect $(IMAGE):$(TAG) > /dev/null 2>&1; then \

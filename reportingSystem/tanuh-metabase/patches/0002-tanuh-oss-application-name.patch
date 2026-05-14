@@ -1,0 +1,23 @@
+Patch: OSS Metabase's frontend selector returns the literal "Metabase"
+instead of reading the `application-name` setting from the backend, so
+the browser tab title and any other frontend caller of `getApplicationName`
+shows "Metabase" regardless of our clj-side patch.
+
+The selector is in frontend/src/metabase/plugins/oss/core.ts inside
+`getDefaultSelectors`. Patch it to return "Tanuh".
+
+If this patch fails to apply on a Metabase upgrade, find the new
+PLUGIN_SELECTORS default for `getApplicationName` and re-anchor.
+
+diff --git a/frontend/src/metabase/plugins/oss/core.ts b/frontend/src/metabase/plugins/oss/core.ts
+--- a/frontend/src/metabase/plugins/oss/core.ts
++++ b/frontend/src/metabase/plugins/oss/core.ts
+@@ -84,7 +84,7 @@
+   getLoadingMessageFactory: (_state: State) => getLoadingMessage,
+   getIsWhiteLabeling: (_state: State) => false,
+   // eslint-disable-next-line metabase/no-literal-metabase-strings -- This is the actual Metabase name, so we don't want to translate it.
+-  getApplicationName: (_state: State) => "Metabase",
++  getApplicationName: (_state: State) => "Tanuh",
+   getShowMetabaseLinks: (_state: State) => true,
+   getLoginPageIllustration: (_state: State): IllustrationValue => {
+     return defaultLoginPageIllustration;

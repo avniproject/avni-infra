@@ -18,6 +18,11 @@ permissions:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # Source build (clones Metabase, installs JDK 21 + Clojure + bun,
+    # compiles frontend + uberjar) takes ~45–75 min on the standard GHA
+    # runner. Bump the per-job timeout from the 360 min default down to
+    # a tighter ceiling so a hung build fails fast.
+    timeout-minutes: 120
     env:
       AWS_REGION: ap-south-1
       ECR_REPO: avniproject/tanuh-metabase
@@ -72,5 +77,9 @@ jobs:
           tags: |
             ${{ steps.ecr_login.outputs.registry }}/${{ env.ECR_REPO }}:${{ steps.tag.outputs.image_tag }}
           build-args: |
-            TAG=${{ steps.tag.outputs.base_tag }}
+            METABASE_VERSION=${{ steps.tag.outputs.base_tag }}
+          # GHA-side cache: reuses the heavy JDK/Clojure/bun install layer
+          # across builds, cutting repeat builds from ~60 min to ~15 min.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: false
