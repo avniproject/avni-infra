@@ -78,10 +78,11 @@ make build-image push-image
 | What | How it gets applied |
 |---|---|
 | Header logo (top-left in UI) | `files/LogoIcon.tsx` replaces `frontend/src/metabase/common/components/LogoIcon/LogoIcon.tsx`. The replacement renders an `<img>` pointing at `app/assets/img/logo.png`. |
-| Logo image | `assets/logo.png` is copied into `resources/frontend_client/app/assets/img/logo.png` during build. |
+| Login screen logo | Same `LogoIcon` component, rendered by upstream `AuthLayout` at `height={65}`. No separate file — both surfaces share `logo.png`. |
+| Logo image | `assets/logo.png` (TANUH + Ministry of Education banner, 1500×600, sourced from `avni-client/packages/openchs-android/android/app/src/tanuh/assets/logo.png` — the openchs-android tanuh flavor) is copied into `resources/frontend_client/app/assets/img/logo.png` during build. This single file backs the header, the login screen, **and** the favicon. |
 | App name ("Metabase" → "Tanuh") | `patches/0001-tanuh-appearance-defaults.patch` changes the `:default` of `application-name` and `site-name` in `src/metabase/appearance/settings.clj`. |
-| Browser tab title | Picks up automatically — `index_template.html` renders `<title>{{{applicationName}}}</title>` server-side, sourcing from the `application-name` setting. |
-| Favicon | Pulled from `https://github.com/avniproject/avni-webapp/raw/master/public/favicon.ico` during build and copied to both `resources/frontend_client/favicon.ico` and `resources/frontend_client/app/assets/img/favicon.ico`. |
+| Browser tab title | OSS frontend selector `getApplicationName` returns a hardcoded literal regardless of the backend `application-name` setting. `patches/0002-tanuh-oss-application-name.patch` flips that literal to `"Tanuh"` in `frontend/src/metabase/plugins/oss/core.ts`. |
+| Favicon | Patch 0001 also re-points the `application-favicon-url` default to `app/assets/img/logo.png` — the same banner file. Browsers scale it down to 16×16 for the tab; legibility at that size is limited and is a known trade-off (see "Favicon" follow-up below). |
 
 ## Upgrading Metabase
 
@@ -101,7 +102,8 @@ When bumping to a new upstream Metabase version (e.g. `v0.60.4.1` → `v0.61.x`)
 - **Multi-arch**: image is built for `linux/amd64` only (matches `t3.medium` EC2). Local builds on Apple Silicon will use buildx emulation and take much longer.
 - **Image scanning**: ECR repo has `scanOnPush=true` — review scan results before pinning a new tag in production.
 - **Build-time network**: the build clones Metabase + downloads JDK/Clojure/bun/Noto fonts/RDS CA bundle. CI runners have outbound network; restricted networks won't work.
+- **Favicon legibility**: `logo.png` is a wide 1500×600 banner; the favicon URL points at the same file, so browsers scale it to 16×16 and the result is a cramped thumbnail. Acceptable for now; cleaner fix is a dedicated `assets/favicon.png` (square Tanuh symbol) + re-anchored patch 0001 favicon URL.
 
 ---
 
-**Last Updated**: 2026-05-14
+**Last Updated**: 2026-05-19
