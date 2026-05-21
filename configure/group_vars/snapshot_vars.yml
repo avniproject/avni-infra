@@ -1,0 +1,40 @@
+---
+env: snapshot
+
+# UFW open ports — only loopback callers, but allow port 22 (SSH) for ops
+# and 3000 (snapshot-server HTTP) in case future ops tooling needs it via
+# bastion. 8021 is the loopback avni-server.
+ufw_allowed_ports:
+  - "22"
+  - "3000"
+  - "8021"
+
+# Application identity
+snapshot_server_application_name: "snapshot-server"
+snapshot_server_user: "snapshot-server-user"
+snapshot_server_group: "snapshot-server-user"
+snapshot_server_port: "3000"
+snapshot_server_host: "127.0.0.1"
+snapshot_server_service_dir: "/etc/systemd/system"
+
+# Filesystem layout
+snapshot_server_root_dir: "/opt/snapshot-server"
+snapshot_server_backup_dir: "/opt/snapshot-server/backups"
+snapshot_server_log_dir: "/var/log/snapshot-server"
+snapshot_server_state_db_dir: "/opt/snapshot-server/state"
+snapshot_server_state_db_path: "/opt/snapshot-server/state/snapshot-server.db"
+snapshot_server_snapshots_dir: "/opt/snapshot-server/snapshots"
+
+# snapshot-server runtime config
+snapshot_server_log_level: "info"
+snapshot_server_replica_lag_minutes: "10"
+snapshot_server_page_size: "10000"
+snapshot_server_max_concurrency: "10"
+
+# avni-server loopback target — the dedicated AVNI_IDP_TYPE=none process.
+avni_server_url_for_snapshot: "http://localhost:8021"
+
+# S3 — same env-var convention as avni-server.
+# TODO: confirm the bucket name before first deploy.
+snapshot_server_s3_bucket: "TODO_SNAPSHOT_S3_BUCKET"
+snapshot_server_s3_region: "ap-south-1"

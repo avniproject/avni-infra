@@ -1,0 +1,51 @@
+[Unit]
+Description=Avni snapshot-server
+Documentation=https://github.com/avniproject/snapshot-server
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User={{ application_user }}
+Group={{ application_group }}
+WorkingDirectory={{ application_dir }}/current
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile={{ application_conf_file }}
+
+ExecStart=/usr/bin/node src/index.js
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Hardening (mirrors avni_aiserver service unit)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=no
+ReadWritePaths={{ application_dir }} {{ application_log_dir }} {{ snapshot_server_state_db_dir }} {{ snapshot_server_snapshots_dir }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Tune based on instance size + MAX_CONCURRENCY.
+MemoryLimit=4G
+CPUQuota=400%
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ application_name }}
+
+[Install]
+WantedBy=multi-user.target

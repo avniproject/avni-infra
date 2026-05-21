@@ -341,3 +341,11 @@ deploy-avni-ai-prerelease: check-ai-zip-path check-vault-pwd-file
 deploy-avni-ai-prod: check-ai-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(ai_zip_path) APPLICATION_ZIP_FILE_NAME=avni-ai.tar.gz ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"ai","deploy_app_hosts":"aiservers","deploy_app_remote_user":"avni-ai-user","deploy_app_env":"prod","deploy_app_role":"avni_aiserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}' -v
+
+deploy-snapshot-server-snapshot: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=snapshot-server.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/snapshot --vault-password-file ${VAULT_PASSWORD_FILE} \
+     --extra-vars '{"deploy_app_name":"snapshot","deploy_app_hosts":"snapshotservers","deploy_app_remote_user":"snapshot-server-user","deploy_app_env":"snapshot","deploy_app_role":"snapshot_server","deploy_app_env_vars_file":"group_vars/snapshot_vars.yml","deploy_app_env_secret_vars_file":"group_vars/snapshot-secret-vars.yml.enc"}' -v
+
+deploy-snapshot-server-staging: check-app-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=snapshot-server.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/staging --vault-password-file ${VAULT_PASSWORD_FILE} \
+     --extra-vars '{"deploy_app_name":"snapshot","deploy_app_hosts":"snapshotservers","deploy_app_remote_user":"snapshot-server-user","deploy_app_env":"staging","deploy_app_role":"snapshot_server","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}' -v

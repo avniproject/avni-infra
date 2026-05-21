@@ -98,3 +98,29 @@ avni_copilot_token: "ynGfdvGlFWJhmetX"
 avni_copilot_enabled: "true"
 avni_base_url: "https://staging.avniproject.org"
 avni_show_templates: "true"
+
+## snapshot-server variables (deployed alongside staging avni-server for smoke testing)
+snapshot_server_application_name: "snapshot-server"
+snapshot_server_user: "snapshot-server-user"
+snapshot_server_group: "snapshot-server-user"
+snapshot_server_port: "3030"
+snapshot_server_host: "127.0.0.1"
+snapshot_server_service_dir: "/etc/systemd/system"
+snapshot_server_root_dir: "/opt/snapshot-server"
+snapshot_server_backup_dir: "/opt/snapshot-server/backups"
+snapshot_server_log_dir: "/var/log/snapshot-server"
+snapshot_server_state_db_dir: "/opt/snapshot-server/state"
+snapshot_server_state_db_path: "/opt/snapshot-server/state/snapshot-server.db"
+snapshot_server_snapshots_dir: "/opt/snapshot-server/snapshots"
+snapshot_server_log_level: "info"
+snapshot_server_replica_lag_minutes: "10"
+snapshot_server_page_size: "2000"
+snapshot_server_max_concurrency: "2"
+# Staging avni-server runs IdpType=cognito so snapshot-server has to talk
+# to it over the public URL with a real AUTH_TOKEN. Add the token to
+# staging-secret-vars.yml.enc as snapshot_server_auth_token before deploy.
+avni_server_url_for_snapshot: "https://staging.avniproject.org"
+# Leave bucket empty to disable S3 uploads — snapshots stay on disk in
+# /opt/snapshot-server/snapshots. Override once an S3 bucket is provisioned.
+snapshot_server_s3_bucket: ""
+snapshot_server_s3_region: "ap-south-1"
