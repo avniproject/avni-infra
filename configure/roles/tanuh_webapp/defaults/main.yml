@@ -11,6 +11,6 @@ tanuh_webapp_node_major: "24"
 # this base URL is intentionally empty in production; only the proxy target
 # matters for routing.
 tanuh_webapp_avni_api_base_url: ""
-tanuh_webapp_avni_proxy_target: https://staging.avniproject.org
+tanuh_webapp_avni_proxy_target: https://app.avniproject.org
 tanuh_webapp_listen_port: 8080
 tanuh_webapp_server_name: tanuh.avniproject.org

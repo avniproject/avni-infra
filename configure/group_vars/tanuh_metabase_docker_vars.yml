@@ -72,4 +72,4 @@
 # Same-origin model: nginx reverse-proxies /idp-details, /api, /me, /web,
 # /media, /cognito-details upstream to this target. Bundle is built with
 # VITE_AVNI_API_BASE_URL empty (role default) so it issues relative-path calls.
-  tanuh_webapp_avni_proxy_target: "https://staging.avniproject.org"
+  tanuh_webapp_avni_proxy_target: "https://app.avniproject.org"
