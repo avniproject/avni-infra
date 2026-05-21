@@ -1,0 +1,24 @@
+---
+- name: Create deployment directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    mode: '0755'
+  become: yes
+  loop:
+    - "{{ application_dir }}"
+    - "{{ snapshot_server_backup_dir }}"
+    - "{{ application_log_dir }}"
+    - "{{ snapshot_server_state_db_dir }}"
+    - "{{ snapshot_server_snapshots_dir }}"
+
+- name: Create current deployment directory
+  file:
+    path: "{{ application_dir }}/current"
+    state: directory
+    owner: "{{ application_user }}"
+    group: "{{ application_group }}"
+    mode: '0755'
+  become: yes

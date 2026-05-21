@@ -1,0 +1,11 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: restart snapshot server
+  systemd:
+    name: "{{ snapshot_server_application_name }}"
+    state: restarted
+  become: yes

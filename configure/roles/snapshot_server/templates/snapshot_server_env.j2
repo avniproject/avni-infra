@@ -1,0 +1,24 @@
+# Rendered by ansible — do not edit by hand. Mirrors snapshot-server/.env.example.
+
+# avni-server (loopback to the dedicated AVNI_IDP_TYPE=none instance)
+AVNI_SERVER_URL={{ avni_server_url_for_snapshot }}
+# Empty in production where the dedicated avni-server runs with IdpType=none.
+AUTH_TOKEN={{ snapshot_server_auth_token | default('') }}
+
+# snapshot-server
+LOG_LEVEL={{ snapshot_server_log_level | default('info') }}
+STATE_DB_PATH={{ snapshot_server_state_db_path }}
+SNAPSHOTS_DIR={{ snapshot_server_snapshots_dir }}
+PAGE_SIZE={{ snapshot_server_page_size }}
+REPLICA_LAG_MINUTES={{ snapshot_server_replica_lag_minutes }}
+MAX_CONCURRENCY={{ snapshot_server_max_concurrency }}
+HTTP_PORT={{ appserver_port }}
+
+# AWS / S3 — env-var names match what avni-infra already exports for
+# avni-server, so the same vars apply unchanged. Leave the bucket empty to
+# disable uploads. Leave the IAM keys empty on EC2 to let the SDK pick up
+# the instance role automatically.
+OPENCHS_BUCKET_NAME={{ snapshot_server_s3_bucket }}
+OPENCHS_AWS_REGION={{ snapshot_server_s3_region }}
+OPENCHS_IAM_USER_ACCESS_KEY={{ snapshot_server_aws_access_key_id | default('') }}
+OPENCHS_IAM_USER_SECRET_ACCESS_KEY={{ snapshot_server_aws_secret_access_key | default('') }}

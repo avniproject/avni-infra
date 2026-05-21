@@ -1,0 +1,49 @@
+---
+# Idempotent Node 20 install via NodeSource. The setup script's
+# `installed` check makes re-runs a no-op.
+- name: Check whether node is already installed
+  command: node --version
+  register: node_version_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Node 20 via NodeSource
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+  args:
+    executable: /bin/bash
+  become: yes
+  when: node_version_check.rc != 0 or not node_version_check.stdout.startswith('v20.')
+
+- name: Render snapshot-server env file
+  template:
+    src: snapshot_server_env.j2
+    dest: "{{ application_conf_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: Render snapshot-server systemd unit
+  template:
+    src: snapshot-server.service.j2
+    dest: "{{ service_dir }}/{{ application_name }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify:
+    - reload systemd
+    - restart snapshot server
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: Enable snapshot-server service
+  systemd:
+    name: "{{ application_name }}"
+    enabled: yes
+  become: yes

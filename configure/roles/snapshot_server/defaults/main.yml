@@ -1,0 +1,17 @@
+---
+# Application identity
+application_name: "{{ snapshot_server_application_name }}"
+app_description: snapshot-server
+application_user: "{{ snapshot_server_user }}"
+application_group: "{{ snapshot_server_group }}"
+appserver_port: "{{ snapshot_server_port }}"
+service_dir: "{{ snapshot_server_service_dir }}"
+
+# Filesystem layout
+application_dir: "{{ snapshot_server_root_dir }}"
+application_log_dir: "{{ snapshot_server_log_dir }}"
+application_conf_file: "/etc/{{ snapshot_server_application_name }}.conf"
+
+# Deploy artifact — set by the Makefile target via environment.
+application_zip_path: "{{ lookup('env','APPLICATION_ZIP_PATH') }}"
+application_zip_file_name: "{{ lookup('env','APPLICATION_ZIP_FILE_NAME') }}"
