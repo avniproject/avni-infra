@@ -1,0 +1,175 @@
+---
+
+- name: Ensure build/runtime packages are present
+  apt:
+    name:
+      - git
+      - rsync
+      - curl
+      - ca-certificates
+      - nginx
+    state: present
+    update_cache: "{{ update_apt_cache | default(false) }}"
+  tags: tanuh_webapp
+
+- name: Disable nginx default site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx tanuh_webapp
+  tags: tanuh_webapp
+
+- name: Ensure nginx is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  tags: tanuh_webapp
+
+# Host firewall: the `security` role's `ufw_allowed_ports` list on this host
+# only covers 22/80/443/3000/8021/8023. The ALB targets us on 8080, so without
+# this rule UFW drops the health-check packets before nginx sees them.
+- name: Allow {{ tanuh_webapp_listen_port }}/tcp through ufw
+  community.general.ufw:
+    rule: allow
+    port: "{{ tanuh_webapp_listen_port }}"
+    proto: tcp
+  tags: tanuh_webapp
+
+- name: Ensure tanuh-webapp build user exists
+  user:
+    name: "{{ tanuh_webapp_build_user }}"
+    system: yes
+    shell: /bin/bash
+    create_home: yes
+    state: present
+  tags: tanuh_webapp
+
+- name: Check installed Node major version
+  command: node --version
+  register: tanuh_webapp_node_version
+  changed_when: false
+  failed_when: false
+  tags: tanuh_webapp
+
+- name: Install NodeSource apt repository for Node {{ tanuh_webapp_node_major }}
+  shell: |
+    set -e
+    curl -fsSL https://deb.nodesource.com/setup_{{ tanuh_webapp_node_major }}.x | bash -
+  args:
+    executable: /bin/bash
+  when: tanuh_webapp_node_version.rc != 0
+        or not tanuh_webapp_node_version.stdout.startswith('v' ~ tanuh_webapp_node_major ~ '.')
+  tags: tanuh_webapp
+
+- name: Install Node.js
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+  when: tanuh_webapp_node_version.rc != 0
+        or not tanuh_webapp_node_version.stdout.startswith('v' ~ tanuh_webapp_node_major ~ '.')
+  tags: tanuh_webapp
+
+- name: Ensure build dir exists (owned by build user)
+  file:
+    path: "{{ tanuh_webapp_build_dir }}"
+    owner: "{{ tanuh_webapp_build_user }}"
+    group: "{{ tanuh_webapp_build_user }}"
+    state: directory
+    mode: '0755'
+  tags: tanuh_webapp
+
+- name: Ensure docroot exists (owned by www-data)
+  file:
+    path: "{{ tanuh_webapp_docroot }}"
+    owner: www-data
+    group: www-data
+    state: directory
+    mode: '0755'
+  tags: tanuh_webapp
+
+- name: Checkout tanuh-webapp source at {{ tanuh_webapp_git_ref }}
+  git:
+    repo: "{{ tanuh_webapp_repo_url }}"
+    dest: "{{ tanuh_webapp_build_dir }}"
+    version: "{{ tanuh_webapp_git_ref }}"
+    force: yes
+  become_user: "{{ tanuh_webapp_build_user }}"
+  register: tanuh_webapp_git
+  tags: tanuh_webapp
+
+- name: Render .env.production
+  template:
+    src: env.production.j2
+    dest: "{{ tanuh_webapp_build_dir }}/.env.production"
+    owner: "{{ tanuh_webapp_build_user }}"
+    group: "{{ tanuh_webapp_build_user }}"
+    mode: '0644'
+  register: tanuh_webapp_env
+  tags: tanuh_webapp
+
+- name: npm ci
+  command: npm ci
+  args:
+    chdir: "{{ tanuh_webapp_build_dir }}"
+  become_user: "{{ tanuh_webapp_build_user }}"
+  when: tanuh_webapp_git.changed
+        or tanuh_webapp_env.changed
+        or not (lookup('ansible.builtin.fileglob', tanuh_webapp_build_dir + '/node_modules/.package-lock.json'))
+  tags: tanuh_webapp
+
+- name: npm run build
+  command: npm run build
+  args:
+    chdir: "{{ tanuh_webapp_build_dir }}"
+  become_user: "{{ tanuh_webapp_build_user }}"
+  environment:
+    NODE_ENV: production
+  when: tanuh_webapp_git.changed or tanuh_webapp_env.changed
+  register: tanuh_webapp_build
+  tags: tanuh_webapp
+
+- name: Force a build when docroot is empty
+  command: npm run build
+  args:
+    chdir: "{{ tanuh_webapp_build_dir }}"
+  become_user: "{{ tanuh_webapp_build_user }}"
+  environment:
+    NODE_ENV: production
+  when:
+    - not (tanuh_webapp_build.changed | default(false))
+    - not (lookup('ansible.builtin.fileglob', tanuh_webapp_docroot + '/index.html'))
+  tags: tanuh_webapp
+
+- name: Sync dist/ -> docroot (atomic-ish, --delete to drop removed files)
+  command: >
+    rsync -a --delete --chown=www-data:www-data
+    {{ tanuh_webapp_build_dir }}/dist/
+    {{ tanuh_webapp_docroot }}/
+  register: tanuh_webapp_sync
+  changed_when: "'>f' in tanuh_webapp_sync.stdout or 'cd' in tanuh_webapp_sync.stdout or 'deleting' in tanuh_webapp_sync.stdout"
+  tags: tanuh_webapp
+
+- name: Install nginx server block
+  template:
+    src: nginx-tanuh-webapp.conf.j2
+    dest: /etc/nginx/sites-available/tanuh-webapp.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload nginx tanuh_webapp
+  tags: tanuh_webapp
+
+- name: Enable nginx server block
+  file:
+    src: /etc/nginx/sites-available/tanuh-webapp.conf
+    dest: /etc/nginx/sites-enabled/tanuh-webapp.conf
+    state: link
+  notify: reload nginx tanuh_webapp
+  tags: tanuh_webapp
+
+- name: Validate nginx config
+  command: nginx -t
+  changed_when: false
+  tags: tanuh_webapp

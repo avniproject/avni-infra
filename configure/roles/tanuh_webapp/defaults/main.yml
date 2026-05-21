@@ -1,0 +1,16 @@
+---
+
+tanuh_webapp_repo_url: https://github.com/avniproject/tanuh-webapp.git
+tanuh_webapp_git_ref: main
+tanuh_webapp_build_user: tanuh-webapp
+tanuh_webapp_build_dir: /var/lib/tanuh-webapp-build
+tanuh_webapp_docroot: /var/www/tanuh-webapp
+tanuh_webapp_node_major: "24"
+# Same-origin model: bundle calls relative paths (/idp-details, /api, etc.),
+# nginx reverse-proxies them upstream to `tanuh_webapp_avni_proxy_target`. So
+# this base URL is intentionally empty in production; only the proxy target
+# matters for routing.
+tanuh_webapp_avni_api_base_url: ""
+tanuh_webapp_avni_proxy_target: https://staging.avniproject.org
+tanuh_webapp_listen_port: 8080
+tanuh_webapp_server_name: tanuh.avniproject.org

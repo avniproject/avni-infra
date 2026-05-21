@@ -25,3 +25,4 @@
     - ecr_docker_auth
     - metabase
     - tanuh_maintenance
+    - tanuh_webapp

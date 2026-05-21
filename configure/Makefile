@@ -214,6 +214,16 @@ tanuh-metabase-prod: check-vault-pwd-file
 		|| (echo "Image tag $$TAG not found in ECR. Build/push it first (CI tag push or local make push-image)." && exit 1)
 	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod --vault-password-file ${VAULT_PASSWORD_FILE} $(EXTRA_ARGS)
 
+# Tanuh webapp (Vite SPA) deployment.
+# Runs only the `tanuh_webapp` tagged tasks against the same Tanuh EC2 host as
+# the Metabase playbook, so it doesn't re-touch the Metabase container.
+# AWS wiring (ACM cert / TG / listener / Route53) is one-shot — run
+# `bash ../tanuh-webapp/aws_alb_setup.sh` once before the first deploy.
+tanuh-webapp-prod: check-vault-pwd-file
+	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod \
+		--vault-password-file ${VAULT_PASSWORD_FILE} \
+		--tags tanuh_webapp $(EXTRA_ARGS)
+
 metabase-schedule-protection: check-vault-pwd-file
 	ansible-playbook -i inventory/staging staging_metabase_servers.yml --tags "metabase_db_trigger_2" --vault-password-file ${VAULT_PASSWORD_FILE}
 

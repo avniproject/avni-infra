@@ -1,0 +1,6 @@
+---
+
+- name: reload nginx tanuh_webapp
+  service:
+    name: nginx
+    state: reloaded
