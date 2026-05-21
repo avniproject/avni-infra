@@ -68,7 +68,7 @@
 # -------- Tanuh webapp (Vite SPA, served by on-host nginx behind ALB) --------
 # Repo: https://github.com/avniproject/tanuh-webapp
 # Pin to a tag/SHA for reproducible releases; leave as "main" to roll latest.
-  tanuh_webapp_git_ref: "tanuh-bff"
+  tanuh_webapp_git_ref: "main"
 # Same-origin model: nginx reverse-proxies /idp-details, /api, /me, /web,
 # /media, /cognito-details upstream to this target. Bundle is built with
 # VITE_AVNI_API_BASE_URL empty (role default) so it issues relative-path calls.
