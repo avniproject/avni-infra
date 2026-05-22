@@ -1,4 +1,13 @@
 {% set _proxy_host = tanuh_webapp_avni_proxy_target | regex_replace('^https?://', '') | regex_replace('/.*$', '') %}
+# Keepalive pool to the upstream Avni server. Without this, every /api, /me,
+# /idp-details call from the SPA opens a fresh TLS connection to the upstream,
+# which adds a 200-400ms handshake to first-paint when the SPA fires several
+# bootstrap requests in parallel.
+upstream avni_backend {
+    server {{ _proxy_host }}:443;
+    keepalive 32;
+}
+
 server {
     listen {{ tanuh_webapp_listen_port }} default_server;
     server_name {{ tanuh_webapp_server_name }};
@@ -13,8 +22,9 @@ server {
     # them as same-origin and CORS is not required. The path set mirrors the
     # Vite dev-server proxy in vite.config.ts.
     location ~ ^/(idp-details|api|me|web|media|cognito-details)(/|$) {
-        proxy_pass {{ tanuh_webapp_avni_proxy_target }};
+        proxy_pass https://avni_backend;
         proxy_http_version 1.1;
+        proxy_set_header Connection "";
         proxy_set_header Host {{ _proxy_host }};
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
