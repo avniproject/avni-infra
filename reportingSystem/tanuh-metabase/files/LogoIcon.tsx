@@ -16,7 +16,7 @@ interface LogoIconProps {
   fill?: string;
 }
 
-export const DefaultLogoIcon = ({ height = 32, width }: LogoIconProps) => {
+export const DefaultLogoIcon = ({ height = 48, width }: LogoIconProps) => {
   return (
     <img
       src="app/assets/img/logo.png"
