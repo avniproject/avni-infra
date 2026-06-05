@@ -5,3 +5,13 @@
 # (i.e., the currently running container's image) are never touched.
 tanuh_docker_prune_until: "720h"
 tanuh_docker_prune_log: "/var/log/tanuh-docker-prune.log"
+
+# Host swap: t3.medium has ~3.7Gi RAM and Ubuntu cloud images ship with no
+# swap. The Metabase JVM (-Xmx3g, container capped at 3.5g) plus nginx and
+# on-host npm/vite builds (which spike >1G during tanuh-webapp deploys) can
+# push the host into OOM-killer territory. 4G of swap (matching RAM) lets the
+# kernel page out idle memory instead of killing processes.
+tanuh_swap_file: /swapfile
+tanuh_swap_size_mb: 4096
+# Swap is a safety net, not working memory — keep the kernel reluctant.
+tanuh_swappiness: "10"

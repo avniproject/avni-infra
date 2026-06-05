@@ -33,3 +33,84 @@
   become: true
   tags:
     - tanuh_maintenance
+
+# --- Host swap (see defaults for rationale) ---
+
+- name: Check if swapfile exists
+  ansible.builtin.stat:
+    path: "{{ tanuh_swap_file }}"
+  register: tanuh_swap_stat
+  become: true
+  tags:
+    - tanuh_maintenance
+
+# Recreate on size drift too, so bumping tanuh_swap_size_mb actually applies
+# instead of being skipped because the file already exists.
+- name: Determine if swapfile needs (re)creation
+  ansible.builtin.set_fact:
+    tanuh_swap_recreate: >-
+      {{ (not tanuh_swap_stat.stat.exists)
+         or (tanuh_swap_stat.stat.size != tanuh_swap_size_mb * 1024 * 1024) }}
+  tags:
+    - tanuh_maintenance
+
+- name: Disable swapfile before resizing
+  ansible.builtin.command: swapoff {{ tanuh_swap_file }}
+  when: tanuh_swap_recreate | bool and tanuh_swap_stat.stat.exists
+  failed_when: false   # not active -> nothing to swapoff
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Create swapfile
+  ansible.builtin.command: fallocate -l {{ tanuh_swap_size_mb }}M {{ tanuh_swap_file }}
+  when: tanuh_swap_recreate | bool
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Secure swapfile permissions
+  ansible.builtin.file:
+    path: "{{ tanuh_swap_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Format swapfile
+  ansible.builtin.command: mkswap {{ tanuh_swap_file }}
+  when: tanuh_swap_recreate | bool
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Persist swap in fstab (survives reboot)
+  ansible.posix.mount:
+    name: none
+    src: "{{ tanuh_swap_file }}"
+    fstype: swap
+    opts: sw
+    state: present
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Enable swap now
+  ansible.builtin.command: swapon {{ tanuh_swap_file }}
+  when: tanuh_swap_recreate | bool or ansible_swaptotal_mb | int == 0
+  become: true
+  tags:
+    - tanuh_maintenance
+
+- name: Set vm.swappiness
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ tanuh_swappiness }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/99-tanuh-swap.conf
+    reload: true
+  become: true
+  tags:
+    - tanuh_maintenance
