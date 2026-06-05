@@ -81,7 +81,7 @@ log "Requesting ACM cert for $HOSTNAME..."
 CERT_ARN=$(aws acm request-certificate --region "$REGION" \
   --domain-name "$HOSTNAME" \
   --validation-method DNS \
-  --tags Key=Project,Value=tanuh-metabase Key=ManagedBy,Value=aws_alb_setup.sh \
+  --tags Key=Project,Value=tanuh-metabase Key=Client,Value=tanuh Key=ManagedBy,Value=aws_alb_setup.sh \
   --query CertificateArn --output text)
 log "  Cert ARN: $CERT_ARN"
 
@@ -127,7 +127,7 @@ TG_ARN=$(aws elbv2 create-target-group --region "$REGION" \
   --health-check-interval-seconds 30 --health-check-timeout-seconds 10 \
   --healthy-threshold-count 2 --unhealthy-threshold-count 3 \
   --matcher HttpCode=200 \
-  --tags Key=Project,Value=tanuh-metabase Key=ManagedBy,Value=aws_alb_setup.sh \
+  --tags Key=Project,Value=tanuh-metabase Key=Client,Value=tanuh Key=ManagedBy,Value=aws_alb_setup.sh \
   --query 'TargetGroups[0].TargetGroupArn' --output text)
 log "  TG: $TG_ARN"
 
@@ -163,7 +163,7 @@ RULE_ARN=$(aws elbv2 create-rule --region "$REGION" \
   --priority "$LISTENER_PRIORITY" \
   --conditions "Field=host-header,Values=$HOSTNAME" \
   --actions "Type=forward,TargetGroupArn=$TG_ARN" \
-  --tags Key=Project,Value=tanuh-metabase Key=ManagedBy,Value=aws_alb_setup.sh \
+  --tags Key=Project,Value=tanuh-metabase Key=Client,Value=tanuh Key=ManagedBy,Value=aws_alb_setup.sh \
   --query 'Rules[0].RuleArn' --output text)
 log "  Rule: $RULE_ARN"
 

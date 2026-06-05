@@ -101,7 +101,7 @@ log "Creating EC2 IAM role $EC2_ROLE_NAME..."
 aws iam create-role \
   --role-name "$EC2_ROLE_NAME" \
   --assume-role-policy-document file://trust-policy.json \
-  --tags Key=Project,Value=tanuh-metabase Key=ManagedBy,Value=aws_setup.sh \
+  --tags Key=Project,Value=tanuh-metabase Key=Client,Value=tanuh Key=ManagedBy,Value=aws_setup.sh \
   --output text > /dev/null
 
 log "Attaching scoped ECR pull policy..."
@@ -146,7 +146,7 @@ envsubst < gha-trust-policy.json > /tmp/gha-trust.json
 aws iam create-role \
   --role-name "$GHA_ROLE_NAME" \
   --assume-role-policy-document file:///tmp/gha-trust.json \
-  --tags Key=Project,Value=tanuh-metabase Key=ManagedBy,Value=aws_setup.sh \
+  --tags Key=Project,Value=tanuh-metabase Key=Client,Value=tanuh Key=ManagedBy,Value=aws_setup.sh \
   --output text > /dev/null
 rm -f /tmp/gha-trust.json
 
@@ -174,7 +174,7 @@ SG_ID=$(aws ec2 create-security-group --region "$REGION" \
 
 aws ec2 create-tags --region "$REGION" \
   --resources "$SG_ID" \
-  --tags Key=Name,Value=$SG_NAME Key=Project,Value=tanuh-metabase Key=ManagedBy,Value=aws_setup.sh
+  --tags Key=Name,Value=$SG_NAME Key=Project,Value=tanuh-metabase Key=Client,Value=tanuh Key=ManagedBy,Value=aws_setup.sh
 
 log "  Adding ingress: 22/tcp from $TEAM_SSH_CIDR"
 aws ec2 authorize-security-group-ingress --region "$REGION" \
@@ -201,7 +201,9 @@ INSTANCE_ID=$(aws ec2 run-instances --region "$REGION" \
   --iam-instance-profile Name="$EC2_ROLE_NAME" \
   --key-name "$KEY_NAME" \
   --block-device-mappings "DeviceName=/dev/sda1,Ebs={VolumeSize=$ROOT_VOLUME_GB,VolumeType=gp3,DeleteOnTermination=true}" \
-  --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME},{Key=Project,Value=tanuh-metabase},{Key=ManagedBy,Value=aws_setup.sh}]" \
+  --tag-specifications \
+    "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME},{Key=Project,Value=tanuh-metabase},{Key=Client,Value=tanuh},{Key=ManagedBy,Value=aws_setup.sh}]" \
+    "ResourceType=volume,Tags=[{Key=Name,Value=$INSTANCE_NAME},{Key=Project,Value=tanuh-metabase},{Key=Client,Value=tanuh},{Key=ManagedBy,Value=aws_setup.sh}]" \
   --metadata-options "HttpTokens=required,HttpEndpoint=enabled" \
   --query 'Instances[0].InstanceId' --output text)
 
