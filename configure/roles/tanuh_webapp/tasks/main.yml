@@ -8,6 +8,7 @@
       - curl
       - ca-certificates
       - nginx
+      - dnsutils   # dig, used by the upstream DNS watchdog
     state: present
     update_cache: "{{ update_apt_cache | default(false) }}"
   tags: tanuh_webapp
@@ -172,4 +173,24 @@
 - name: Validate nginx config
   command: nginx -t
   changed_when: false
+  tags: tanuh_webapp
+
+# nginx resolves the upstream{} hostname once at config load. The Avni ALB's
+# IPs rotate, so a watchdog reloads nginx (re-resolving DNS) whenever the
+# A-records change — otherwise requests round-robined onto a rotated-away IP
+# hang in proxy_connect_timeout.
+- name: Install nginx upstream DNS watchdog
+  template:
+    src: nginx-upstream-dns-watch.sh.j2
+    dest: /usr/local/bin/nginx-upstream-dns-watch.sh
+    owner: root
+    group: root
+    mode: '0755'
+  tags: tanuh_webapp
+
+- name: Schedule nginx upstream DNS watchdog
+  cron:
+    name: nginx upstream dns watch
+    user: root
+    job: /usr/local/bin/nginx-upstream-dns-watch.sh
   tags: tanuh_webapp

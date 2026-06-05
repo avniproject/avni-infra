@@ -1,0 +1,29 @@
+{% set _proxy_host = tanuh_webapp_avni_proxy_target | regex_replace('^https?://', '') | regex_replace('/.*$', '') %}
+#!/bin/sh
+# Reload nginx when {{ _proxy_host }}'s A-records change.
+#
+# nginx (1.18 OSS) resolves upstream{} server hostnames once at config load
+# and freezes the peer IPs. {{ _proxy_host }} is an AWS ALB whose IPs rotate
+# during scaling events; a frozen dead peer makes every request round-robined
+# onto it hang in proxy_connect_timeout before retrying the live peer. A
+# graceful reload re-resolves DNS, so this cron-driven check keeps the peer
+# list current within a minute of any rotation.
+#
+# Managed by Ansible (roles/tanuh_webapp). Cron: every minute, root.
+
+HOST="{{ _proxy_host }}"
+CACHE=/run/nginx-upstream-dns-watch.cache
+
+CURRENT=$(dig +short "$HOST" A | sort)
+[ -z "$CURRENT" ] && exit 0      # transient DNS failure: keep current peers
+
+if [ -f "$CACHE" ] && [ "$CURRENT" = "$(cat "$CACHE")" ]; then
+    exit 0
+fi
+
+# /run is tmpfs: first run after boot seeds the cache and reloads once.
+echo "$CURRENT" > "$CACHE"
+if [ -f /run/nginx.pid ] && nginx -t -q; then
+    systemctl reload nginx \
+        && logger -t nginx-dns-watch "reloaded nginx: $HOST now resolves to $(echo "$CURRENT" | tr '\n' ' ')"
+fi
