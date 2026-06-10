@@ -17,7 +17,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "SendCostReportEmailFromNoReplyOnly",
+      "Sid": "SendCostReportFromVerifiedSenderOnly",
       "Effect": "Allow",
       "Action": [
         "ses:SendEmail",
