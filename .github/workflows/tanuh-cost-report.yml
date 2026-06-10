@@ -7,7 +7,8 @@ name: Tanuh monthly AWS cost report
 #
 # Prerequisites (see reportingSystem/tanuh-metabase/COST_TRACKING.md):
 #   - IAM role tanuh-cost-report-gha-role (trust scoped to refs/heads/master).
-#   - SES domain identity avniproject.org verified in ap-south-1, prod access.
+#   - SES sender avni@samanvayfoundation.org verified in us-east-1 (which is out
+#     of the SES sandbox); the report is sent from there.
 #   - Repo SECRET TANUH_COST_REPORT_RECIPIENTS (comma-separated ops addresses).
 #     A secret, not a variable — this repo is public.
 
@@ -73,7 +74,12 @@ jobs:
         env:
           MONTH: ${{ github.event.inputs.month }}
           TANUH_COST_REPORT_RECIPIENTS: ${{ secrets.TANUH_COST_REPORT_RECIPIENTS }}
-          SES_REGION: ap-south-1
+          # SES in us-east-1 is out of the sandbox and has the verified sender;
+          # the Tanuh resources (metadata lookups) live in ap-south-1; Cost
+          # Explorer is global (the script pins it to us-east-1 internally).
+          SES_REGION: us-east-1
+          COST_REPORT_SENDER: avni@samanvayfoundation.org
+          RESOURCE_REGION: ap-south-1
         run: |
           set -euo pipefail
           ARGS=()

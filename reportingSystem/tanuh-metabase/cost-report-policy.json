@@ -8,6 +8,15 @@
       "Resource": "*"
     },
     {
+      "Sid": "ReadTanuhResourceMetadataForListPricing",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "SendCostReportEmailFromNoReplyOnly",
       "Effect": "Allow",
       "Action": [
@@ -17,7 +26,7 @@
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "ses:FromAddress": "noreply@avniproject.org"
+          "ses:FromAddress": "avni@samanvayfoundation.org"
         }
       }
     }

@@ -55,12 +55,43 @@ Caveats:
   forward. The pre-activation period is back-billed once from a manual
   estimate (see the ops/finance note in `avni-product-ops`).
 
-## Monthly report
+## Billing basis: on-demand list price (not tag-filtered Cost Explorer)
 
-[`billing/tanuh_cost_report.py`](../../billing/tanuh_cost_report.py) queries
-Cost Explorer (previous month + the month before, for a month-on-month delta),
-filtered to `Client=tanuh` and grouped by service, then **emails the report
-itself** via SES. It is driven by
+> **Important — why we do not bill straight off the `Client=tanuh` tag.** The
+> tanuh-metabase EC2 instance is covered by a **Reserved Instance** in the
+> shared account. RI-covered compute shows **$0 UnblendedCost**, and the RI
+> charge that actually pays for it carries **no resource tag**. In-use **public
+> IPv4** is likewise untagged. A tag-filtered report therefore bills only the
+> disk + registry + transfer (~$0.50/mo) and silently drops the ~$33/mo of
+> compute.
+
+[`billing/tanuh_cost_report.py`](../../billing/tanuh_cost_report.py) instead
+prices Tanuh's dedicated resources at **AWS on-demand list price**, computed
+from **instance/volume metadata**:
+
+- **EC2 compute** = instance running-hours in the month × the on-demand list
+  rate for its type (from the rate card in the script, ap-south-1).
+- **Public IPv4** = those hours × $0.005/h.
+- **EBS** = volume GB × the gp3/gp2 list rate × (volume-hours / 730).
+- **Variable tail** (data transfer, ECR storage, VPC peering) = read from the
+  `Client=tanuh` Cost Explorer tag query, **excluding** any usage type already
+  priced from metadata (so nothing is double-counted). This tail is ~$0 for
+  months before the tag existed, which is immaterial.
+
+This basis is RI-proof, partial-month-proof (proration by hours), and
+**independently verifiable by the client** against AWS's public price list. Avni
+keeps the benefit of its RI commitment — Tanuh pays what it would pay to run the
+box itself. The rate card carries a `Verified <date>` comment; re-check it
+~annually or whenever an instance is resized (the script fails loudly on an
+unknown instance/volume type rather than mis-billing).
+
+The cost-allocation tag is still activated and the resources still carry
+`Client=tanuh` — it powers the variable-tail query and serves as a cross-check,
+but it is **not** the headline figure. The script needs read-only
+`ec2:DescribeInstances` / `ec2:DescribeVolumes` in addition to
+`ce:GetCostAndUsage` (both in `cost-report-policy.json`).
+
+The script **emails the bill itself** via SES. It is driven by
 [`.github/workflows/tanuh-cost-report.yml`](../../.github/workflows/tanuh-cost-report.yml)
 on the 2nd of each month (and `workflow_dispatch` for re-runs).
 
@@ -78,8 +109,10 @@ DRY_RUN=1 python3 billing/tanuh_cost_report.py --month 2026-05
 - IAM role `tanuh-cost-report-gha-role` trust is scoped to
   **`repo:avniproject/avni-infra:ref:refs/heads/master` exactly** (no
   `refs/heads/*` wildcard — that wildcard belongs to the build role, don't copy
-  it). Permissions are `ce:GetCostAndUsage` plus `ses:SendEmail` gated by a
-  `ses:FromAddress = noreply@avniproject.org` condition.
+  it). Permissions are `ce:GetCostAndUsage`, read-only
+  `ec2:DescribeInstances` / `ec2:DescribeVolumes` (for list-price metadata), and
+  `ses:SendEmail` gated by a `ses:FromAddress = avni@samanvayfoundation.org`
+  condition.
 - Recipients come from the repo **secret** `TANUH_COST_REPORT_RECIPIENTS`
   (not a world-readable variable); the script also rejects any recipient
   outside the `samanvayfoundation.org` / `avniproject.org` domains.
@@ -109,9 +142,17 @@ aws iam put-role-policy \
 
 ### SES prerequisite
 
-Verify the `avniproject.org` domain identity in **ap-south-1** and confirm SES
-**production access** (out of the sandbox). Domain verification needs DKIM
-CNAME records added to the `avniproject.org` Route53 zone — **those CNAME
-values are kept in the private ops runbook, not in this public repo.** There is
-deliberately **no SMTP / third-party-action fallback**; if SES is blocked, fix
-SES (request production access).
+The report is sent from **`avni@samanvayfoundation.org`, verified in
+`us-east-1`**, which is already **out of the SES sandbox** (production access) —
+so no new identity verification or DKIM setup is required. The workflow sets
+`SES_REGION=us-east-1` and `COST_REPORT_SENDER=avni@samanvayfoundation.org`
+accordingly; the `ses:FromAddress` IAM condition is pinned to the same address.
+
+> ap-south-1 SES is intentionally **not** used here: at setup time it was in the
+> sandbox with no verified identity. If the sender ever moves (e.g. to a
+> dedicated `noreply@` identity), update three places together: the workflow
+> env (`SES_REGION` / `COST_REPORT_SENDER`), the `ses:FromAddress` condition in
+> `cost-report-policy.json`, and `DEFAULT_SENDER` in the script.
+
+There is deliberately **no SMTP / third-party-action fallback**; if SES is
+blocked, fix SES.
