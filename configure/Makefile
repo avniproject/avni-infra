@@ -214,6 +214,21 @@ tanuh-metabase-prod: check-vault-pwd-file
 		|| (echo "Image tag $$TAG not found in ECR. Build/push it first (CI tag push or local make push-image)." && exit 1)
 	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod --vault-password-file ${VAULT_PASSWORD_FILE} $(EXTRA_ARGS)
 
+# Tanuh-branded Superset deployment (second reporting container on the same
+# Tanuh EC2 as Metabase, port 8088). Image tag is consumed from the external
+# build repo and pinned in group_vars/tanuh_superset_docker_vars.yml.
+# First run does the metadata-DB init (db upgrade -> create-admin -> init);
+# those tasks are idempotent on re-runs. Skip them on routine redeploys with
+# `EXTRA_ARGS="--skip-tags superset_init"`.
+tanuh-superset-prod: check-vault-pwd-file
+	@TAG=$$(sed -n 's/.*tanuh_superset_image_tag:[^"]*"\([^"]*\)".*/\1/p' group_vars/tanuh_superset_docker_vars.yml); \
+	echo "Verifying ECR image avniproject/tanuh-superset:$$TAG is present..."; \
+	aws ecr describe-images --region ap-south-1 \
+		--repository-name avniproject/tanuh-superset \
+		--image-ids imageTag=$$TAG > /dev/null \
+		|| (echo "Image tag $$TAG not found in ECR. Build/push it first (tag push v<VERSION> in avniproject/tanuh-superset)." && exit 1)
+	ansible-playbook prod_tanuh_superset_servers.yml -i inventory/prod --vault-password-file ${VAULT_PASSWORD_FILE} $(EXTRA_ARGS)
+
 # Tanuh webapp (Vite SPA) deployment.
 # Runs only the `tanuh_webapp` tagged tasks against the same Tanuh EC2 host as
 # the Metabase playbook, so it doesn't re-touch the Metabase container.

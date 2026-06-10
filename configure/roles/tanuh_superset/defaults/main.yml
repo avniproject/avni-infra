@@ -1,0 +1,16 @@
+---
+# Map the generic docker role's `app_container_*` contract onto the
+# `superset_*` vars defined in group_vars/tanuh_superset_docker_vars.yml.
+# Mirrors roles/metabase/defaults/main.yml.
+
+  app_container_name: "{{ superset_container_name }}"
+  app_container_image: "{{ superset_container_image }}"
+  app_hostname: "{{ superset_hostname }}"
+  app_container_healthcheck_cmd: "{{ superset_container_healthcheck_cmd }}"
+  app_container_ports_mapping: "{{ superset_container_ports_mapping }}"
+  app_container_env_file: "{{ superset_container_env_file }}"
+  app_container_env_template_file: "{{ superset_container_env_template_file }}"
+  app_container_log_driver: "{{ superset_container_log_driver }}"
+  app_container_log_options: "{{ superset_container_log_options }}"
+  app_container_etc_hosts: "{{ superset_container_etc_hosts }}"
+  app_container_runtime: "{{ superset_container_runtime }}"

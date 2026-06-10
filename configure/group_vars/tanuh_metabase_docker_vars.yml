@@ -39,7 +39,10 @@
 # -------- Container resource limits --------
 # Memory cap on the container itself (in addition to the JVM -Xmx). Defense
 # against Metabase OOM-killing the EC2.
-  mb_memory_limit: "3.5g"
+# Lowered from 3.5g to make room for the Superset container (~2 GB) on the same
+# t3.medium (~3.7 GiB RAM + 4 GB swap): Metabase ~2 GB + Superset ~2 GB. See
+# prod_tanuh_superset_servers.yml. Verify `free -m` under load after deploy.
+  mb_memory_limit: "2g"
 # Mapped through to the generic docker role's `docker_container_memory_limit`,
 # which is wired to `community.docker.docker_container`'s `memory` param.
   docker_container_memory_limit: "{{ mb_memory_limit }}"
@@ -51,7 +54,9 @@
   mb_db_type: "postgres"
   mb_db_port: "5432"
   java_timezone: "Asia/Kolkata"
-  java_opts: "-Xmx3072m"
+# Lowered from -Xmx3072m alongside mb_memory_limit (2g) to share the t3.medium
+# with the Superset container. Leave ~0.5g headroom under the 2g container cap.
+  java_opts: "-Xmx1536m"
 # Cap Metabase's app-DB pool so we don't blow through prod RDS connections.
 # Picked up by the additive {% if %} block in the env template.
   mb_max_conn_pool_size: 15

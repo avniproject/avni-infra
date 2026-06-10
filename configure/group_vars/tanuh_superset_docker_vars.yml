@@ -1,0 +1,64 @@
+---
+
+# -------- Image source --------
+# avni-infra CONSUMES the published image tag from the external build repo
+# avniproject/tanuh-superset (its VERSION file). That build context is NOT in
+# this repo, so unlike tanuh-metabase we can't lookup a VERSION file — pin the
+# tag explicitly here and bump it on each release.
+  tanuh_superset_image_tag: "6.0.0-tanuh-1"
+  ecr_account_id: "118388513628"
+  ecr_region: "ap-south-1"
+  ecr_registry: "{{ ecr_account_id }}.dkr.ecr.{{ ecr_region }}.amazonaws.com"
+# Use the host's actual Ubuntu release (the shared docker role defaults to
+# 'focal'); the Tanuh EC2 is jammy.
+  docker_apt_release: "{{ ansible_distribution_release }}"
+
+# -------- Container settings --------
+  superset_container_name: tanuh_superset
+  superset_container_image: "{{ ecr_registry }}/avniproject/tanuh-superset:{{ tanuh_superset_image_tag }}"
+  superset_hostname: tanuh-superset
+  superset_container_healthcheck_cmd: "curl --fail http://0.0.0.0:8088/health || exit 1"
+# 8088 must not collide on the host (Metabase is on 3000). Kept off the public
+# internet — only the ALB SG reaches it (see aws_alb_setup.sh).
+  superset_container_ports_mapping: "8088:8088"
+  superset_container_env_file: "/root/tanuh_superset_docker.env"
+  superset_container_env_template_file: superset.docker.env.template.j2
+  superset_container_log_driver: "json-file"
+  superset_container_log_options:
+    max-file: "10"
+    max-size: "10m"
+  superset_container_etc_hosts: {}
+  superset_container_runtime: "runc"
+
+  update_apt_cache: yes
+
+# Application settings
+  application_name: tanuh_superset
+  app_description: Tanuh-branded Apache Superset server
+
+# -------- Container resource limits --------
+# ~2 GB cap so Metabase (~2 GB, lowered in tanuh_metabase_docker_vars.yml) +
+# Superset (~2 GB) fit on the t3.medium (~3.7 GiB RAM + 4 GB swap). Keep
+# gunicorn workers low to stay within it.
+  superset_memory_limit: "2g"
+  docker_container_memory_limit: "{{ superset_memory_limit }}"
+  superset_worker_amount: 2
+
+# -------- Superset env-file properties --------
+  superset_db_port: "5432"
+
+# -------- Metadata DB + secret + admin (mapped from namespaced vault secrets) --
+# Real values live in configure/group_vars/prod-secret-vars.yml.enc under
+# `tanuh_superset_*` keys. See reportingSystem/tanuh-superset/DB_BOOTSTRAP.md
+# for the keys and how to bootstrap tanuh_reporting_superset_db on proddb02.
+# NOTE: superset_db_* is Superset's OWN metadata DB, never tanuh_reporting_db.
+  superset_db_name: "{{ tanuh_superset_db_dbname }}"
+  superset_db_user: "{{ tanuh_superset_db_user }}"
+  superset_db_pass: "{{ tanuh_superset_db_pass }}"
+  superset_db_host: "{{ tanuh_superset_db_host }}"
+  superset_secret_key: "{{ tanuh_superset_secret_key }}"
+  superset_admin_username: "{{ tanuh_superset_admin_username }}"
+  superset_admin_password: "{{ tanuh_superset_admin_password }}"
+  superset_admin_email: "{{ tanuh_superset_admin_email }}"
+  superset_admin_firstname: "{{ tanuh_superset_admin_firstname | default('Tanuh') }}"
+  superset_admin_lastname: "{{ tanuh_superset_admin_lastname | default('Admin') }}"

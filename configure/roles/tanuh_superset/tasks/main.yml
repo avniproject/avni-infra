@@ -1,0 +1,59 @@
+---
+# Pull the image, render the env file, and start the container (healthcheck +
+# ~2 GB memory cap) via the shared docker role.
+- name: Deploy Tanuh Superset docker container
+  include_role:
+    name: docker
+
+# ---- First-boot / idempotent metadata-DB init --------------------------------
+# Superset needs its metadata DB migrated and an admin user before login, else
+# the UI 500s. Ordering matters: db upgrade -> create-admin -> init.
+# `db upgrade` and `init` are idempotent; `create-admin` is guarded so re-runs
+# don't fail. Tagged `superset_init` so it can be skipped on routine redeploys
+# with EXTRA_ARGS="--skip-tags superset_init".
+- name: Wait for the Superset container to report running
+  community.docker.docker_container_info:
+    name: "{{ superset_container_name }}"
+  register: superset_info
+  until: superset_info.container is not none and superset_info.container.State.Running | default(false)
+  retries: 30
+  delay: 5
+  become: true
+  tags: [superset_init]
+
+- name: Initialise/upgrade the Superset metadata DB (superset db upgrade)
+  community.docker.docker_container_exec:
+    container: "{{ superset_container_name }}"
+    command: superset db upgrade
+  become: true
+  changed_when: true
+  tags: [superset_init]
+
+- name: Create the Superset admin user (idempotent)
+  community.docker.docker_container_exec:
+    container: "{{ superset_container_name }}"
+    argv:
+      - superset
+      - fab
+      - create-admin
+      - "--username={{ superset_admin_username }}"
+      - "--firstname={{ superset_admin_firstname }}"
+      - "--lastname={{ superset_admin_lastname }}"
+      - "--email={{ superset_admin_email }}"
+      - "--password={{ superset_admin_password }}"
+  become: true
+  register: superset_create_admin
+  no_log: true
+  changed_when: "'exists' not in ((superset_create_admin.stdout | default('')) ~ (superset_create_admin.stderr | default('')))"
+  failed_when:
+    - (superset_create_admin.rc | default(0)) != 0
+    - "'exists' not in ((superset_create_admin.stdout | default('')) ~ (superset_create_admin.stderr | default('')))"
+  tags: [superset_init]
+
+- name: Sync Superset roles and permissions (superset init)
+  community.docker.docker_container_exec:
+    container: "{{ superset_container_name }}"
+    command: superset init
+  become: true
+  changed_when: true
+  tags: [superset_init]

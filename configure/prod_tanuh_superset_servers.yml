@@ -1,0 +1,23 @@
+---
+
+# Deploy Tanuh Superset as a SECOND reporting container on the existing Tanuh
+# EC2 (the [tanuh_metabase_server] host), alongside Metabase, on port 8088.
+# Deliberately minimal: only ECR auth + the Superset container. base/security
+# and the Metabase/webapp roles are already applied by
+# prod_tanuh_metabase_servers.yml on this shared host — we don't re-touch them,
+# so the running Metabase container is left untouched.
+- name: Configure Tanuh Superset server
+  hosts: tanuh_metabase_server
+  become: yes
+  become_user: root
+  remote_user: ubuntu
+  tags:
+    - tanuh_superset
+  vars_files:
+    - group_vars/basic_docker_vars.yml
+    - group_vars/prod_vars.yml
+    - group_vars/prod-secret-vars.yml.enc
+    - group_vars/tanuh_superset_docker_vars.yml
+  roles:
+    - ecr_docker_auth
+    - tanuh_superset
