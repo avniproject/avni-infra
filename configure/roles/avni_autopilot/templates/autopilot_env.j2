@@ -1,0 +1,27 @@
+# Rendered by Ansible role avni_autopilot — do not edit on the host.
+
+# LLM / embedding credentials
+ANTHROPIC_API_KEY={{ anthropic_api_key }}
+VOYAGE_API_KEY={{ voyage_api_key }}
+
+# Server settings
+AI_WEB_PORT={{ appserver_port }}
+LOG_LEVEL={{ log_level | upper }}
+LOG_FILE={{ application_log_dir }}/avni.log
+
+# Co-located avni-server (loopback)
+AVNI_SERVER_BASE_URL={{ autopilot_avni_server_base_url }}
+
+# CORS allowlist (comma-separated)
+AI_WEBAPP_ORIGIN={{ autopilot_webapp_origin }}
+
+# Session lifecycle
+AI_SESSION_DIR={{ autopilot_session_dir }}
+AI_SESSION_IDLE_MIN={{ autopilot_session_idle_min }}
+AI_SESSION_MAX_HOURS={{ autopilot_session_max_hours }}
+
+{% if langsmith_tracing_enabled | default(false) %}
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY={{ langsmith_api_key | default('') }}
+LANGSMITH_PROJECT={{ langsmith_project | default('avni-autopilot') }}
+{% endif %}

@@ -1,0 +1,43 @@
+---
+- name: Install uv for Python dependency management
+  shell: |
+    if ! command -v uv &> /dev/null; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+  become: yes
+  become_user: "{{ application_user }}"
+
+- name: Render env file for Autopilot
+  template:
+    src: autopilot_env.j2
+    dest: "{{ application_conf_file }}"
+    owner: root
+    group: root
+    mode: '0640'
+  become: yes
+  notify:
+    - restart autopilot
+
+- name: Render systemd unit for Autopilot
+  template:
+    src: avni-autopilot.service.j2
+    dest: "{{ service_dir }}/{{ application_name }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify:
+    - reload systemd
+    - restart autopilot
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: Enable Autopilot service
+  systemd:
+    name: "{{ application_name }}"
+    enabled: yes
+  become: yes

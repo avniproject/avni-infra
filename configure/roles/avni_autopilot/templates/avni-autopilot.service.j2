@@ -1,0 +1,49 @@
+[Unit]
+Description=Avni Autopilot (FastAPI + SSE)
+Documentation=https://github.com/avniproject/avni-ai-tools
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User={{ application_user }}
+Group={{ application_group }}
+WorkingDirectory={{ application_dir }}/current
+Environment=PATH={{ application_dir }}/current/.venv/bin:/home/{{ application_user }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile={{ application_conf_file }}
+
+ExecStart={{ autopilot_python_executable }} run {{ autopilot_main_script }}
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=no
+ReadWritePaths={{ application_dir }}/current {{ application_log_dir }} {{ autopilot_session_dir }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+LimitNOFILE=65536
+LimitNPROC=4096
+
+MemoryLimit={{ autopilot_memory_limit | default('700M') }}
+CPUQuota={{ autopilot_cpu_quota | default('200%') }}
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ application_name }}
+
+[Install]
+WantedBy=multi-user.target
