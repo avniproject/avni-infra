@@ -20,6 +20,11 @@ AI_SESSION_DIR={{ autopilot_session_dir }}
 AI_SESSION_IDLE_MIN={{ autopilot_session_idle_min }}
 AI_SESSION_MAX_HOURS={{ autopilot_session_max_hours }}
 
+# Pipeline graph checkpoint persistence (SQLite file, survives restarts).
+# Lives inside the session dir so the existing autopilot user permissions
+# and the existing reaped-session backup policy already cover it.
+AI_CHECKPOINT_DB_PATH={{ autopilot_session_dir }}/checkpoints.db
+
 {% if langsmith_tracing_enabled | default(false) %}
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY={{ langsmith_api_key | default('') }}
