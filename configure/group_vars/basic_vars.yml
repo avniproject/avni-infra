@@ -49,7 +49,7 @@ ai_host: "0.0.0.0"
 
 ## Avni Autopilot variables (FastAPI bundle-generation service from avni-ai-tools)
 autopilot_application_name: "avni-autopilot"
-autopilot_port: 8090
+autopilot_port: 8023
 autopilot_user: "avni-autopilot-user"
 autopilot_group: "avni-autopilot-grp"
 autopilot_service_dir: "/usr/lib/systemd/system"
