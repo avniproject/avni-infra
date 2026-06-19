@@ -95,7 +95,7 @@ avni_ai_server_url: "https://staging-ai.avniproject.org"
 
 ## Autopilot (avni-autopilot) variables
 autopilot_avni_server_base_url: "http://127.0.0.1:8021"
-autopilot_webapp_origin: "https://staging.avniproject.org"
+autopilot_webapp_origin: "https://staging.avniproject.org,http://localhost:6010"
 
 # Copilot variables
 avni_copilot_token: "ynGfdvGlFWJhmetX"
