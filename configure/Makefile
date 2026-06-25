@@ -13,6 +13,11 @@ ifndef ai_zip_path
 	$(error ai_zip_path is undefined)
 endif
 
+check-autopilot-zip-path:
+ifndef autopilot_zip_path
+	$(error autopilot_zip_path is undefined)
+endif
+
 check-vault-pwd-file:
 ifndef VAULT_PASSWORD_FILE
 	$(error VAULT_PASSWORD_FILE is undefined)
@@ -357,6 +362,18 @@ deploy-avni-ai-prerelease: check-ai-zip-path check-vault-pwd-file
 deploy-avni-ai-prod: check-ai-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(ai_zip_path) APPLICATION_ZIP_FILE_NAME=avni-ai.tar.gz ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
      --extra-vars '{"deploy_app_name":"ai","deploy_app_hosts":"aiservers","deploy_app_remote_user":"avni-ai-user","deploy_app_env":"prod","deploy_app_role":"avni_aiserver","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}' -v
+
+deploy-avni-autopilot-staging: check-autopilot-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(autopilot_zip_path) APPLICATION_ZIP_FILE_NAME=avni-autopilot.tar.gz ansible-playbook deploy_app_to_servers.yml -i inventory/staging  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"autopilot","deploy_app_hosts":"aiservers","deploy_app_remote_user":"avni-autopilot-user","deploy_app_env":"staging","deploy_app_role":"avni_autopilot","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}' -v
+
+deploy-avni-autopilot-prerelease: check-autopilot-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(autopilot_zip_path) APPLICATION_ZIP_FILE_NAME=avni-autopilot.tar.gz ansible-playbook deploy_app_to_servers.yml -i inventory/prerelease  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"autopilot","deploy_app_hosts":"aiservers","deploy_app_remote_user":"avni-autopilot-user","deploy_app_env":"prerelease","deploy_app_role":"avni_autopilot","deploy_app_env_vars_file":"group_vars/prerelease_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prerelease-secret-vars.yml.enc"}' -v
+
+deploy-avni-autopilot-prod: check-autopilot-zip-path check-vault-pwd-file
+	APPLICATION_ZIP_PATH=$(autopilot_zip_path) APPLICATION_ZIP_FILE_NAME=avni-autopilot.tar.gz ansible-playbook deploy_app_to_servers.yml -i inventory/prod  --vault-password-file ${VAULT_PASSWORD_FILE}  \
+     --extra-vars '{"deploy_app_name":"autopilot","deploy_app_hosts":"aiservers","deploy_app_remote_user":"avni-autopilot-user","deploy_app_env":"prod","deploy_app_role":"avni_autopilot","deploy_app_env_vars_file":"group_vars/prod_vars.yml","deploy_app_env_secret_vars_file":"group_vars/prod-secret-vars.yml.enc"}' -v
 
 deploy-snapshot-server-snapshot: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=snapshot-server.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/snapshot --vault-password-file ${VAULT_PASSWORD_FILE} \

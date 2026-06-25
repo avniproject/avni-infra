@@ -94,6 +94,10 @@ metabase_db_url: "jdbc:postgresql://serverdb.avniproject.org:5432/reportingdb"
 ## AI server variables
 avni_ai_server_url: "https://app-ai.avniproject.org"
 
+## Autopilot (avni-autopilot) variables
+autopilot_avni_server_base_url: "http://127.0.0.1:8021"
+autopilot_webapp_origin: "https://app.avniproject.org"
+
 # Copilot variables
 avni_copilot_token: "zzLh8cQNeOZFRVzv"
 avni_copilot_enabled: "true"

@@ -5,7 +5,7 @@
 # avniproject/tanuh-superset (its VERSION file). That build context is NOT in
 # this repo, so unlike tanuh-metabase we can't lookup a VERSION file — pin the
 # tag explicitly here and bump it on each release.
-  tanuh_superset_image_tag: "6.0.0-tanuh-1"
+  tanuh_superset_image_tag: "6.0.0-tanuh-2"
   ecr_account_id: "118388513628"
   ecr_region: "ap-south-1"
   ecr_registry: "{{ ecr_account_id }}.dkr.ecr.{{ ecr_region }}.amazonaws.com"

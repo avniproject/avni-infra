@@ -30,7 +30,7 @@ set -euo pipefail
 
 REGION=${REGION:-ap-south-1}
 ALB_NAME=${ALB_NAME:-reporting-alb}
-HOSTNAME=${HOSTNAME:-tanuh-reporting-superset.avniproject.org}
+SITE_HOST=${SITE_HOST:-tanuh-reporting-superset.avniproject.org}
 TG_NAME=${TG_NAME:-tanuh-superset}
 TG_PORT=${TG_PORT:-8088}
 HEALTH_PATH=${HEALTH_PATH:-/health}
@@ -81,9 +81,9 @@ log "  ALB: $ALB_ARN"
 log "  Tanuh EC2: $INSTANCE_ID   Tanuh SG: $TANUH_SG   Zone: $ZONE_ID"
 
 # --- 1. ACM cert (DNS-validated) ---
-log "Requesting ACM cert for $HOSTNAME..."
+log "Requesting ACM cert for $SITE_HOST..."
 CERT_ARN=$(aws acm request-certificate --region "$REGION" \
-  --domain-name "$HOSTNAME" \
+  --domain-name "$SITE_HOST" \
   --validation-method DNS \
   --tags Key=Project,Value=tanuh-superset Key=Client,Value=tanuh Key=ManagedBy,Value=aws_alb_setup.sh \
   --query CertificateArn --output text)
@@ -135,21 +135,21 @@ aws elbv2 add-listener-certificates --region "$REGION" \
   --listener-arn "$LISTENER_443" --certificates "CertificateArn=$CERT_ARN" > /dev/null
 
 # --- 5. Listener rule: Host -> TG ---
-log "Adding listener rule (priority=$LISTENER_PRIORITY): Host=$HOSTNAME -> $TG_NAME..."
+log "Adding listener rule (priority=$LISTENER_PRIORITY): Host=$SITE_HOST -> $TG_NAME..."
 RULE_ARN=$(aws elbv2 create-rule --region "$REGION" \
   --listener-arn "$LISTENER_443" \
   --priority "$LISTENER_PRIORITY" \
-  --conditions "Field=host-header,Values=$HOSTNAME" \
+  --conditions "Field=host-header,Values=$SITE_HOST" \
   --actions "Type=forward,TargetGroupArn=$TG_ARN" \
   --tags Key=Project,Value=tanuh-superset Key=Client,Value=tanuh Key=ManagedBy,Value=aws_alb_setup.sh \
   --query 'Rules[0].RuleArn' --output text)
 log "  Rule: $RULE_ARN"
 
 # --- 6. Route53: create ALIAS -> ALB (new hostname; no swap) ---
-log "Creating Route53 ALIAS $HOSTNAME -> $ALB_NAME..."
+log "Creating Route53 ALIAS $SITE_HOST -> $ALB_NAME..."
 cat > /tmp/r53-superset-alias.json <<EOF
 {"Changes": [{"Action": "UPSERT", "ResourceRecordSet": {
-  "Name": "$HOSTNAME.", "Type": "A",
+  "Name": "$SITE_HOST.", "Type": "A",
   "AliasTarget": {"HostedZoneId": "$ALB_HZ", "DNSName": "$ALB_DNS", "EvaluateTargetHealth": false}}}]}
 EOF
 aws route53 change-resource-record-sets --hosted-zone-id "$ZONE_ID" \
@@ -164,11 +164,11 @@ aws elbv2 wait target-in-service --region "$REGION" --target-group-arn "$TG_ARN"
 
 log ""
 log "ALB wiring complete."
-log "Test: curl -sI https://$HOSTNAME$HEALTH_PATH   (expect HTTP/2 200)"
+log "Test: curl -sI https://$SITE_HOST$HEALTH_PATH   (expect HTTP/2 200)"
 log ""
 log "Resources created (for aws_alb_teardown.sh):"
 log "  Cert:    $CERT_ARN"
 log "  TG:      $TG_ARN"
 log "  Rule:    $RULE_ARN  (priority $LISTENER_PRIORITY)"
 log "  SG rule: ingress $TG_PORT on $TANUH_SG from $ALB_SG"
-log "  Route53: $HOSTNAME ALIAS -> $ALB_NAME"
+log "  Route53: $SITE_HOST ALIAS -> $ALB_NAME"

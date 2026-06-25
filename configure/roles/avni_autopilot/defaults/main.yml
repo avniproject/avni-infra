@@ -1,0 +1,18 @@
+---
+application_name: "{{ autopilot_application_name }}"
+app_description: Avni Autopilot
+application_user: "{{ autopilot_user }}"
+application_group: "{{ autopilot_group }}"
+appserver_port: "{{ autopilot_port }}"
+service_dir: "{{ autopilot_service_dir }}"
+
+application_dir: "{{ autopilot_root_dir }}"
+application_log_dir: "{{ autopilot_log_dir }}"
+application_conf_file: "/etc/{{ autopilot_application_name }}.conf"
+
+autopilot_python_executable: "{{ autopilot_uv_executable }}"
+autopilot_main_script: "{{ autopilot_entry_script }}"
+log_level: "info"
+
+application_zip_path: "{{ lookup('env','APPLICATION_ZIP_PATH') }}"
+application_zip_file_name: "{{ lookup('env','APPLICATION_ZIP_FILE_NAME') }}"

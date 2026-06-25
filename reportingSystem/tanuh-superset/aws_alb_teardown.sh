@@ -12,7 +12,7 @@ set -uo pipefail
 
 REGION=${REGION:-ap-south-1}
 ALB_NAME=${ALB_NAME:-reporting-alb}
-HOSTNAME=${HOSTNAME:-tanuh-reporting-superset.avniproject.org}
+SITE_HOST=${SITE_HOST:-tanuh-reporting-superset.avniproject.org}
 TG_NAME=${TG_NAME:-tanuh-superset}
 TG_PORT=${TG_PORT:-8088}
 TANUH_SG_NAME=${TANUH_SG_NAME:-tanuh-metabase-sg}
@@ -45,9 +45,9 @@ TANUH_SG=$(aws ec2 describe-security-groups --region "$REGION" \
   --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null || echo "")
 
 # --- 1. Route53 alias ---
-log "Deleting Route53 alias $HOSTNAME..."
+log "Deleting Route53 alias $SITE_HOST..."
 ALIAS_RR=$(aws route53 list-resource-record-sets --hosted-zone-id "$ZONE_ID" \
-  --query "ResourceRecordSets[?Name=='$HOSTNAME.' && Type=='A']|[0]" --output json 2>/dev/null || echo "null")
+  --query "ResourceRecordSets[?Name=='$SITE_HOST.' && Type=='A']|[0]" --output json 2>/dev/null || echo "null")
 if [[ "$ALIAS_RR" != "null" && -n "$ALIAS_RR" ]]; then
   cat > /tmp/r53-superset-del.json <<EOF
 {"Changes": [{"Action": "DELETE", "ResourceRecordSet": $ALIAS_RR}]}
@@ -70,7 +70,7 @@ fi
 
 # --- 3. Detach SNI cert + delete cert (+ validation CNAME) ---
 CERT_ARN=$(aws acm list-certificates --region "$REGION" \
-  --query "CertificateSummaryList[?DomainName=='$HOSTNAME'].CertificateArn|[0]" --output text)
+  --query "CertificateSummaryList[?DomainName=='$SITE_HOST'].CertificateArn|[0]" --output text)
 if [[ -n "$CERT_ARN" && "$CERT_ARN" != "None" ]]; then
   [[ -n "$LISTENER_443" ]] && aws elbv2 remove-listener-certificates --region "$REGION" \
     --listener-arn "$LISTENER_443" --certificates "CertificateArn=$CERT_ARN" > /dev/null 2>&1 \
