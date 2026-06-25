@@ -234,6 +234,7 @@ tanuh-superset-prod: check-vault-pwd-file
 # the Metabase playbook, so it doesn't re-touch the Metabase container.
 # AWS wiring (ACM cert / TG / listener / Route53) is one-shot — run
 # `bash ../tanuh-webapp/aws_alb_setup.sh` once before the first deploy.
+# use `make tanuh-webapp-prod EXTRA_ARGS='-e tanuh_webapp_git_ref=develop'` when you want to deploy by a different branch
 tanuh-webapp-prod: check-vault-pwd-file
 	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod \
 		--vault-password-file ${VAULT_PASSWORD_FILE} \
