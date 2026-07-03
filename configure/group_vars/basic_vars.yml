@@ -64,6 +64,7 @@ autopilot_session_idle_min: 30
 autopilot_session_max_hours: 2
 autopilot_memory_limit: "700M"
 autopilot_cpu_quota: "200%"
+langsmith_endpoint: "https://apac.api.smith.langchain.com"
 
 ## Rules server variables
 openchs_upload_user_user_name: "upload-user"

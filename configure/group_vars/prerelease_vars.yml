@@ -101,6 +101,8 @@ avni_ai_server_url: "https://prerelease-ai.avniproject.org"
 ## Autopilot (avni-autopilot) variables
 autopilot_avni_server_base_url: "http://127.0.0.1:8021"
 autopilot_webapp_origin: "https://prerelease.avniproject.org"
+langsmith_tracing_enabled: true
+langsmith_project: "avni-autopilot-prerelease"
 
 # Copilot variables
 avni_copilot_token: "UEeH2KZWV4vhACd2"

@@ -97,6 +97,8 @@ avni_ai_server_url: "https://app-ai.avniproject.org"
 ## Autopilot (avni-autopilot) variables
 autopilot_avni_server_base_url: "http://127.0.0.1:8021"
 autopilot_webapp_origin: "https://app.avniproject.org"
+langsmith_tracing_enabled: true
+langsmith_project: "avni-autopilot"
 
 # Copilot variables
 avni_copilot_token: "zzLh8cQNeOZFRVzv"
