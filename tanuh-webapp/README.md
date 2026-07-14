@@ -75,6 +75,64 @@ Re-runs are cheap: `npm ci` skips when `node_modules/.package-lock.json` is
 already present and the git HEAD hasn't moved; `npm run build` runs only when
 the source or `.env.production` changed.
 
+## UAT instance (same node)
+
+A second, isolated instance of the physician app runs on the **same** Tanuh
+Reporting EC2 for pre-production validation, at
+`https://uat-tanuh.avniproject.org` (nginx `:8081`). It proxies to the same prod
+Avni backend; data isolation is at the **org** level — UAT testers log in with
+`Tanuh_UAT`-org accounts and only touch UAT data. Use it to validate a change
+before promoting the prod instance.
+
+```
+Browser ─► uat-tanuh.avniproject.org ─► reporting-alb:443 (its own SNI cert)
+                                          └─ Host: uat-tanuh.avniproject.org ──► tanuh-webapp-uat TG ──► EC2:8081 (nginx → /var/www/tanuh-webapp-uat)
+```
+
+Same `tanuh_webapp` role, instantiated with
+`tanuh_webapp_instance_name: tanuh-webapp-uat` (→ docroot
+`/var/www/tanuh-webapp-uat`, build dir `/var/lib/tanuh-webapp-uat-build`, nginx
+`tanuh-webapp-uat.conf`, port 8081).
+
+### One-time UAT AWS wiring
+
+Run once, from this directory, before the first UAT deploy:
+
+```bash
+WEBAPP_HOSTNAME=uat-tanuh.avniproject.org \
+TG_NAME=tanuh-webapp-uat TG_PORT=8081 LISTENER_PRIORITY=32 \
+bash aws_alb_setup.sh
+```
+
+Provisions (additively — the prod wiring at priority 31 is untouched):
+
+- ACM cert for `uat-tanuh.avniproject.org` (DNS-validated; its own SNI cert on the shared 443 listener).
+- Target group `tanuh-webapp-uat` (HTTP/8081, health `GET /`).
+- Listener rule **priority 32**, host-header `uat-tanuh.avniproject.org` → TG.
+- Security group ingress on `tanuh-metabase-sg`: 8081/tcp from the ALB SG.
+- Route53 ALIAS `uat-tanuh.avniproject.org` → `reporting-alb`.
+
+Not idempotent. To undo (same UAT env):
+
+```bash
+WEBAPP_HOSTNAME=uat-tanuh.avniproject.org TG_NAME=tanuh-webapp-uat TG_PORT=8081 LISTENER_PRIORITY=32 bash aws_alb_teardown.sh
+```
+
+### UAT deploy
+
+```bash
+cd ../configure
+VAULT_PASSWORD_FILE=~/.ssh/infra-valut-pwd-file make tanuh-webapp-uat
+```
+
+Runs only the `tanuh_webapp_uat`-tagged role application against
+`prod_tanuh_metabase_servers.yml`. The prod webapp, Metabase and Superset on the
+same host are **not** touched: the UAT role is guarded by
+`when: 'tanuh_webapp_uat' in ansible_run_tags`, so `make tanuh-webapp-prod` and
+untagged runs (`make tanuh-metabase-prod`) skip it entirely. UAT tracks `main`;
+deploy a specific ref with
+`make tanuh-webapp-uat EXTRA_ARGS='-e tanuh_webapp_git_ref=<ref>'`.
+
 ## Pinning a release
 
 By default the role builds from `main`. To pin to a tag or commit SHA, set
