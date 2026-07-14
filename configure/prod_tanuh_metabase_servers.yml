@@ -25,4 +25,23 @@
     - ecr_docker_auth
     - metabase
     - tanuh_maintenance
-    - tanuh_webapp
+    # Prod physician app (tanuh.avniproject.org, :8080). Deployed by
+    # `make tanuh-webapp-prod` (--tags tanuh_webapp) and by any untagged run of
+    # this playbook (e.g. `make tanuh-metabase-prod`) — unchanged behaviour.
+    - role: tanuh_webapp
+      tags: [tanuh_webapp]
+    # UAT physician app (uat-tanuh.avniproject.org, :8081) on the SAME host,
+    # backed by the Tanuh_UAT org on prod Avni. Guarded so it deploys ONLY when
+    # `tanuh_webapp_uat` is explicitly requested (`make tanuh-webapp-uat`):
+    #   - `--tags tanuh_webapp` (prod deploy)  -> not selected -> skipped
+    #   - untagged run (`make tanuh-metabase-prod`, ansible_run_tags == ['all'])
+    #     -> selected by tag but `when` is false -> skipped
+    # so the prod webapp / metabase are never touched by the UAT instance.
+    - role: tanuh_webapp
+      vars:
+        tanuh_webapp_instance_name: tanuh-webapp-uat
+        tanuh_webapp_listen_port: 8081
+        tanuh_webapp_server_name: uat-tanuh.avniproject.org
+        tanuh_webapp_git_ref: main
+      tags: [tanuh_webapp_uat]
+      when: "'tanuh_webapp_uat' in ansible_run_tags"

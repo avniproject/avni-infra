@@ -245,6 +245,18 @@ tanuh-webapp-prod: check-vault-pwd-file
 		--vault-password-file ${VAULT_PASSWORD_FILE} \
 		--tags tanuh_webapp $(EXTRA_ARGS)
 
+# UAT physician app on the SAME Tanuh EC2 host (uat-tanuh.avniproject.org, :8081).
+# Deploys ONLY the tanuh_webapp_uat-tagged role application; the prod webapp and
+# Metabase are never touched (the UAT role is guarded by `when: 'tanuh_webapp_uat'
+# in ansible_run_tags`, so prod/untagged runs skip it). AWS wiring is one-shot —
+# run once before the first UAT deploy:
+#   WEBAPP_HOSTNAME=uat-tanuh.avniproject.org TG_NAME=tanuh-webapp-uat TG_PORT=8081 LISTENER_PRIORITY=32 bash ../tanuh-webapp/aws_alb_setup.sh
+# UAT tracks main; override with EXTRA_ARGS='-e tanuh_webapp_git_ref=<ref>'.
+tanuh-webapp-uat: check-vault-pwd-file
+	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod \
+		--vault-password-file ${VAULT_PASSWORD_FILE} \
+		--tags tanuh_webapp_uat $(EXTRA_ARGS)
+
 metabase-schedule-protection: check-vault-pwd-file
 	ansible-playbook -i inventory/staging staging_metabase_servers.yml --tags "metabase_db_trigger_2" --vault-password-file ${VAULT_PASSWORD_FILE}
 

@@ -1,9 +1,14 @@
 {% set _proxy_host = tanuh_webapp_avni_proxy_target | regex_replace('^https?://', '') | regex_replace('/.*$', '') %}
+{# Per-instance suffix so a second (UAT) instance sharing this nginx does not
+   collide on the http-context `upstream`/`log_format` names (nginx rejects
+   duplicates). The default instance (`tanuh-webapp` = prod) keeps the
+   unqualified names, so its rendered config stays byte-identical. #}
+{% set _sfx = '' if (tanuh_webapp_instance_name | default('tanuh-webapp')) == 'tanuh-webapp' else '_' + (tanuh_webapp_instance_name | replace('-', '_')) %}
 # Keepalive pool to the upstream Avni server. Without this, every /api, /me,
 # /idp-details call from the SPA opens a fresh TLS connection to the upstream,
 # which adds a 200-400ms handshake to first-paint when the SPA fires several
 # bootstrap requests in parallel.
-upstream avni_backend {
+upstream avni_backend{{ _sfx }} {
     server {{ _proxy_host }}:443;
     keepalive 32;
     # Close idle pooled connections before the upstream ALB does (ALB idle
@@ -13,7 +18,7 @@ upstream avni_backend {
 
 # Upstream timing per request: uct≈connect (5s spikes = dead/rotated ALB IP,
 # see the dns-watch cron), urt≈Avni server time. One grep diagnoses a stall.
-log_format avni_upstream '$remote_addr [$time_local] "$request" $status '
+log_format avni_upstream{{ _sfx }} '$remote_addr [$time_local] "$request" $status '
                          'rt=$request_time uct=$upstream_connect_time '
                          'uht=$upstream_header_time urt=$upstream_response_time '
                          'peer=$upstream_addr';
@@ -32,8 +37,8 @@ server {
     # them as same-origin and CORS is not required. The path set mirrors the
     # Vite dev-server proxy in vite.config.ts.
     location ~ ^/(idp-details|api|me|web|media|cognito-details)(/|$) {
-        access_log /var/log/nginx/tanuh-webapp-upstream.log avni_upstream;
-        proxy_pass https://avni_backend;
+        access_log /var/log/nginx/{{ tanuh_webapp_instance_name }}-upstream.log avni_upstream{{ _sfx }};
+        proxy_pass https://avni_backend{{ _sfx }};
         proxy_http_version 1.1;
         # nginx freezes the upstream{} peer IPs at config load; when the ALB
         # rotates an IP away, a request landing on the dead peer must fail in
