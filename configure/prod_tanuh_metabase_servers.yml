@@ -29,6 +29,12 @@
     # `make tanuh-webapp-prod` (--tags tanuh_webapp) and by any untagged run of
     # this playbook (e.g. `make tanuh-metabase-prod`) — unchanged behaviour.
     - role: tanuh_webapp
+      vars:
+        # Prod pins a RELEASE TAG — UAT tracks `main`, prod never auto-drifts to
+        # `main`. v1.5.0 == the commit prod currently runs, so a bare
+        # `make tanuh-webapp-prod` is a no-op. Bump this to a newer tag to
+        # promote, after UAT sign-off (see tanuh-webapp README "Releases & promotion").
+        tanuh_webapp_git_ref: v1.5.0
       tags: [tanuh_webapp]
     # UAT physician app (uat-tanuh.avniproject.org, :8081) on the SAME host,
     # backed by the Tanuh_UAT org on prod Avni. Guarded so it deploys ONLY when

@@ -100,9 +100,16 @@ Run once, from this directory, before the first UAT deploy:
 
 ```bash
 WEBAPP_HOSTNAME=uat-tanuh.avniproject.org \
+TANUH_INSTANCE_TAG=tanuh-physician-app-superset \
 TG_NAME=tanuh-webapp-uat TG_PORT=8081 LISTENER_PRIORITY=32 \
 bash aws_alb_setup.sh
 ```
+
+> **Required:** `TANUH_INSTANCE_TAG` must match the Tanuh EC2's `Name` tag —
+> **`tanuh-physician-app-superset`** on this host, **not** the script's default
+> `tanuh-metabase`. Omit it and the script aborts at `RegisterTargets` with
+> `Instance ID 'None' is not valid` — after it has already created the ACM cert
+> and target group (non-idempotent, so you'd then need `aws_alb_teardown.sh`).
 
 Provisions (additively — the prod wiring at priority 31 is untouched):
 
