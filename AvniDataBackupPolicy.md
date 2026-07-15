@@ -2,7 +2,7 @@
 
 ### Avni Prod Database 
 - **Point-in-time restore** capability enabled
-- **Daily snapshots** captured, with last **35 days** retained in AWS Mumbai (ap-south-1)
+- **Daily snapshots** captured, with last **14 days** retained in AWS Mumbai (ap-south-1)
 - **Cross-region DR**: Daily snapshot copies replicated to **AWS Singapore (ap-southeast-1)**, with minimum **3 days retention** — recovery points are retained longer if newer backups are unavailable
 - Snapshots are **KMS-encrypted** in both regions
 
@@ -16,7 +16,7 @@
 
 | Component | Primary (Mumbai) | DR (Singapore) |
 |-----------|-----------------|----------------|
-| **Database** | 35-day automated backups + point-in-time restore | Daily encrypted snapshot copies, 3-day minimum retention |
+| **Database** | 14-day automated backups + point-in-time restore | Daily encrypted snapshot copies, 3-day minimum retention |
 | **Media Content** | Versioned, delete-protected | Real-time cross-region replica, delete-isolated |
 
 Both primary and DR locations are within AWS but in **geographically separate regions** (Mumbai and Singapore), providing protection against regional outages and disasters.
