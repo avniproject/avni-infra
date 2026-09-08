@@ -8,9 +8,10 @@
 
 ## 1. Goal
 
-Provision a **new, disposable, production-shaped AWS environment** with OpenTofu for load tests to
-run against. Written as a parameterised module from the outset so the same code provisions the
-dedicated customer environments and rebuilt lower environments that follow.
+Stand up a **new, disposable, production-shaped environment** for load tests to run against —
+provisioned with OpenTofu and configured with the existing Ansible roles, both of which live in this
+repository and are planned together here. Written as a parameterised module from the outset so the
+same code provisions the dedicated customer environments and rebuilt lower environments that follow.
 
 Greenfield. Nothing here imports, adopts or modifies any existing environment. Production is a
 sizing reference only; `provision/server/` stays as-is, historical, with its warning intact.
@@ -19,18 +20,22 @@ sizing reference only; `provision/server/` stays as-is, historical, with its war
 
 ## 2. Ownership boundary
 
-This document covers **only the AWS layer**. It is deliberately incomplete on its own: an
-environment is not usable until all three owners below have done their part.
+This plan covers **both layers that live in this repository** — OpenTofu provisioning and the
+Ansible configuration that makes the environment usable. They are tightly coupled: the access path
+chosen in `provision/` determines how `configure/` reaches the hosts, and neither half delivers an
+environment on its own.
 
 | Layer | Owner | Covers |
 |---|---|---|
-| **AWS resources** | **this plan** | Network, compute, RDS, S3, ALB, DNS, IAM, access path, parameter groups, cost controls |
-| **Application deployment and configuration** | `configure/` Ansible roles | JVM flags, connection pool size, log level, IdP type, agents, service config, inventory |
+| **AWS resources** (`provision/`) | **this plan, §§5-8** | Network, compute, RDS, S3, ALB, DNS, IAM, access path, parameter groups, cost controls |
+| **Environment configuration** (`configure/`) | **this plan, §9** | Inventory, playbooks, group_vars, Makefile targets, JVM flags, pool size, log level, IdP type |
 | **Test harness, workload, data, run ritual** | `avni-perf` | Simulation, scenarios, dataset generation, user provisioning, per-run procedure |
 
-**Nothing app-specific belongs in the OpenTofu module.** JVM heap, application pool size, log level
-and `AVNI_IDP_TYPE` are Ansible variables and stay there. Where infrastructure must know *about* an
-application setting, it exposes a resource toggle instead — `enable_cognito`, not `idp_type`.
+**One rule survives from the earlier split, and it is a module-design rule rather than a scope
+boundary:** app-level settings do not become OpenTofu variables. JVM heap, application pool size,
+log level and `AVNI_IDP_TYPE` are Ansible's, set in `group_vars` or a Makefile target. Where
+infrastructure must know *about* an application setting it exposes a resource toggle instead —
+`enable_cognito`, not `idp_type`.
 
 **The corresponding database-side settings are infrastructure**, because they live in an RDS
 parameter group rather than in application config: `max_connections`, `autovacuum`,
@@ -407,46 +412,95 @@ Gated on the harness's B2 → F4 → B1 ordering; triggered by that plan's owner
 
 ---
 
-## 9. Dependencies owned elsewhere
+## 9. Environment configuration (Ansible)
 
-Not tasks in this plan, but the environment is unusable until they are done. Listed so they are
-visible from here and assigned to someone.
+Half the delivery, and the half most likely to be underestimated — the OpenTofu is ordinary AWS
+work, whereas this part has no existing template to copy from.
 
-**Ansible (`configure/`)**
+### 9.1 What exists today: the `PERF_deploy` job is miswired
 
-- **There is no load-test environment configuration in this repo at all** — no inventory, no
-  playbook, no make target, no occurrence of a perf environment anywhere under `configure/`.
-  Meanwhile `avni-server/.circleci/config.yml` has a `PERF_deploy` job (line 215) invoking an
-  avni-infra make target. **Whatever it calls is not in this repository.** Establish where it went
-  before writing a replacement, or the new environment inherits a second, invisible configuration
-  path. This is the single largest unknown blocking Phase 3's handoff.
-- Inventory must address hosts by **instance ID** rather than DNS name (F4.2).
-- Application-side parity with production — JVM flags, pool size — and the values fed back into the
-  parity report.
-- **The Java version is set in the Makefile, not in group_vars.** Every avni-server target passes
-  `java_apt_package: openjdk-21-jdk` via `--extra-vars` (`configure/Makefile:74,78,82` and the
-  `deploy-avni-server-*` targets at 328-344, which also set `install_jdk: true`); ETL passes
-  `openjdk-17-jdk` (194,198). `--extra-vars` is Ansible's highest-precedence source, so the
-  `openjdk-8-jdk` default in `group_vars/basic_vars.yml:28` is never reached on those paths — but a
-  target written without it silently falls through to Java 8, and avni-server then fails at first
-  start with `UnsupportedClassVersionError`, which reads like a build problem rather than a missing
-  variable. **Copy an existing avni-server target verbatim rather than writing a new one.** Note
-  `rwb-staging` and `rwb-prod` (89,93) already omit it.
-- Host and JVM metric collection. The `newrelic` role and prod's javaagent already exist and are the
-  shortest path; the alternative is a JMX exporter.
-- Log level, set deliberately rather than by default (F2).
-- `AVNI_IDP_TYPE`, flipped in step with Phase 5.
+Earlier drafts of this plan recorded "no load-test Ansible configuration exists, and a `PERF_deploy`
+job calls something that is not in this repository" as an open unknown. **It has been traced, and
+the finding is worse than a missing file.**
 
-**Harness (`avni-perf`)** — dataset generation and load, user provisioning, per-run restore and
-statistics reset, injector operation. Dataset size is an input this plan needs (1.6, 1.9).
+`avni-server/.circleci/config.yml` defines `PERF_deploy` (line 215) and `PRERELEASE_deploy`
+(line 201). Both call the same command with the same argument — `deploy_as_service` with
+`env: "prerelease"` — which downloads `avni-infra` master and runs
+`make deploy-avni-server-prerelease`. That target is pinned to `-i inventory/prerelease`, whose
+`[avniservers]` group is `ssh.prerelease.avniproject.org` (`configure/Makefile:334-336`).
 
-The Tomcat-vs-Hikari pool correction this plan previously carried has been **taken up upstream** —
-F1 now records it, and adds that the per-connection organisation interceptor costs three round trips
-per borrow. Nothing outstanding.
+The only difference between the two jobs is the instance passed to `setup_server_access`:
+`i-0f30399b30e24a49b` for PERF, `i-0cdce9ae698eb3462` for PRERELEASE. That step does nothing but
+push a 60-second EC2 Instance Connect key to that instance — **it does not change the Ansible
+inventory host.**
+
+So `PERF_deploy` authorises a key on the perf instance and then deploys to the prerelease host. It
+has never configured a perf environment. Two things follow:
+
+- **There is no perf Ansible configuration to find, recover or adapt.** Everything in 9.2 is new
+  work, not archaeology.
+- **Had it worked, it would have been wrong anyway.** It passes
+  `deploy_app_env_vars_file: group_vars/prerelease_vars.yml`, so the perf server would have been
+  configured against prerelease's database — violating B1's requirement that the environment never
+  share a database with anything real.
+
+**Action:** fix or delete `PERF_deploy` in avni-server. Leaving a job that silently deploys to the
+wrong host is worse than having none, and it will collide with the new target below.
+
+### 9.2 Build the environment configuration
+
+- [ ] **9.1** `inventory/loadtest`. **This is the genuinely new pattern.** Every existing inventory
+      addresses hosts by public DNS name; a private environment with no public IP cannot. The
+      inventory must connect through the Instance Connect Endpoint or SSM tunnel, via
+      `ansible_ssh_common_args` with a `ProxyCommand`, addressing hosts by instance ID. Note the
+      existing `setup_server_access` pattern is *not* this — it pushes a key by instance ID and then
+      connects by DNS, which is exactly why it cannot reach a private host.
+- [ ] **9.2** `loadtest_avni_servers.yml` and `loadtest_etl_servers.yml`, modelled on the prod
+      playbooks.
+- [ ] **9.3** `group_vars/loadtest_vars.yml` and its secret-vars counterpart. **Nothing shared with
+      any real environment** — own database endpoint, own bucket, own credentials.
+- [ ] **9.4** Makefile targets. **Copy an existing avni-server target verbatim** rather than writing
+      one: `java_apt_package: openjdk-21-jdk` is passed per-target via `--extra-vars`
+      (`Makefile:74,78,82`, `328-344`) and not held in `group_vars`, so a fresh target silently
+      falls through to `basic_vars.yml:28`'s `openjdk-8-jdk` and avni-server dies at first start
+      with `UnsupportedClassVersionError` — which reads like a build failure, not a missing
+      variable. `rwb-staging` and `rwb-prod` (89,93) already omit it, so the trap is live.
+- [ ] **9.5** `avni_server_idp_type: none` (B1). The template already passes it through
+      (`roles/avni_appserver/templates/appserver.conf.j2:37`), so this is a variable value, not a
+      role change. It must land in step with the Phase 6 close, never before.
+- [ ] **9.6** **Set the connection pool size explicitly** (harness requirement I2). It is currently
+      unconfigured and sitting at the Tomcat JDBC default, which the harness predicts is itself the
+      first choke point — so it has to be a knob rather than an accident. No application change is
+      needed: `start.sh` passes `avni_server_opts` straight to `java`, so
+      `-Dspring.datasource.tomcat.max-active=N` in the loadtest vars is sufficient.
+- [ ] **9.7** Log level chosen deliberately (I2), by the same `-D` route, and recorded in the parity
+      report.
+- [ ] **9.8** JVM heap set to match production's `-Xms2560m -Xmx5120m`, or deliberately not, and
+      recorded either way.
+- [ ] **9.9** **Suppress outbound side effects in configuration as well as at the boundary** — no
+      Glific, SMS or integration credentials in the loadtest secret vars. §8's IAM and egress
+      restrictions are the backstop; this is the first line.
+- [ ] **9.10** Decide whether the `newrelic` role runs here. It is the shortest path to the JVM and
+      GC metrics F1 wants and matches production, but it is licensed per host; a JMX exporter is the
+      alternative.
+- [ ] **9.11** `security` role `ufw_allowed_ports` for this environment — the ALB's target port and
+      the injector's path, and nothing else.
+- [ ] **9.12** Feed the application-side values into the parity report so one document describes the
+      whole environment.
+- [ ] **9.13** Run it end to end and confirm the service starts, serves `/ping` through the ALB, and
+      reaches its own database and nothing else.
 
 ---
 
-## 10. Risks
+## 10. Owned by the harness
+
+`avni-perf` owns dataset generation and load, user provisioning, per-run restore and statistics
+reset, and injector operation. Dataset size is an input this plan needs (1.6, 1.9); its section I is
+the authoritative statement of what the environment must provide (§3).
+
+---
+
+## 11. Risks
 
 | Risk | Mitigation |
 |---|---|
@@ -456,7 +510,7 @@ per borrow. Nothing outstanding.
 | Baseline snapshot destroyed with the environment, losing days of dataset generation | §6 — snapshot kept outside module management; 3.2 verifies a destroy/rebuild cycle leaves it intact |
 | Storage sized for one copy of the dataset, so the per-run template copy has nowhere to go | §6; 1.6 sizes for two copies plus load headroom |
 | Bulk load takes days because storage was sized for steady state | §6; gp3 IOPS raised for the load window |
-| Load-test make target written fresh and omits `java_apt_package` | §9 — copy an existing avni-server target; the failure looks like a build error, not a config one |
+| Load-test make target written fresh and omits `java_apt_package` | 9.4 — copy an existing target; the failure looks like a build error, not a config one |
 | Private networking becomes a multi-day yak shave | 2.2 proves the access path standalone, early |
 | First Ansible run fails on egress | NAT/VPC-endpoint decision in 1.2, not discovered at handoff |
 | A run emits real SMS or hits a real integration | 2.10 — enforced at IAM and egress, not app config |
@@ -464,28 +518,30 @@ per borrow. Nothing outstanding.
 | Scheduled teardown kills a long run | 4.4's override guard |
 | Environment left running between runs | Budget alarm, scheduled destroy, cost tags (2.8, 4.4) |
 | `destroy` fails on a dependent resource; environment becomes semi-permanent | 3.2 tests destroy while nothing depends on it |
-| The dangling `PERF_deploy` CI job deploys somewhere unexpected | §9, resolved before handoff |
+| `PERF_deploy` keeps deploying to the prerelease host, or collides with the new target | 9.1 — fix or delete it in avni-server before the new target exists |
 | Module ossifies around load testing and fits customer environments badly | 6.1 forces a differently-shaped second instantiation |
 
 ---
 
-## 11. Sizing
+## 12. Sizing
 
 | Phase | Size | Notes |
 |---|---|---|
 | 0 — Foundations | ~1 day | KMS and backend |
 | 1 — Decisions | 1–2 days | 1.6 and 1.9 need a dataset-size input |
 | 2 — Build module | 4–6 days | 2.2 and 2.4 dominate |
-| 3 — First environment | 1–2 days | Excludes the Ansible unknown in §9 |
+| 3 — First environment | 1–2 days | AWS layer only |
+| 9 — Ansible configuration | **3–5 days** | No existing template for private-host addressing (9.1) |
 | 4 — Rig operations | 1–2 days | |
 | 5 — Close | ~1 day | Scheduled by the harness owner |
 | 6 — Generalise | 2–3 days | Deferrable until a second consumer is real |
 
 ---
 
-## 12. Definition of done
+## 13. Definition of done
 
 - The environment exists, is deployable to without public ingress, and can be reached by the injector.
+- **avni-server and avni-etl are deployed and running on it from `configure/`**, on Java 21, with the connection pool size set explicitly and no route to any real database or third party.
 - **No component under test is burstable, and storage is gp3** — two runs of the same workload on
   the same infrastructure produce comparable numbers.
 - It can be destroyed and rebuilt from scratch, demonstrated at least once.
