@@ -113,7 +113,7 @@ avni_show_templates: "true"
 # reCAPTCHA Enterprise. The project id and site key are public (the site key
 # ships in the bundle); only the API key is a secret and lives in the vault.
 # Set launchpad_forms_recaptcha_enterprise to "1" at the same time as these.
-launchpad_forms_recaptcha_sitekey: ""
+launchpad_forms_recaptcha_sitekey: "6LcpqbItAAAAAEPJERZPe6F9M5MHLJoyswcSiBI_"
 launchpad_forms_recaptcha_project_id: ""
 launchpad_forms_recaptcha_enterprise: ""
 launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
