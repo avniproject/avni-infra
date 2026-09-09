@@ -46,6 +46,11 @@ launchpad_forms_recaptcha_min_score: "0.5"
 # passes it to grecaptcha.enterprise.execute() and the service asserts the
 # assessment came back with the same action.
 launchpad_forms_recaptcha_action: "submit"
+# Sent as the Referer on assessment calls. Needed because the API key carries
+# a website (HTTP-referrer) restriction: that cannot protect a server-side key
+# — a single header satisfies it — but the node has no stable IP for an IP
+# restriction, which is the setting that would.
+launchpad_forms_recaptcha_referer: "https://{{ launchpad_forms_server_name }}/"
 # launchpad_forms_recaptcha_api_key <- prod-secret-vars.yml.enc (Enterprise)
 # launchpad_forms_recaptcha_secret  <- prod-secret-vars.yml.enc (classic v2)
 # launchpad_forms_bugsnag_key      <- prod-secret-vars.yml.enc (no default)
