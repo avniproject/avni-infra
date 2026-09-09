@@ -42,6 +42,10 @@ launchpad_forms_avni_username: apiuser@launchpad
 # submission — deliberately, so a half-finished setup cannot open the door.
 launchpad_forms_recaptcha_project_id: ""
 launchpad_forms_recaptcha_min_score: "0.5"
+# Must match CAPTCHA_ACTION in web/src/pages/LaunchpadForm.tsx — the page
+# passes it to grecaptcha.enterprise.execute() and the service asserts the
+# assessment came back with the same action.
+launchpad_forms_recaptcha_action: "submit"
 # launchpad_forms_recaptcha_api_key <- prod-secret-vars.yml.enc (Enterprise)
 # launchpad_forms_recaptcha_secret  <- prod-secret-vars.yml.enc (classic v2)
 # launchpad_forms_bugsnag_key      <- prod-secret-vars.yml.enc (no default)
