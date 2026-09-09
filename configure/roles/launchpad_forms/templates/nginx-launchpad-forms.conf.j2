@@ -30,8 +30,12 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     add_header X-Frame-Options DENY always;
     # 'unsafe-inline' on style-src is required: MUI/emotion injects <style>.
-    # google/gstatic = reCAPTCHA, posthog = analytics, bugsnag = error reports.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://www.google.com https://www.gstatic.com; frame-src https://www.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.gstatic.com; font-src 'self' data:; connect-src 'self' https://eu.i.posthog.com https://*.bugsnag.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    # google/gstatic = reCAPTCHA, posthog = analytics (pinned to eu in
+    # analytics.ts), bugsnag = errors + web performance. Both bugsnag.com and
+    # bugsnag.smartbear.com are required: the built bundle carries notify/
+    # sessions/otlp hosts on BOTH domains, and a CSP block is silent — Bugsnag
+    # would look configured and report nothing.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://www.google.com https://www.gstatic.com; frame-src https://www.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.gstatic.com; font-src 'self' data:; connect-src 'self' https://eu.i.posthog.com https://*.bugsnag.com https://*.bugsnag.smartbear.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
