@@ -1,0 +1,302 @@
+---
+
+# Spec §13 lists "Bugsnag on the service" as not negotiable, and the error
+# taxonomy makes it load-bearing: a dead-lettered submission still shows the
+# applicant a success screen, so without Bugsnag a broken concept name is
+# invisible until someone reads the JSONL. Override deliberately with
+# `-e launchpad_forms_require_bugsnag=false` if you must ship without it.
+- name: Assert Bugsnag keys are configured
+  assert:
+    that:
+      - launchpad_forms_bugsnag_key | default('') | length > 0
+      - launchpad_forms_web_bugsnag_key | default('') | length > 0
+    fail_msg: >-
+      Bugsnag keys are empty for {{ launchpad_forms_instance_name }}. Set
+      launchpad_forms_bugsnag_key_server and launchpad_forms_bugsnag_key_web in
+      group_vars/prod-secret-vars.yml.enc, or re-run with
+      -e launchpad_forms_require_bugsnag=false to ship without error reporting.
+  when: launchpad_forms_require_bugsnag | default(true) | bool
+
+# One instance serves both stages, so "bypass is UAT-only" is a sequencing
+# property rather than a per-host one. Spec §13 lists it as not negotiable:
+# with a bypass token set, anyone can submit to the live funnel without a
+# captcha.
+- name: Assert the captcha bypass is off when pointed at the live org
+  assert:
+    that:
+      - launchpad_forms_captcha_bypass_token | default('') | length == 0
+    fail_msg: >-
+      launchpad_forms_avni_org is 'prod' but a captcha bypass token is set.
+      That would let anyone post to the live Launchpad funnel without solving a
+      captcha. Clear launchpad_forms_uat_captcha_bypass_token or deploy with
+      launchpad_forms_avni_org=uat.
+  when: launchpad_forms_avni_org == 'prod'
+
+- name: Ensure build/runtime packages are present
+  apt:
+    name:
+      - git
+      - rsync
+      - curl
+      - ca-certificates
+      - nginx
+    state: present
+    update_cache: "{{ update_apt_cache | default(false) }}"
+
+- name: Ensure nginx is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+# The `security` role's ufw_allowed_ports on this host does not cover our
+# listen port, so without this rule ufw drops the ALB health check before
+# nginx ever sees it.
+- name: Allow {{ launchpad_forms_listen_port }}/tcp through ufw
+  community.general.ufw:
+    rule: allow
+    port: "{{ launchpad_forms_listen_port }}"
+    proto: tcp
+
+- name: Ensure launchpad-forms service user exists
+  user:
+    name: "{{ launchpad_forms_build_user }}"
+    system: yes
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Check installed Node major version
+  command: node --version
+  register: launchpad_forms_node_version
+  changed_when: false
+  failed_when: false
+
+- name: Install NodeSource apt repository for Node {{ launchpad_forms_node_major }}
+  shell: |
+    set -e
+    curl -fsSL https://deb.nodesource.com/setup_{{ launchpad_forms_node_major }}.x | bash -
+  args:
+    executable: /bin/bash
+  when: launchpad_forms_node_version.rc != 0
+        or not launchpad_forms_node_version.stdout.startswith('v' ~ launchpad_forms_node_major ~ '.')
+
+- name: Install Node.js
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+  when: launchpad_forms_node_version.rc != 0
+        or not launchpad_forms_node_version.stdout.startswith('v' ~ launchpad_forms_node_major ~ '.')
+
+- name: Ensure build dir exists (owned by the service user)
+  file:
+    path: "{{ launchpad_forms_build_dir }}"
+    owner: "{{ launchpad_forms_build_user }}"
+    group: "{{ launchpad_forms_build_user }}"
+    state: directory
+    mode: '0755'
+
+# Holds the dead-letter JSONL, which carries full personal data for failed
+# submissions. Service user only — 0700, and the unit's sole ReadWritePath.
+- name: Ensure state dir exists (dead-letter store)
+  file:
+    path: "{{ launchpad_forms_state_dir }}"
+    owner: "{{ launchpad_forms_build_user }}"
+    group: "{{ launchpad_forms_build_user }}"
+    state: directory
+    mode: '0700'
+
+- name: Ensure docroot exists (owned by www-data)
+  file:
+    path: "{{ launchpad_forms_docroot }}"
+    owner: www-data
+    group: www-data
+    state: directory
+    mode: '0755'
+
+- name: Checkout launchpad-forms source at {{ launchpad_forms_git_ref }}
+  git:
+    repo: "{{ launchpad_forms_repo_url }}"
+    dest: "{{ launchpad_forms_build_dir }}"
+    version: "{{ launchpad_forms_git_ref }}"
+    force: yes
+  become_user: "{{ launchpad_forms_build_user }}"
+  register: launchpad_forms_git
+
+# ---------------------------------------------------------------- web ----
+
+- name: Render web/.env.production
+  template:
+    src: env.production.j2
+    dest: "{{ launchpad_forms_build_dir }}/web/.env.production"
+    owner: "{{ launchpad_forms_build_user }}"
+    group: "{{ launchpad_forms_build_user }}"
+    mode: '0644'
+  register: launchpad_forms_web_env
+
+- name: npm ci (web)
+  command: npm ci
+  args:
+    chdir: "{{ launchpad_forms_build_dir }}/web"
+  become_user: "{{ launchpad_forms_build_user }}"
+  when: launchpad_forms_git.changed
+        or launchpad_forms_web_env.changed
+        or not (lookup('ansible.builtin.fileglob', launchpad_forms_build_dir + '/web/node_modules/.package-lock.json'))
+
+- name: npm run build (web)
+  command: npm run build
+  args:
+    chdir: "{{ launchpad_forms_build_dir }}/web"
+  become_user: "{{ launchpad_forms_build_user }}"
+  environment:
+    NODE_ENV: production
+  when: launchpad_forms_git.changed or launchpad_forms_web_env.changed
+  register: launchpad_forms_web_build
+
+- name: Force a web build when docroot is empty
+  command: npm run build
+  args:
+    chdir: "{{ launchpad_forms_build_dir }}/web"
+  become_user: "{{ launchpad_forms_build_user }}"
+  environment:
+    NODE_ENV: production
+  when:
+    - not (launchpad_forms_web_build.changed | default(false))
+    - not (lookup('ansible.builtin.fileglob', launchpad_forms_docroot + '/index.html'))
+
+- name: Sync web/dist/ -> docroot (--delete to drop removed files)
+  command: >
+    rsync -a --delete --chown=www-data:www-data
+    {{ launchpad_forms_build_dir }}/web/dist/
+    {{ launchpad_forms_docroot }}/
+  register: launchpad_forms_sync
+  changed_when: "'>f' in launchpad_forms_sync.stdout or 'cd' in launchpad_forms_sync.stdout or 'deleting' in launchpad_forms_sync.stdout"
+
+# ------------------------------------------------------------- service ----
+
+# tsc lives in devDependencies, so the build needs the full tree; the running
+# unit does not. Install everything, compile, then prune back to prod deps.
+- name: npm ci (server)
+  command: npm ci
+  args:
+    chdir: "{{ launchpad_forms_build_dir }}/server"
+  become_user: "{{ launchpad_forms_build_user }}"
+  when: launchpad_forms_git.changed
+        or not (lookup('ansible.builtin.fileglob', launchpad_forms_build_dir + '/server/dist/index.js'))
+  register: launchpad_forms_server_deps
+
+- name: npm run build (server)
+  command: npm run build
+  args:
+    chdir: "{{ launchpad_forms_build_dir }}/server"
+  become_user: "{{ launchpad_forms_build_user }}"
+  when: launchpad_forms_server_deps.changed
+  notify: restart launchpad_forms service
+
+- name: Prune server dev dependencies
+  command: npm prune --omit=dev
+  args:
+    chdir: "{{ launchpad_forms_build_dir }}/server"
+  become_user: "{{ launchpad_forms_build_user }}"
+  when: launchpad_forms_server_deps.changed
+
+# Holds the Avni password and the reCAPTCHA secret: root-owned 0600. systemd
+# reads it before dropping privileges, so the service user needs no access.
+- name: Render service environment file
+  template:
+    src: launchpad-forms.conf.j2
+    dest: "{{ launchpad_forms_conf_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  notify: restart launchpad_forms service
+
+- name: Install systemd unit
+  template:
+    src: launchpad-forms-svc.service.j2
+    dest: /etc/systemd/system/{{ launchpad_forms_instance_name }}-svc.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart launchpad_forms service
+
+- name: Enable and start the service
+  systemd:
+    name: "{{ launchpad_forms_instance_name }}-svc"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+# --------------------------------------------------------------- nginx ----
+
+- name: Install nginx server block
+  template:
+    src: nginx-launchpad-forms.conf.j2
+    dest: /etc/nginx/sites-available/{{ launchpad_forms_instance_name }}.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload nginx launchpad_forms
+
+- name: Enable nginx server block
+  file:
+    src: /etc/nginx/sites-available/{{ launchpad_forms_instance_name }}.conf
+    dest: /etc/nginx/sites-enabled/{{ launchpad_forms_instance_name }}.conf
+    state: link
+  notify: reload nginx launchpad_forms
+
+- name: Validate nginx config
+  command: nginx -t
+  changed_when: false
+
+# --------------------------------------------------- external liveness ----
+# Only where a ping URL is configured (prod). UAT stays silent.
+
+- name: Install healthcheck ping script
+  template:
+    src: launchpad-forms-healthcheck.sh.j2
+    dest: /usr/local/bin/{{ launchpad_forms_instance_name }}-healthcheck.sh
+    owner: root
+    group: root
+    mode: '0700'
+  no_log: true
+  when: launchpad_forms_healthcheck_url | length > 0
+
+- name: Install healthcheck systemd timer
+  copy:
+    dest: /etc/systemd/system/{{ launchpad_forms_instance_name }}-healthcheck.{{ item.ext }}
+    owner: root
+    group: root
+    mode: '0644'
+    content: "{{ item.content }}"
+  loop:
+    - ext: service
+      content: |
+        [Unit]
+        Description=Liveness ping for {{ launchpad_forms_instance_name }}
+        After=network-online.target
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/bin/{{ launchpad_forms_instance_name }}-healthcheck.sh
+    - ext: timer
+      content: |
+        [Unit]
+        Description=Liveness ping timer for {{ launchpad_forms_instance_name }}
+        [Timer]
+        OnCalendar={{ launchpad_forms_healthcheck_interval }}
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.ext }}"
+  when: launchpad_forms_healthcheck_url | length > 0
+
+- name: Enable healthcheck timer
+  systemd:
+    name: "{{ launchpad_forms_instance_name }}-healthcheck.timer"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  when: launchpad_forms_healthcheck_url | length > 0

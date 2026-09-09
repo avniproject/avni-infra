@@ -1,0 +1,51 @@
+[Unit]
+Description=Avni Launchpad forms service ({{ launchpad_forms_instance_name }})
+Documentation=https://github.com/avniproject/launchpad-forms
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User={{ launchpad_forms_build_user }}
+Group={{ launchpad_forms_build_user }}
+WorkingDirectory={{ launchpad_forms_build_dir }}/server
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+EnvironmentFile={{ launchpad_forms_conf_file }}
+
+ExecStart=/usr/bin/node dist/index.js
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Hardening (mirrors roles/snapshot_server)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=no
+# Only the dead-letter directory. The build dir is read-only to the service.
+ReadWritePaths={{ launchpad_forms_state_dir }}
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+LimitNOFILE=65536
+LimitNPROC=4096
+
+MemoryLimit=512M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ launchpad_forms_instance_name }}
+
+[Install]
+WantedBy=multi-user.target

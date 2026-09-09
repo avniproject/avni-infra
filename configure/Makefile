@@ -240,6 +240,31 @@ tanuh-superset-prod: check-vault-pwd-file
 # AWS wiring (ACM cert / TG / listener / Route53) is one-shot — run
 # `bash ../tanuh-webapp/aws_alb_setup.sh` once before the first deploy.
 # use `make tanuh-webapp-prod EXTRA_ARGS='-e tanuh_webapp_git_ref=develop'` when you want to deploy by a different branch
+# Launchpad signup page + service (forms.avniproject.org) on the reporting
+# host. ONE instance: validate it against the UAT Avni org, then switch the
+# same deployment to the live org. AWS wiring (ACM cert / target group /
+# listener rule / Route53) is one-shot — run
+# `bash ../launchpad-forms/aws_alb_setup.sh` once before the first deploy.
+#
+# Points the live host at the Avni Launchpad UAT org, tracking `main`, with the
+# smoke-test captcha bypass enabled. Use for the spec §11 matrix.
+launchpad-forms-uat-org: check-vault-pwd-file
+	ansible-playbook prod_metabase_servers.yml -i inventory/prod \
+		--vault-password-file ${VAULT_PASSWORD_FILE} \
+		--tags launchpad_forms \
+		-e launchpad_forms_avni_org=uat \
+		-e launchpad_forms_git_ref=main $(EXTRA_ARGS)
+
+# Switches the same host to the live Avni Launchpad org at the pinned release
+# tag, with the captcha bypass off and the liveness ping on. Rollback is the
+# previous tag plus a re-run.
+# NOTE: purge the dead-letter JSONL before this switch — any line left from
+# UAT-org testing would be replayed into the live funnel as a real applicant.
+launchpad-forms-prod: check-vault-pwd-file
+	ansible-playbook prod_metabase_servers.yml -i inventory/prod \
+		--vault-password-file ${VAULT_PASSWORD_FILE} \
+		--tags launchpad_forms $(EXTRA_ARGS)
+
 tanuh-webapp-prod: check-vault-pwd-file
 	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod \
 		--vault-password-file ${VAULT_PASSWORD_FILE} \

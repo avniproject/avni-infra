@@ -1,0 +1,63 @@
+---
+
+launchpad_forms_repo_url: https://github.com/avniproject/launchpad-forms.git
+# Prod pins a RELEASE TAG (set in prod_metabase_servers.yml); UAT tracks `main`.
+launchpad_forms_git_ref: v0.1.0
+
+# Which Avni organisation this deployment writes to: `uat` while validating,
+# `prod` for the live cohort. One hosted instance, switched between them.
+launchpad_forms_avni_org: prod
+
+# Names every derived path, unit and nginx zone. One instance, so this stays
+# at its default.
+launchpad_forms_instance_name: launchpad-forms
+launchpad_forms_build_user: "{{ launchpad_forms_instance_name }}"
+launchpad_forms_build_dir: "/var/lib/{{ launchpad_forms_instance_name }}-build"
+launchpad_forms_docroot: "/var/www/{{ launchpad_forms_instance_name }}"
+# Dead-letter JSONL lives here. On the service unit's ReadWritePaths; nothing
+# else on the host writes to it.
+launchpad_forms_state_dir: "/var/lib/{{ launchpad_forms_instance_name }}"
+launchpad_forms_conf_file: "/etc/{{ launchpad_forms_instance_name }}.conf"
+launchpad_forms_node_major: "24"
+
+# nginx listens here for the ALB; the Fastify service binds 127.0.0.1 on svc_port.
+launchpad_forms_listen_port: 8090
+launchpad_forms_svc_port: 4000
+launchpad_forms_server_name: forms.avniproject.org
+# The ALB's source range, for set_real_ip_from. CONFIRM against the VPC before
+# the first deploy — if this is wrong, nginx keeps attributing every request to
+# the ALB and the per-IP rate limit silently does nothing.
+launchpad_forms_trusted_proxy_cidr: 172.31.0.0/16
+
+# --- service environment (docs/CONTRACT.md §6) ---------------------------
+launchpad_forms_avni_base_url: https://app.avniproject.org
+launchpad_forms_avni_username: launchpad-forms@launchpad
+# launchpad_forms_avni_password  <- prod-secret-vars.yml.enc (no default)
+# launchpad_forms_recaptcha_secret <- prod-secret-vars.yml.enc (no default)
+# launchpad_forms_bugsnag_key      <- prod-secret-vars.yml.enc (no default)
+# Lets smoke.sh submit without a browser. MUST stay empty on prod (spec §13).
+launchpad_forms_captcha_bypass_token: ""
+launchpad_forms_cohort: "Cohort 4"
+launchpad_forms_reg_open: ""
+launchpad_forms_reg_close: "2026-10-05T23:59:59+05:30"
+# Exact App Designer names — an API contract (docs/CONTRACT.md §5).
+launchpad_forms_subject_type: Organisation
+launchpad_forms_program: Launchpad Application
+launchpad_forms_address: India
+launchpad_forms_log_level: info
+# Bugsnag releaseStage. NOT NODE_ENV — that is `production` on both
+# instances, which would file every UAT error against prod.
+launchpad_forms_release_stage: prod
+
+# --- web build-time, PUBLIC values (inlined into the JS bundle) ----------
+# Never put a secret in a VITE_ variable.
+launchpad_forms_api_base: ""
+launchpad_forms_recaptcha_sitekey: ""
+launchpad_forms_web_bugsnag_key: ""
+launchpad_forms_posthog_key: phc_yLIQYtQjgTZJOl7ocZC9b26ruoWQCGYkLKUaqvOZN8s
+
+# --- external liveness ping (healthchecks.io) ---------------------------
+# Empty (the default, and UAT) installs no timer. Prod sets this from the
+# vault; the ping key is a credential — it silences or fires the alert.
+launchpad_forms_healthcheck_url: ""
+launchpad_forms_healthcheck_interval: "*:0/5"

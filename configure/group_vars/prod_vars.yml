@@ -105,3 +105,10 @@ avni_copilot_token: "zzLh8cQNeOZFRVzv"
 avni_copilot_enabled: "true"
 avni_base_url: "https://app.avniproject.org"
 avni_show_templates: "true"
+
+# Launchpad forms (forms.avniproject.org) — PUBLIC values only.
+# Both of these ship inside the JS bundle, so they are not secrets and must not
+# live in the vault. The service-side reCAPTCHA secret, the Avni password, the
+# Node Bugsnag key and the healthcheck ping URL are in prod-secret-vars.yml.enc.
+launchpad_forms_recaptcha_sitekey: ""
+launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
