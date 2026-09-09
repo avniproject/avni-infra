@@ -17,3 +17,13 @@ ssh.reporting-metabase.avniproject.org ansible_user=ubuntu ansible_port=22 ansib
 # Driven by configure/prod_tanuh_metabase_servers.yml and `make tanuh-metabase-prod`.
 [tanuh_metabase_server]
 ssh.tanuh-reporting.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+# Launchpad public signup form (forms.avniproject.org) — its own dedicated
+# node, deliberately NOT [metabase_server]: the web+service build runs npm ci
+# and vite, and the reporting box already spikes to ~100% CPU during working
+# hours next to a memory-sensitive Metabase JVM.
+# i-08ea4a1c0da2befa1, t3.medium, ap-south-1b, sg launchpad-forms-sg.
+# NOTE: this is an auto-assigned public IP, stable across reboots but NOT
+# across a stop/start. The account is at its Elastic IP limit (10 of 15 are
+# unassociated) — release one and attach it to make this durable.
+[launchpad_forms_server]
+13.233.115.61 ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem

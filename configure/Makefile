@@ -249,7 +249,7 @@ tanuh-superset-prod: check-vault-pwd-file
 # Points the live host at the Avni Launchpad UAT org, tracking `main`, with the
 # smoke-test captcha bypass enabled. Use for the spec §11 matrix.
 launchpad-forms-uat-org: check-vault-pwd-file
-	ansible-playbook prod_metabase_servers.yml -i inventory/prod \
+	ansible-playbook prod_launchpad_forms_servers.yml -i inventory/prod \
 		--vault-password-file ${VAULT_PASSWORD_FILE} \
 		--tags launchpad_forms \
 		-e launchpad_forms_avni_org=uat \
@@ -261,7 +261,7 @@ launchpad-forms-uat-org: check-vault-pwd-file
 # NOTE: purge the dead-letter JSONL before this switch — any line left from
 # UAT-org testing would be replayed into the live funnel as a real applicant.
 launchpad-forms-prod: check-vault-pwd-file
-	ansible-playbook prod_metabase_servers.yml -i inventory/prod \
+	ansible-playbook prod_launchpad_forms_servers.yml -i inventory/prod \
 		--vault-password-file ${VAULT_PASSWORD_FILE} \
 		--tags launchpad_forms $(EXTRA_ARGS)
 

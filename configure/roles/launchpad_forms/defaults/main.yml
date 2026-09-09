@@ -31,7 +31,10 @@ launchpad_forms_trusted_proxy_cidr: 172.31.0.0/16
 
 # --- service environment (docs/CONTRACT.md §6) ---------------------------
 launchpad_forms_avni_base_url: https://app.avniproject.org
-launchpad_forms_avni_username: launchpad-forms@launchpad
+# As actually created in the org (verified against POST /api/user/generateToken
+# on 9 Sep 2026 — the UAT user returns 200). Note the capital U in the UAT
+# suffix; the playbook derives this from launchpad_forms_avni_org.
+launchpad_forms_avni_username: apiuser@launchpad
 # launchpad_forms_avni_password  <- prod-secret-vars.yml.enc (no default)
 # launchpad_forms_recaptcha_secret <- prod-secret-vars.yml.enc (no default)
 # launchpad_forms_bugsnag_key      <- prod-secret-vars.yml.enc (no default)
