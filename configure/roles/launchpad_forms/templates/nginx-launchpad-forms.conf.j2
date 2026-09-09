@@ -1,6 +1,7 @@
 {# Per-instance suffix so the UAT instance sharing this nginx does not collide
    with prod on the http-context `limit_req_zone` / `log_format` names — nginx
    rejects duplicates and refuses to start. #}
+{% set _csp = "default-src 'self'; script-src 'self' https://www.google.com https://www.gstatic.com; frame-src https://www.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.gstatic.com; font-src 'self' data:; connect-src 'self' https://eu.i.posthog.com https://*.bugsnag.com https://*.bugsnag.smartbear.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" %}
 {% set _sfx = '' if (launchpad_forms_instance_name | default('launchpad-forms')) == 'launchpad-forms' else '_' + (launchpad_forms_instance_name | replace('-', '_')) %}
 # The ALB terminates TLS and forwards here. Without set_real_ip_from the only
 # address nginx ever sees is the ALB's, so limit_req would bucket the entire
@@ -11,6 +12,10 @@ real_ip_recursive on;
 
 # 10 submissions/min per client IP, 120/min for the whole host. The service
 # binds 127.0.0.1 and carries no limiter of its own — this is the only one.
+# nginx answers 503 by default. docs/CONTRACT.md §2 promises 429 and
+# LaunchpadForm.tsx only renders "Too many attempts" for 429 — a 503 falls
+# through to the generic "something went wrong" instead.
+limit_req_status 429;
 limit_req_zone $binary_remote_addr zone=lp_ip{{ _sfx }}:10m rate=10r/m;
 limit_req_zone $server_name        zone=lp_all{{ _sfx }}:1m rate=120r/m;
 
@@ -35,7 +40,7 @@ server {
     # bugsnag.smartbear.com are required: the built bundle carries notify/
     # sessions/otlp hosts on BOTH domains, and a CSP block is silent — Bugsnag
     # would look configured and report nothing.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://www.google.com https://www.gstatic.com; frame-src https://www.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.gstatic.com; font-src 'self' data:; connect-src 'self' https://eu.i.posthog.com https://*.bugsnag.com https://*.bugsnag.smartbear.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "{{ _csp }}" always;
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
@@ -70,14 +75,26 @@ server {
         proxy_set_header Host $host;
     }
 
+    # NOTE: an add_header inside a location cancels EVERY add_header inherited
+    # from the server block. Both locations below set Cache-Control, so they
+    # must repeat the security headers or the page ships with no CSP at all —
+    # which is exactly what happened on the first deploy.
     location /assets/ {
         expires 1y;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options DENY always;
+        add_header Content-Security-Policy "{{ _csp }}" always;
         try_files $uri =404;
     }
 
     location = /index.html {
-        add_header Cache-Control "no-store";
+        add_header Cache-Control "no-store" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options DENY always;
+        add_header Content-Security-Policy "{{ _csp }}" always;
     }
 
     location / {

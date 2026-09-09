@@ -9,6 +9,15 @@
     - launchpad_forms
   vars:
     perform_aptitude_dist_upgrade: no
+    # Required by the shared base/security roles. Declared here rather than by
+    # loading basic_docker_vars.yml, which is Docker config this host has no
+    # use for. ufw_allowed_ports (incl. 22) comes from prod_vars.yml; the
+    # launchpad_forms role adds its own listen port on top.
+    update_apt_cache: yes
+    avni_cache_dir: /var/cache/avni
+    # Only used by security's `when: application_user != "root"` guard, which
+    # gates the sudo/root-login hardening tasks.
+    application_user: ubuntu
   vars_files:
     - group_vars/prod_vars.yml
     - group_vars/prod-secret-vars.yml.enc
