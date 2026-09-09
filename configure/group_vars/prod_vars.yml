@@ -112,3 +112,11 @@ avni_show_templates: "true"
 # Node Bugsnag key and the healthcheck ping URL are in prod-secret-vars.yml.enc.
 launchpad_forms_recaptcha_sitekey: ""
 launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
+
+# Secrets that do not exist yet. Declared empty here so a deploy fails on the
+# launchpad_forms role's own assert (which says what to do) rather than on an
+# undefined-variable error. prod-secret-vars.yml.enc loads after this file, so
+# the real values override these the moment they are added to the vault.
+launchpad_forms_bugsnag_key_server: ""      # needs a Node Bugsnag project
+launchpad_forms_recaptcha_secret: ""        # in vault.avniproject.org, "Avni Signup Google Recaptcha"
+launchpad_forms_prod_avni_password: ""      # prod org + integration user not created yet
