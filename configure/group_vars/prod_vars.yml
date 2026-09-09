@@ -121,7 +121,7 @@ launchpad_forms_recaptcha_sitekey: "6LcpqbItAAAAAEPJERZPe6F9M5MHLJoyswcSiBI_"
 # need an AIza... API key in the vault as launchpad_forms_recaptcha_api_key —
 # the mode only flips when project_id + sitekey + api_key are ALL set.
 launchpad_forms_recaptcha_project_id: "avni-be4b7"
-launchpad_forms_recaptcha_enterprise: ""
+launchpad_forms_recaptcha_enterprise: "1"   # Enterprise key (project avni-be4b7) — api.js gives "Invalid key type"
 launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
 
 # Secrets that do not exist yet. Declared empty here so a deploy fails on the
