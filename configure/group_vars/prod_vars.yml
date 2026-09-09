@@ -114,7 +114,13 @@ avni_show_templates: "true"
 # ships in the bundle); only the API key is a secret and lives in the vault.
 # Set launchpad_forms_recaptcha_enterprise to "1" at the same time as these.
 launchpad_forms_recaptcha_sitekey: "6LcpqbItAAAAAEPJERZPe6F9M5MHLJoyswcSiBI_"
-launchpad_forms_recaptcha_project_id: ""
+# The Google Cloud project the key lives in. Recorded for reference only: the
+# key pair is a classic site+secret pair (google.com/recaptcha/admin now backs
+# onto Cloud but still issues a secret), and the classic siteverify path needs
+# no project. Switching to the Enterprise assessment API would additionally
+# need an AIza... API key in the vault as launchpad_forms_recaptcha_api_key —
+# the mode only flips when project_id + sitekey + api_key are ALL set.
+launchpad_forms_recaptcha_project_id: "avni-be4b7"
 launchpad_forms_recaptcha_enterprise: ""
 launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
 
