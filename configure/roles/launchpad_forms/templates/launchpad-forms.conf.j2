@@ -1,0 +1,31 @@
+# {{ launchpad_forms_instance_name }} service environment.
+# Rendered by Ansible (roles/launchpad_forms) — do not edit on the host, the
+# next deploy overwrites it. Secrets come from prod-secret-vars.yml.enc.
+# Mode 0600, root-owned: systemd reads it before dropping to the service user.
+PORT={{ launchpad_forms_svc_port }}
+
+AVNI_BASE_URL={{ launchpad_forms_avni_base_url }}
+AVNI_USERNAME={{ launchpad_forms_avni_username }}
+AVNI_PASSWORD={{ launchpad_forms_avni_password }}
+
+RECAPTCHA_PROJECT_ID={{ launchpad_forms_recaptcha_project_id }}
+RECAPTCHA_SITE_KEY={{ launchpad_forms_recaptcha_sitekey }}
+RECAPTCHA_API_KEY={{ launchpad_forms_recaptcha_api_key | default('') }}
+RECAPTCHA_MIN_SCORE={{ launchpad_forms_recaptcha_min_score }}
+RECAPTCHA_SECRET={{ launchpad_forms_recaptcha_secret }}
+RECAPTCHA_BYPASS_TOKEN={{ launchpad_forms_captcha_bypass_token }}
+
+BUGSNAG_KEY={{ launchpad_forms_bugsnag_key | default('') }}
+RELEASE_STAGE={{ launchpad_forms_release_stage }}
+
+# Coded answer names, verbatim from the App Designer — a rename mid-window
+# fails every submission (docs/CONTRACT.md §5).
+COHORT="{{ launchpad_forms_cohort }}"
+REG_OPEN={{ launchpad_forms_reg_open }}
+REG_CLOSE={{ launchpad_forms_reg_close }}
+SUBJECT_TYPE="{{ launchpad_forms_subject_type }}"
+PROGRAM="{{ launchpad_forms_program }}"
+ADDRESS="{{ launchpad_forms_address }}"
+
+DEAD_LETTER_PATH={{ launchpad_forms_state_dir }}/dead-letter.jsonl
+LOG_LEVEL={{ launchpad_forms_log_level }}

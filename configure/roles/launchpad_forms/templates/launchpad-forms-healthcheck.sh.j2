@@ -1,0 +1,11 @@
+#!/bin/bash
+# Liveness ping for {{ launchpad_forms_instance_name }} (healthchecks.io).
+# Pings ONLY when the service answers /healthz with ok=true, so a hung or
+# crash-looping service shows up as a missed check rather than a false green.
+# Rendered by Ansible; the URL carries a ping key and is a credential.
+set -uo pipefail
+
+body=$(curl -fsS --max-time 10 "http://127.0.0.1:{{ launchpad_forms_svc_port }}/healthz" 2>/dev/null) || exit 0
+grep -q '"ok"[[:space:]]*:[[:space:]]*true' <<<"$body" || exit 0
+
+curl -fsS --max-time 10 --retry 3 -o /dev/null "{{ launchpad_forms_healthcheck_url }}"
