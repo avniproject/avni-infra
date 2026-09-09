@@ -110,7 +110,12 @@ avni_show_templates: "true"
 # Both of these ship inside the JS bundle, so they are not secrets and must not
 # live in the vault. The service-side reCAPTCHA secret, the Avni password, the
 # Node Bugsnag key and the healthcheck ping URL are in prod-secret-vars.yml.enc.
+# reCAPTCHA Enterprise. The project id and site key are public (the site key
+# ships in the bundle); only the API key is a secret and lives in the vault.
+# Set launchpad_forms_recaptcha_enterprise to "1" at the same time as these.
 launchpad_forms_recaptcha_sitekey: ""
+launchpad_forms_recaptcha_project_id: ""
+launchpad_forms_recaptcha_enterprise: ""
 launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
 
 # Secrets that do not exist yet. Declared empty here so a deploy fails on the
@@ -118,5 +123,6 @@ launchpad_forms_bugsnag_key_web: "314a2520d9d181da83f3f052f8294be4"
 # undefined-variable error. prod-secret-vars.yml.enc loads after this file, so
 # the real values override these the moment they are added to the vault.
 launchpad_forms_bugsnag_key_server: ""      # needs a Node Bugsnag project
-launchpad_forms_recaptcha_secret: ""        # in vault.avniproject.org, "Avni Signup Google Recaptcha"
+launchpad_forms_recaptcha_secret: ""        # classic v2 fallback — vault.avniproject.org, "Avni Signup Google Recaptcha"
+launchpad_forms_recaptcha_api_key: ""       # reCAPTCHA Enterprise API key (Google Cloud)
 launchpad_forms_prod_avni_password: ""      # prod org + integration user not created yet

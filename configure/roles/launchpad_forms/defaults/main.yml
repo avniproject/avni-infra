@@ -36,7 +36,14 @@ launchpad_forms_avni_base_url: https://app.avniproject.org
 # suffix; the playbook derives this from launchpad_forms_avni_org.
 launchpad_forms_avni_username: apiuser@launchpad
 # launchpad_forms_avni_password  <- prod-secret-vars.yml.enc (no default)
-# launchpad_forms_recaptcha_secret <- prod-secret-vars.yml.enc (no default)
+# reCAPTCHA. Enterprise (Google Cloud) is the current Google mechanism and is
+# used when project_id + site_key + api_key are all set; otherwise the classic
+# v2 secret is used. With neither, the service fails CLOSED and rejects every
+# submission — deliberately, so a half-finished setup cannot open the door.
+launchpad_forms_recaptcha_project_id: ""
+launchpad_forms_recaptcha_min_score: "0.5"
+# launchpad_forms_recaptcha_api_key <- prod-secret-vars.yml.enc (Enterprise)
+# launchpad_forms_recaptcha_secret  <- prod-secret-vars.yml.enc (classic v2)
 # launchpad_forms_bugsnag_key      <- prod-secret-vars.yml.enc (no default)
 # Lets smoke.sh submit without a browser. MUST stay empty on prod (spec §13).
 launchpad_forms_captcha_bypass_token: ""
@@ -56,6 +63,10 @@ launchpad_forms_release_stage: prod
 # Never put a secret in a VITE_ variable.
 launchpad_forms_api_base: ""
 launchpad_forms_recaptcha_sitekey: ""
+# "1" makes the page load recaptcha/enterprise.js instead of api.js. It MUST
+# match the key type — an Enterprise key loaded by api.js silently fails to
+# render, leaving applicants with no captcha to solve and no error.
+launchpad_forms_recaptcha_enterprise: ""
 launchpad_forms_web_bugsnag_key: ""
 launchpad_forms_posthog_key: phc_yLIQYtQjgTZJOl7ocZC9b26ruoWQCGYkLKUaqvOZN8s
 
