@@ -573,7 +573,10 @@ Gated on the harness's B2 → F4 → B1 ordering; triggered by that plan's owner
 - [ ] **6.1** Second instantiation at different sizing, to prove the variables work. A module used once is parameterised, not reusable.
 - [ ] **6.2** Extract environment-specific values into `tfvars`.
 - [ ] **6.3** Publish endpoints and generated secrets to SSM / Secrets Manager for Ansible to read at run time.
-- [ ] **6.4** CI: plan on PR, no auto-apply, no plan bodies in logs.
+- [ ] **6.4** CI — `plan` on PR, no auto-apply, and no plan bodies in logs (plan files carry secret
+      values even when state is encrypted). Use a **GitHub Actions OIDC role for plan-only runs**;
+      prior art exists in this account — `reportingSystem/tanuh-metabase/aws_setup.sh` already
+      creates an OIDC provider and a GHA role, so reuse the provider rather than making a second.
 
 ---
 
