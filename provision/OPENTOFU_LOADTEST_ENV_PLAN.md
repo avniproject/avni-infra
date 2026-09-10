@@ -344,6 +344,25 @@ against the real dataset size in 1.6.
   writes the whole dataset on the same volume, so a ~122 GB template is on the order of half an hour
   before overheads. **That is the floor on run turnaround**, and 4.1 measures it.
 
+**Storage autoscaling must be off, explicitly.** This is the way the parity decision above gets
+undone silently. RDS storage autoscaling grows the volume when free space runs low; if it grew the
+rig past 400 GiB mid-campaign, the volume would restripe to **12,000 IOPS / 500 MiB/s** and every
+subsequent run would sit on different storage performance than the ones before it — with nothing in
+the Gatling report to show for it. That is precisely the class of silent, invalidating change this
+environment exists to avoid.
+
+In OpenTofu, autoscaling is controlled by `max_allocated_storage` on `aws_db_instance`: setting it
+enables autoscaling, omitting it or setting `0` disables it. **Leave it unset, and say so in a
+comment** so nobody adds it later as a well-meant safety net. Apply the same to the read replica if
+`enable_read_replica` is on — replica storage can diverge from the primary's (#88 records
+`proddb02-read` at 284 GB against a 300 GB primary), so it can cross the threshold independently.
+
+**The trade this makes, deliberately:** with autoscaling off, a full volume puts the instance into
+`storage-full` and it stops serving. That is a hard failure — but a *loud* one, and a loud failure is
+strictly better here than a silent change in what is being measured. Alarm on `FreeStorageSpace`
+(2.8) so it is caught before it happens. Note also that the working copy grows during runs that
+exercise the push path, so free space moves during a campaign, not just between environments.
+
 **The escape hatch, and its price.** If measured turnaround proves unworkable, 400 GiB quadruples
 baseline I/O — but forfeits parity, and every result before and after the change becomes
 incomparable. Treat it as a deliberate re-baselining, not a tuning knob. Note also that growing
@@ -408,7 +427,7 @@ provision/tofu/
 **The parity report** satisfies F5.2 and is committed with each apply. It records the AWS facts —
 instance classes **and explicitly that they are fixed-performance where production is burstable**,
 Postgres version, every parameter-group deviation, storage type and IOPS, Multi-AZ, replica present
-or not, injector network position, **whether ETL ran during the test** (J/I4 requires that decision be
+or not, **that storage autoscaling is disabled**, injector network position, **whether ETL ran during the test** (J/I4 requires that decision be
 recorded) and **which tenancy model the run used**, shared or dedicated (section I4 — results are not
 comparable across models) — and leaves a slot for the application-side
 values Ansible sets, so one document describes the whole environment.
@@ -443,11 +462,11 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default off** (the harness is sync-only for now, see 5.4); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
-- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 sized below 400 GiB** to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
+- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 sized below 400 GiB** to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
 - [ ] **2.6** Storage — a **run-artefacts bucket** (J/I4: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
-- [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
+- [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags, and a **`FreeStorageSpace` alarm**, which matters more than usual because autoscaling is deliberately off (§6): the volume filling is a hard stop rather than a silent grow. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
 - [ ] **2.9** Optional loader and injector instances, both on-demand (5.7).
 - [ ] **2.10** Egress restrictions and an instance role with no SNS or integration-endpoint access, so outbound side effects are impossible regardless of application config (F5.3).
 - [ ] **2.11** Parity report output.
@@ -578,6 +597,7 @@ the authoritative statement of what the environment must provide (§3).
 | Risk | Mitigation |
 |---|---|
 | **Burstable classes reintroduced by copying production** | §5; 2.8's credit-balance alarms catch it if it happens anyway |
+| **Storage autoscaling grows the volume past 400 GiB mid-campaign**, restriping to 12,000 IOPS / 500 MiB/s and silently invalidating I/O parity | §6 — `max_allocated_storage` left unset on primary and replica; `FreeStorageSpace` alarm in 2.8 |
 | gp3 IOPS left at baseline and the bulk load is throttled | 5.7 — IOPS raised for the load window, lowered after |
 | Database under-sized relative to dataset, changing which bottleneck appears | 1.9 sizes DB memory against the dataset with the generator's owner |
 | Baseline snapshot destroyed with the environment, losing days of dataset generation | §6 — snapshot kept outside module management; 3.2 verifies a destroy/rebuild cycle leaves it intact |
