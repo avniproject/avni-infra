@@ -87,27 +87,42 @@ recorded in the parity report, not set here.
 
 ---
 
-## 5. Instance classes: burstable is disqualifying
+## 5. Instance classes and sizing
 
 **Current production**, confirmed: app server **t3.large** (2 vCPU, 8 GiB, x86), database
 **db.t4g.large** (2 vCPU, 8 GiB, Graviton2). Both are burstable. **Storage on both is already gp3.**
 
-### 5.1 Why the rig cannot use T-family
+### 5.1 Burstable: the case is cost, not determinism
 
-Burstable instances earn CPU credits at a fixed rate and spend them whenever utilisation exceeds a
-baseline (30% per vCPU at these sizes). Three consequences, in increasing order of seriousness:
+**Production runs T-unlimited**, which overturns this section's original argument.
 
-1. **A throttling cliff.** When the balance is exhausted, the instance is capped at baseline — 0.6
-   vCPU-equivalent on a 2 vCPU box. Roughly a 3x drop, arriving mid-run with no warning.
-2. **Unlimited mode converts the cliff into a surcharge.** Performance still varies through the
-   transition, and the cost becomes a function of how hard the test pushed. Whether it is enabled
-   on the current instances is worth knowing (1.1) but does not rescue the rig either way.
-3. **The starting credit balance differs between runs.** A run on Monday morning after an idle
-   weekend starts with a full balance; the same run repeated that afternoon starts depleted. Same
-   workload, same code, different numbers.
+An earlier version of this plan held that burstable instances disqualify themselves twice over:
+credit exhaustion throttles to a 0.6 vCPU baseline, and a differing starting credit balance makes
+two runs of the same workload incomparable — the latter described as "the disqualifying one".
+**Neither holds in unlimited mode.** The EC2 documentation is explicit that an instance configured
+as `unlimited` *"can sustain high CPU utilization for any period of time whenever required"*. There
+is no throttling and no dependence of performance on the credit balance. The consequence of
+exhausting credits is a charge, not a slowdown.
 
-The third is the disqualifying one. Run-to-run comparability is the single property this rig exists
-to provide, and burstable instances remove it by construction.
+What survives is narrower, and still points the same way:
+
+- **Cost, and it inverts under precisely this workload.** Surplus credits are charged at a flat rate
+  per vCPU-hour once the 24-hour rolling average exceeds baseline — and a load test is exactly the
+  sustained-high-CPU workload that maximises that charge. A `t3.large` held near 100% runs ~1.4
+  surplus vCPU-hours per hour above its 0.6 vCPU baseline; at the published T3 unlimited rate that
+  is roughly \$0.07/hr on top of the \$0.0896 base — call it ~\$0.16/hr against `m6g.large`'s flat
+  \$0.0506. **Confirm the ap-south-1 surplus rate in 1.8**; the estimate is directional.
+- **A bill that varies with how hard each test pushed.** An operational annoyance rather than a
+  correctness problem, but one more thing to reconcile when comparing runs.
+- **Fidelity, which now argues mildly *for* the change.** Because production runs unlimited, it
+  effectively delivers its full 2 vCPUs under sustained load. A fixed-performance 2 vCPU / 8 GiB
+  instance is therefore a clean parity match for how production behaves when busy, with no
+  baseline-versus-burst distinction to reason about at all.
+
+**Net: the recommendation in 5.4 is unchanged, but it rests on cost and simplicity rather than on
+determinism.** Had production been running standard mode, the original argument would have held and
+the case would have been considerably stronger. It is worth recording that it does not, so nobody
+rebuilds the argument from the earlier draft.
 
 ### 5.2 Storage is already fine
 
@@ -401,14 +416,14 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 1 — Decisions that change what gets built
 
-- [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ and ETL host class~~ — **answered: app server 40 GB gp3, RDS 300 GB gp3 (~122 GB used per #88), 3000 IOPS on both, single-AZ, ETL on t3.small.** Still open, informative only: whether T-unlimited is enabled on the current burstable instances.
+- [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~122 GB used per #88), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
 - [ ] **1.2** Isolation posture: Instance Connect Endpoint vs SSM; NAT vs VPC endpoints; private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7) in the choice.
 - [ ] **1.3** Media bucket in scope? Follows D5.
 - [ ] **1.4** DNS name and zone.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
 - [ ] **1.6** **Follow through on §6.** The platform is settled; get the expected dataset size from the generator's owner, size storage for **two copies plus load headroom**, and time a `STRATEGY = FILE_COPY` template copy at that size so run turnaround is known.
 - [ ] **1.7** Injector network position, and whether the module creates it.
-- [ ] **1.8** **Pick the instance classes per §5.** EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
+- [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
 - [ ] **1.9** Size the database's memory against the dataset, with the generator's owner (5.5). §6's parameter-group constraint argues for keeping production's 8 GiB unless there is a reason not to.
 
 ### Phase 2 — Build the module
