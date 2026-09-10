@@ -73,7 +73,7 @@ the harness states what must be true, this plan decides how large.
 | Instance classes | See §5 — **deliberately not matched** | Production is burstable (app `t3.large`, ETL `t3.small`, DB `db.t4g.large`); the rig cannot be |
 | Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
 | Postgres version | Match production (16.x) | Planner behaviour is version-specific |
-| Storage | gp3. Production is **40 GB at 3000 IOPS**; the rig needs **more** — see §6 | Type matches; size deliberately does not |
+| Storage | gp3 throughout, as production is. Production: app server **40 GB**, RDS **300 GB allocated / ~122 GB used**, both at 3000 IOPS | Type matches; the RDS size deliberately does not — see §6 |
 | LB idle timeout | 400s | `provision/server/elb.tf`. Sync requests are long; a shorter timeout converts slow responses into errors |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
@@ -252,9 +252,9 @@ even buying it — you are being paid to take it.
 | **Single-AZ RDS** | Roughly halves database cost | **Settled: production is single-AZ**, so the rig is too. Cheaper *and* higher fidelity — Multi-AZ would add synchronous-standby commit latency production does not have |
 | **Read replica off by default** | Avoids doubling database cost | Turn on only for runs that exercise the read path |
 | **Performance Insights free tier** | 7 days retention at no cost | Sufficient for a rig |
-| **gp3 IOPS tuned per phase** | Provision high for the bulk load, lower for steady state | Adjustable independently of volume size |
+| ~~gp3 IOPS tuned per phase~~ | **Not available on RDS below 400 GiB** | For RDS PostgreSQL, 20–399 GiB is a fixed 3000 IOPS / 125 MiB/s with provisioned IOPS and throughput listed as *Not applicable*. The lever is the size threshold, not a runtime setting — see §6. It *does* work on the app server's own EBS volume |
 | **Short log retention** | Controls CloudWatch cost under heavy request logging | |
-| **Snapshot hygiene** | Keep the reference snapshot, delete per-run ones | |
+| **Snapshot hygiene** | Keep the reference snapshot, delete per-run ones | The baseline snapshot is **not free** — #88 records `ChargedBackupUsage` of ~\$236/month for `proddb02`, scaling with size. The rig keeps its baseline indefinitely by design, so include it in the 1.5 ceiling |
 | **No Savings Plans or Reserved Instances** | — | Wrong instrument for an ephemeral environment. Do not commit |
 
 **Why Spot is rejected for the injector.** The injector is the box the Gatling simulation runs on,
@@ -293,18 +293,40 @@ what this plan had recommended: **RDS PostgreSQL 16.8**, with
 
 Postgres-on-EC2 and Aurora are off the table. The consequences that land on this plan:
 
-**Storage must hold roughly two copies of the dataset — and will therefore be larger than
-production's.** Production's database volume is **40 GB**. The pristine `avni_perf_template` and the
-per-run working copy both live on the same instance, on top of index and WAL headroom for the bulk
-load. Sizing the rig "to match production" at 40 GB would leave the template copy nowhere to go.
-Size against the generated dataset, not against prod.
+**Storage: size to 400 GiB, for two independent reasons.**
 
-**gp3 throughput may bind before IOPS during the load.** Production runs 3000 IOPS, which is gp3's
-free baseline at any volume size — but the baseline also caps throughput at 125 MB/s, and a bulk
-`COPY` of millions of rows is a throughput workload. gp3 provisions throughput separately, up to
-1000 MB/s. Raise it for the load window and lower it after (5.7).
+Production reference, confirmed: app server **40 GB gp3**, RDS **300 GB gp3 allocated with ~122 GB
+actually used** (issue #88, which proposes right-sizing prod to 200 GB), both at 3000 IOPS,
+single-AZ.
 
-This is the largest single input to `db_allocated_storage`.
+*First,* the rig holds **two copies**. The pristine `avni_perf_template` and the per-run working copy
+live on the same instance, plus WAL and index headroom for the bulk load. At production-scale data
+that is ~250 GB before headroom — which fits inside prod's current 300 GB but **not** inside the
+200 GB #88 proposes. The rig must not inherit prod's right-sized figure; its ratio is different
+because prod keeps one copy and the rig keeps two.
+
+*Second, and more sharply:* **RDS gp3 below 400 GiB cannot provision IOPS or throughput at all.**
+Confirmed in the RDS storage documentation — for PostgreSQL, 20–399 GiB is a fixed
+**3000 IOPS / 125 MiB/s**, with provisioned IOPS and throughput both listed as *Not applicable*. At
+**400 GiB and above** RDS stripes across four volumes and the baseline becomes
+**12,000 IOPS / 500 MiB/s**, tunable to 64,000 IOPS / 4,000 MiB/s.
+
+So crossing 400 GiB **quadruples baseline I/O for the price of the extra storage alone** — roughly
+\$13/month for the 100 GiB step at the \$0.131/GiB-month rate #88 records for this account. For a rig
+whose defining workload is a bulk `COPY` of millions of rows, that is the cheapest performance lever
+available, and it lands where the two-copy requirement was pointing anyway.
+
+**Cross the threshold at creation, not later.** Modifying an existing instance from one volume to
+four makes RDS provision new volumes and move the data across, consuming significant I/O and
+potentially taking hours.
+
+**This corrects earlier guidance in this plan.** "Raise provisioned IOPS for the load window and
+lower it after" describes EBS, not RDS. It holds for the app server's own volume; on RDS the only
+lever below 400 GiB is the size threshold itself.
+
+**RDS storage cannot be shrunk** (#88), only grown — so oversizing is a one-way door within an
+instance's life, and a baseline snapshot cannot be restored into anything smaller than it came from.
+For a disposable rig this is mostly academic, since rebuilds go through the snapshot anyway.
 
 **The baseline snapshot must survive `tofu destroy`.** It is a *manual* RDS snapshot, deliberately
 not an automated backup, because automated backups expire with the retention window and the dataset
@@ -379,7 +401,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 1 — Decisions that change what gets built
 
-- [ ] **1.1** ~~Confirm production's volume size, IOPS, Multi-AZ and ETL host class~~ — **answered: 40 GB, 3000 IOPS, single-AZ, ETL on t3.small.** Still open: whether T-unlimited is enabled on the current burstable instances (informative only, it does not change the plan).
+- [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ and ETL host class~~ — **answered: app server 40 GB gp3, RDS 300 GB gp3 (~122 GB used per #88), 3000 IOPS on both, single-AZ, ETL on t3.small.** Still open, informative only: whether T-unlimited is enabled on the current burstable instances.
 - [ ] **1.2** Isolation posture: Instance Connect Endpoint vs SSM; NAT vs VPC endpoints; private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7) in the choice.
 - [ ] **1.3** Media bucket in scope? Follows D5.
 - [ ] **1.4** DNS name and zone.
