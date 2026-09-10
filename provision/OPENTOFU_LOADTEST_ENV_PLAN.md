@@ -45,9 +45,10 @@ parameter group rather than in application config: `max_connections`, `autovacuu
 
 ## 3. Infrastructure properties the harness depends on
 
-`avni-perf/docs/sync-simulation-plan.md` now gathers these itself, in **section I — "What the
-harness requires of the environment"**, with each item traced to the task that produced it. That is
-the authoritative list; it is not restated here.
+`avni-perf/docs/sync-simulation-plan.md` gathers these itself, in **section J — "What the harness
+requires of the environment"** (formerly section I; I is now multi-tenancy), with each item traced to
+the task that produced it. That is the authoritative list; it is not restated here. Its subsections
+are still labelled I1–I5.
 
 - **I1** network and access — no public reachability, Instance Connect Endpoint or SSM, instance-ID
   addressing, an outbound path for deploy-time package fetches, deliberate DNS, a position for the
@@ -56,7 +57,10 @@ the authoritative list; it is not restated here.
 - **I3** database — PostgreSQL 16.8, dedicated, production-matched parameter group and storage
   class, `pg_stat_statements` and slow query logging, **storage headroom for a second copy of the
   dataset**, and snapshot/restore for baseline creation rather than per-run reset.
-- **I4** data and side effects.
+- **I4** data and side effects — including an **outbound path for run artefacts**, and the finding
+  that a real media bucket is probably unnecessary (D5.4).
+- **I5** observability — all of F1 restated, and it names the missing loadtest `group_vars` file as
+  the blocker, which is §9's 9.3.
 
 **That section deliberately excludes sizing** — instance classes, storage sizes, pool values and
 heap settings. Those are this plan's (§5) and Ansible's. The division is clean and worth preserving:
@@ -72,8 +76,8 @@ the harness states what must be true, this plan decides how large.
 | Host separation | avni-server and avni-etl on **separate instances** | Prod runs them apart (`configure/inventory/prod`); co-locating changes CPU and connection contention |
 | Instance classes | See §5 — **deliberately not matched** | Production is burstable (app `t3.large`, ETL `t3.small`, DB `db.t4g.large`); the rig cannot be |
 | Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
-| Postgres version | Match production (16.x) | Planner behaviour is version-specific |
-| Storage | gp3 throughout, as production is. Production: app server **40 GB**, RDS **300 GB allocated / ~122 GB used**, both at 3000 IOPS | Type matches; the RDS size deliberately does not — see §6 |
+| Postgres version | **16.8**, matching production exactly (J/I3) | Planner behaviour is version-specific |
+| Storage | gp3 throughout. Production: app server **40 GB**, RDS **300 GB allocated / ~122 GB used**, both at 3000 IOPS / 125 MiB/s | **I/O parity is required** (J/I3), which caps the rig below 400 GiB — see §6 |
 | LB idle timeout | 400s | `provision/server/elb.tf`. Sync requests are long; a shorter timeout converts slow responses into errors |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
@@ -308,40 +312,46 @@ what this plan had recommended: **RDS PostgreSQL 16.8**, with
 
 Postgres-on-EC2 and Aurora are off the table. The consequences that land on this plan:
 
-**Storage: size to 400 GiB, for two independent reasons.**
+**Storage: stay under 400 GiB, for I/O parity with production.**
 
 Production reference, confirmed: app server **40 GB gp3**, RDS **300 GB gp3 allocated with ~122 GB
 actually used** (issue #88, which proposes right-sizing prod to 200 GB), both at 3000 IOPS,
 single-AZ.
 
-*First,* the rig holds **two copies**. The pristine `avni_perf_template` and the per-run working copy
-live on the same instance, plus WAL and index headroom for the bulk load. At production-scale data
-that is ~250 GB before headroom — which fits inside prod's current 300 GB but **not** inside the
-200 GB #88 proposes. The rig must not inherit prod's right-sized figure; its ratio is different
-because prod keeps one copy and the rig keeps two.
+**Decision: match production's I/O.** The harness (J/I3) requires storage class, IOPS and throughput
+matching production, and that requirement wins here. Since the goal is finding choke points, giving
+the rig *more* I/O than production would mask a storage bottleneck production actually has.
 
-*Second, and more sharply:* **RDS gp3 below 400 GiB cannot provision IOPS or throughput at all.**
-Confirmed in the RDS storage documentation — for PostgreSQL, 20–399 GiB is a fixed
-**3000 IOPS / 125 MiB/s**, with provisioned IOPS and throughput both listed as *Not applicable*. At
-**400 GiB and above** RDS stripes across four volumes and the baseline becomes
-**12,000 IOPS / 500 MiB/s**, tunable to 64,000 IOPS / 4,000 MiB/s.
+RDS gp3 for PostgreSQL has a hard threshold at 400 GiB:
 
-So crossing 400 GiB **quadruples baseline I/O for the price of the extra storage alone** — roughly
-\$13/month for the 100 GiB step at the \$0.131/GiB-month rate #88 records for this account. For a rig
-whose defining workload is a bulk `COPY` of millions of rows, that is the cheapest performance lever
-available, and it lands where the two-copy requirement was pointing anyway.
+| Storage | Baseline | Provisionable |
+|---|---|---|
+| 20–399 GiB | 3000 IOPS / 125 MiB/s | **Not applicable** — cannot be raised |
+| 400 GiB+ | 12,000 IOPS / 500 MiB/s | 12,000–64,000 IOPS, 500–4,000 MiB/s |
 
-**Cross the threshold at creation, not later.** Modifying an existing instance from one volume to
-four makes RDS provision new volumes and move the data across, consuming significant I/O and
-potentially taking hours.
+Production sits in the lower tier, so **the rig must stay below 400 GiB** — and at 400 GiB+ the
+*minimum* is 12,000/500, so there is no way to have the larger volume and prod's I/O together.
 
-**This corrects earlier guidance in this plan.** "Raise provisioned IOPS for the load window and
-lower it after" describes EBS, not RDS. It holds for the app server's own volume; on RDS the only
-lever below 400 GiB is the size threshold itself.
+**Size it to fit two copies inside that ceiling.** The pristine `avni_perf_template` and the per-run
+working copy share the instance, plus WAL and index headroom. At production-scale data (~122 GB)
+that is ~250 GB for the pair, landing around **300–350 GiB** — comfortably inside the tier. Confirm
+against the real dataset size in 1.6.
 
-**RDS storage cannot be shrunk** (#88), only grown — so oversizing is a one-way door within an
-instance's life, and a baseline snapshot cannot be restored into anything smaller than it came from.
-For a disposable rig this is mostly academic, since rebuilds go through the snapshot anyway.
+**What this costs, and it is not free.** Everything is bounded by 125 MiB/s:
+
+- **The bulk load** (H4) runs at that ceiling. It happens once per environment, so it is tolerable.
+- **The per-run template copy is the one that matters.** `CREATE DATABASE … TEMPLATE` reads and
+  writes the whole dataset on the same volume, so a ~122 GB template is on the order of half an hour
+  before overheads. **That is the floor on run turnaround**, and 4.1 measures it.
+
+**The escape hatch, and its price.** If measured turnaround proves unworkable, 400 GiB quadruples
+baseline I/O — but forfeits parity, and every result before and after the change becomes
+incomparable. Treat it as a deliberate re-baselining, not a tuning knob. Note also that growing
+across 400 GiB crosses the 1→4 volume striping boundary, which makes RDS migrate the data and can
+take hours, so do it as a rebuild from the baseline snapshot rather than an in-place modify.
+
+**RDS storage cannot be shrunk** (#88), only grown — so the ceiling is one-way, and a baseline
+snapshot cannot be restored into anything smaller than it came from.
 
 **The baseline snapshot must survive `tofu destroy`.** It is a *manual* RDS snapshot, deliberately
 not an automated backup, because automated backups expire with the retention window and the dataset
@@ -398,7 +408,9 @@ provision/tofu/
 **The parity report** satisfies F5.2 and is committed with each apply. It records the AWS facts —
 instance classes **and explicitly that they are fixed-performance where production is burstable**,
 Postgres version, every parameter-group deviation, storage type and IOPS, Multi-AZ, replica present
-or not, and injector network position — and leaves a slot for the application-side
+or not, injector network position, **whether ETL ran during the test** (J/I4 requires that decision be
+recorded) and **which tenancy model the run used**, shared or dedicated (section I4 — results are not
+comparable across models) — and leaves a slot for the application-side
 values Ansible sets, so one document describes the whole environment.
 
 ---
@@ -418,10 +430,10 @@ values Ansible sets, so one document describes the whole environment.
 
 - [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~122 GB used per #88), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
 - [ ] **1.2** Isolation posture: Instance Connect Endpoint vs SSM; NAT vs VPC endpoints; private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7) in the choice.
-- [ ] **1.3** Media bucket in scope? Follows D5.
+- [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
 - [ ] **1.4** DNS name and zone.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
-- [ ] **1.6** **Follow through on §6.** The platform is settled; get the expected dataset size from the generator's owner, size storage for **two copies plus load headroom**, and time a `STRATEGY = FILE_COPY` template copy at that size so run turnaround is known.
+- [ ] **1.6** **Follow through on §6.** The platform is settled; get the expected dataset size from the generator's owner and size storage for **two copies plus load headroom, staying below the 400 GiB I/O-parity ceiling**. If two copies will not fit under 400 GiB, that is a finding to raise before building — it forces a choice between parity and capacity.
 - [ ] **1.7** Injector network position, and whether the module creates it.
 - [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
 - [ ] **1.9** Size the database's memory against the dataset, with the generator's owner (5.5). §6's parameter-group constraint argues for keeping production's 8 GiB unless there is a reason not to.
@@ -431,9 +443,9 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default off** (the harness is sync-only for now, see 5.4); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
-- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 at 400 GiB** (§6: two dataset copies, and RDS cannot provision I/O below that threshold — set it at creation, not by modifying later), **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
+- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 sized below 400 GiB** to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
-- [ ] **2.6** Storage — media bucket behind `enable_media_bucket`, no replication, lifecycle expiry.
+- [ ] **2.6** Storage — a **run-artefacts bucket** (J/I4: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
 - [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
 - [ ] **2.9** Optional loader and injector instances, both on-demand (5.7).
@@ -449,7 +461,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 4 — Rig operations
 
-- [ ] **4.1** Implement the restore mechanism settled in §6 — `CREATE DATABASE avni_perf TEMPLATE avni_perf_template STRATEGY = FILE_COPY`, with `FILE_COPY` explicit because PG15+ defaults to the slower `WAL_LOG` — and time it. Restore duration sets the floor on run turnaround.
+- [ ] **4.1** Implement the restore mechanism settled in §6 — `CREATE DATABASE avni_perf TEMPLATE avni_perf_template STRATEGY = FILE_COPY`, with `FILE_COPY` explicit because PG15+ defaults to the slower `WAL_LOG` — and **time it**. Restore duration sets the floor on run turnaround, and at 125 MiB/s it is the price of I/O parity. **If it proves unworkable, that is the trigger to revisit §6's ceiling** — a re-baselining, not a tuning knob.
 - [ ] **4.2** Expose reference-snapshot capture and restore as repeatable operations the harness can invoke.
 - [ ] **4.3** Documented resize procedure — change a variable, apply, record the parity report. This is the mechanism by which the rig answers "at what size does it stop breaking".
 - [ ] **4.4** Scheduled stop or destroy outside working hours, **with an override guard** so multi-hour runs are not torn down mid-run. Prefer snapshot-and-destroy over stop for gaps beyond a week (5.7).
