@@ -191,10 +191,16 @@ Pricing Calculator or `aws pricing get-products` once the CLI is installed (0.1)
   burstable t3.small if the 2 GiB is kept.
 - **Injector: on-demand**, sized for CPU and network. Spot is rejected — see 5.7.
 
-**The ETL host may not be needed at first.** The harness's scope is sync only, and F5.3 leaves it
-open whether background jobs should run during a test at all. Put it behind `enable_etl`, default
-off, and turn it on when someone wants ETL as a realistic co-tenant on the database. That is a scope
-reduction as much as a cost one.
+**The ETL host is required, and this reverses an earlier assumption in this plan.** F5.3 no longer
+treats background jobs as housekeeping: `avni-etl` runs on a **90-minute Quartz cycle**, reads the
+public schema in direct competition with sync, and shares the same fixed 3,000 IOPS. An ETL cycle
+landing on the start-of-day sync herd is a *scheduled, recurring production event*, so the harness
+now wants **two scenarios — sync alone, and sync with a concurrent ETL cycle — with the delta treated
+as a finding.** Suppressing ETL would hide one of the more plausible real-world contention sources.
+
+`enable_etl` therefore stays as a variable, because running both scenarios requires turning it on and
+off — but it **defaults on**, and the ETL host is part of the environment rather than an optional
+extra.
 
 **On the architecture change.** Moving the app server from x86 to ARM weakens app-server
 extrapolation to production, which the framing above accepts as a nice-to-have. It is also less of
@@ -309,32 +315,42 @@ perf database is no longer RDS, *"trading away production parity, which is a wor
 reset"*. Aurora fast cloning is the right tool for the problem and is unavailable for the same
 reason. **This retires the Postgres-on-EC2 fallback this plan previously carried.**
 
-**The per-run reset mechanism, however, is open again**, and it drives this plan's storage sizing.
-G4 now lists three candidates and says to decide by timing them, not by argument:
+**The per-run reset mechanism is now decided, and decided on parity grounds.** G4 rules out
+`CREATE DATABASE … TEMPLATE`: it needs 2x the dataset, and doubling crosses the 400 GiB striping
+threshold, which would hand the rig 12,000 IOPS against production's 3,000 — *"not merely expensive
+here, it breaks IO parity as a side effect."* The choice is **`pg_dump`/`pg_restore --jobs` or
+regenerating from the generator's bulk `COPY`**, both of which keep allocated storage near 1x and
+stay under the ceiling. Reset time is no longer the deciding factor, only something to measure so
+run turnaround is known.
 
-| Candidate | Peak storage | Reset time |
+| Mechanism | Peak storage | Status |
 |---|---|---|
-| `CREATE DATABASE … TEMPLATE` | **2× dataset** — source and target coexist | Fast, file-level page copy |
-| `pg_dump` / `pg_restore --jobs` | **~1×** — `DROP` first, restore into freed space; artefact in S3 | Slow, full index rebuild |
-| **Regenerate** from the generator's bulk `COPY` | **~1×**, no stored artefact | Likely close to `pg_restore` |
+| `pg_dump` / `pg_restore --jobs` | ~1x, artefact in S3 | **Chosen** — decide between these two on measured time |
+| Regenerate from bulk `COPY` | ~1x, no artefact | **Chosen** — same |
+| `CREATE DATABASE … TEMPLATE` | 2x | Rejected — breaks I/O parity via the striping threshold |
 
 RDS snapshot restore remains right for baseline creation and dataset portability, and wrong per run.
+
+> **Worth confirming before sizing.** G4's rejection of `TEMPLATE` reasons from production's **300 GiB
+> allocated**, doubling to ~600 GiB. But #88 records `proddb02` at **~122 GB actually used**, and G4
+> itself says the generated dataset should be sized against the *transactional* portion — smaller
+> again, since per-organisation ETL schemas plausibly exceed half of it. At ~122 GB, 2x is ~244 GB and
+> stays comfortably under 400 GiB, so `TEMPLATE` would not break parity and would give much faster
+> resets. **Raise this with the harness owner**: if the dataset lands near the used figure rather than
+> the allocated one, the rejection may not hold. The plan proceeds at 1x either way, which is the safe
+> direction — 1x forecloses nothing, and RDS storage only ever grows.
 
 **Why this lands on infrastructure rather than on the harness.** Two RDS properties make the choice
 irreversible in one direction:
 
-- **Allocated storage can only be increased, never decreased.** Provisioning 2× for `TEMPLATE` is a
+- **Allocated storage can only be increased, never decreased**, so any over-provisioning is a
   permanent commitment for the life of that instance.
-- **Doubling can silently cross 400 GiB** and hand the rig four times production's baseline IOPS —
-  G4's words: *"making it faster than prod and every result optimistic, in a way a parity check
-  comparing 'storage type: gp3' would not catch."*
+- **Crossing 400 GiB is the parity failure**, and it can happen through sizing rather than through a
+  deliberate decision.
 
-**So the reset decision must precede provisioning, not follow it.** At production-scale data
-(~122 GB) all three fit under the ceiling — 2× is ~250 GB, 1× is ~150 GB — but that headroom is not
-guaranteed at a larger dataset, and over-provisioning cannot be walked back. 1.6 forces the question.
-
-If `pg_dump`/`pg_restore` wins, the dump artefact lives in S3 and needs a home and a lifecycle —
-larger and longer-lived than the run-artefacts bucket in 2.6.
+**Size at ~1x.** With `TEMPLATE` rejected there is no doubling, so the figure follows the dataset
+alone plus WAL and index headroom. If `pg_dump`/`pg_restore` is chosen, the dump artefact lives in S3
+and needs a home and a lifecycle — larger and longer-lived than the run-artefacts bucket in 2.6.
 
 The consequences that land on this plan:
 
@@ -358,19 +374,18 @@ RDS gp3 for PostgreSQL has a hard threshold at 400 GiB:
 Production sits in the lower tier, so **the rig must stay below 400 GiB** — and at 400 GiB+ the
 *minimum* is 12,000/500, so there is no way to have the larger volume and prod's I/O together.
 
-**Size it to the reset mechanism, inside that ceiling.** If `TEMPLATE` wins, the pristine template
-and the per-run working copy share the instance: ~250 GB at production-scale data (~122 GB), plus
-WAL and index headroom, landing around **300–350 GiB**. If `pg_restore` or regeneration wins, ~1× is
-enough and **150–200 GiB** suffices. Both sit inside the tier at this dataset size; neither is
-guaranteed to at a larger one. Confirm in 1.6 — and note the 2× commitment is permanent.
+**Size at ~1x of the dataset, inside that ceiling.** With `TEMPLATE` rejected, allocated storage
+follows the dataset plus WAL and index headroom — **150–200 GiB** at production-scale transactional
+data. Note the dataset is sized against production's **transactional** portion, not the 300 GiB
+allocated figure: per-organisation ETL schemas flatten every JSONB key into a column and plausibly
+account for more than half of it. Confirm that split in 1.6 before fixing the number.
 
 **What this costs, and it is not free.** Everything is bounded by 125 MiB/s:
 
 - **The bulk load** (H4) runs at that ceiling. It happens once per environment, so it is tolerable.
-- **The per-run reset is the one that matters**, whichever mechanism wins. A `TEMPLATE` copy reads
-  and writes the whole dataset on the same volume — ~122 GB is on the order of half an hour before
-  overheads — and `pg_restore` or regeneration trades that for a full index rebuild, GIN worst.
-  **Either way it is the floor on run turnaround**, and 4.1 measures all three.
+- **The per-run reset is the one that matters.** `pg_restore` and regeneration both pay a full index
+  rebuild — GIN worst — against 125 MiB/s. **That is the floor on run turnaround**, and 4.1 measures
+  both so the number is known rather than assumed.
 
 **Storage autoscaling must be off, explicitly.** This is the way the parity decision above gets
 undone silently. RDS storage autoscaling grows the volume when free space runs low; if it grew the
@@ -391,9 +406,9 @@ strictly better here than a silent change in what is being measured. Alarm on `F
 (2.8) so it is caught before it happens. Note also that the working copy grows during runs that
 exercise the push path, so free space moves during a campaign, not just between environments.
 
-**The escape hatch, and its price.** If measured turnaround proves unworkable, 400 GiB quadruples
-baseline I/O — but forfeits parity, and every result before and after the change becomes
-incomparable. Treat it as a deliberate re-baselining, not a tuning knob. Note also that growing
+**The escape hatch, and its price.** If measured turnaround proves unworkable, raising I/O means
+either crossing 400 GiB — which quadruples baseline I/O but forfeits parity, making every result
+before and after incomparable — or moving to io1/io2, which forfeits parity differently. Treat it as a deliberate re-baselining, not a tuning knob. Note also that growing
 across 400 GiB crosses the 1→4 volume striping boundary, which makes RDS migrate the data and can
 take hours, so do it as a rebuild from the baseline snapshot rather than an in-place modify.
 
@@ -455,8 +470,8 @@ provision/tofu/
 **The parity report** satisfies F5.2 and is committed with each apply. It records the AWS facts —
 instance classes **and explicitly that they are fixed-performance where production is burstable**,
 Postgres version, every parameter-group deviation, storage type and IOPS, Multi-AZ, replica present
-or not, **that storage autoscaling is disabled**, injector network position, **whether ETL ran during the test** (J/I4 requires that decision be
-recorded) and **which tenancy model the run used**, shared or dedicated (section I4 — results are not
+or not, **that storage autoscaling is disabled**, injector network position, **whether the run had a concurrent ETL cycle** — now a
+scenario dimension rather than a housekeeping note, and the delta between the two is itself a finding and **which tenancy model the run used**, shared or dedicated (section I4 — results are not
 comparable across models) — and leaves a slot for the application-side
 values Ansible sets, so one document describes the whole environment.
 
@@ -483,13 +498,14 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **1.6** **Get the reset-mechanism decision from the harness owner before provisioning** (§6). It sets whether storage is ~1× or 2× the dataset, and RDS storage cannot be reduced afterwards. With the dataset size from the generator's owner, confirm the chosen multiple fits **below the 400 GiB I/O-parity ceiling** with load headroom. If it does not, raise it before building — it forces a choice between parity and capacity.
 - [ ] **1.7** Injector network position, and whether the module creates it.
 - [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
+- [ ] **1.10** **Check production's I/O headroom now, before building anything.** G4 flags storage I/O as a prime suspect ahead of any test run: a 300 GiB database with GIN indexes serving page-size-1000 sync reads against a hard 3,000 IOPS / 125 MiB/s ceiling. This is answerable from production CloudWatch today — `ReadIOPS` + `WriteIOPS` against 3,000, `ReadThroughput` + `WriteThroughput` against 125 MiB/s, and `DiskQueueDepth`, where sustained non-zero queue depth is the signal that I/O is the binding constraint. **Cheap, needs no environment, and could pre-empt a large part of the exercise.**
 - [ ] **1.9** Size the database's memory against the dataset, with the generator's owner (5.5). §6's parameter-group constraint argues for keeping production's 8 GiB unless there is a reason not to.
 
 ### Phase 2 — Build the module
 
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
-- [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default off** (the harness is sync-only for now, see 5.4); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
+- [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
 - [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 sized below 400 GiB** to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
 - [ ] **2.6** Storage — a **run-artefacts bucket** (J/I4: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
