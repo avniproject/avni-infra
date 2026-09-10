@@ -55,8 +55,9 @@ are still labelled I1–I5.
   injector.
 - **I2** application configuration — Ansible's, per §2.
 - **I3** database — PostgreSQL 16.8, dedicated, production-matched parameter group and storage
-  class, `pg_stat_statements` and slow query logging, **storage headroom for a second copy of the
-  dataset**, and snapshot/restore for baseline creation rather than per-run reset.
+  class, `pg_stat_statements` and slow query logging, **storage autoscaling disabled**, storage
+  headroom **conditional on the reset mechanism** (2× for `TEMPLATE`, ~1× otherwise — undecided), and
+  snapshot/restore for baseline creation rather than per-run reset.
 - **I4** data and side effects — including an **outbound path for run artefacts**, and the finding
   that a real media bucket is probably unnecessary (D5.4).
 - **I5** observability — all of F1 restated, and it names the missing loadtest `group_vars` file as
@@ -300,17 +301,42 @@ reintroduced as an optimisation later.
 
 ---
 
-## 6. Database platform: settled upstream
+## 6. Database platform and the reset mechanism
 
-**No longer an open decision.** G4 of the simulation plan now specifies it, and the answer matches
-what this plan had recommended: **RDS PostgreSQL 16.8**, with
+**The platform is settled: RDS PostgreSQL 16.8.** G4 rules out every alternative — `pg_basebackup`,
+EBS/ZFS snapshots and Database Lab Engine all need filesystem access, so using them would mean the
+perf database is no longer RDS, *"trading away production parity, which is a worse loss than a slow
+reset"*. Aurora fast cloning is the right tool for the problem and is unavailable for the same
+reason. **This retires the Postgres-on-EC2 fallback this plan previously carried.**
 
-- **`CREATE DATABASE … TEMPLATE` for the per-run reset** — a file-level copy inside the existing
-  instance, so no new endpoint and no lazy-loading penalty, using `STRATEGY = FILE_COPY` because
-  PG15+ defaults to `WAL_LOG`, which is slow for a large template;
-- **RDS snapshot restore for baseline creation and dataset portability only**, never per run.
+**The per-run reset mechanism, however, is open again**, and it drives this plan's storage sizing.
+G4 now lists three candidates and says to decide by timing them, not by argument:
 
-Postgres-on-EC2 and Aurora are off the table. The consequences that land on this plan:
+| Candidate | Peak storage | Reset time |
+|---|---|---|
+| `CREATE DATABASE … TEMPLATE` | **2× dataset** — source and target coexist | Fast, file-level page copy |
+| `pg_dump` / `pg_restore --jobs` | **~1×** — `DROP` first, restore into freed space; artefact in S3 | Slow, full index rebuild |
+| **Regenerate** from the generator's bulk `COPY` | **~1×**, no stored artefact | Likely close to `pg_restore` |
+
+RDS snapshot restore remains right for baseline creation and dataset portability, and wrong per run.
+
+**Why this lands on infrastructure rather than on the harness.** Two RDS properties make the choice
+irreversible in one direction:
+
+- **Allocated storage can only be increased, never decreased.** Provisioning 2× for `TEMPLATE` is a
+  permanent commitment for the life of that instance.
+- **Doubling can silently cross 400 GiB** and hand the rig four times production's baseline IOPS —
+  G4's words: *"making it faster than prod and every result optimistic, in a way a parity check
+  comparing 'storage type: gp3' would not catch."*
+
+**So the reset decision must precede provisioning, not follow it.** At production-scale data
+(~122 GB) all three fit under the ceiling — 2× is ~250 GB, 1× is ~150 GB — but that headroom is not
+guaranteed at a larger dataset, and over-provisioning cannot be walked back. 1.6 forces the question.
+
+If `pg_dump`/`pg_restore` wins, the dump artefact lives in S3 and needs a home and a lifecycle —
+larger and longer-lived than the run-artefacts bucket in 2.6.
+
+The consequences that land on this plan:
 
 **Storage: stay under 400 GiB, for I/O parity with production.**
 
@@ -332,17 +358,19 @@ RDS gp3 for PostgreSQL has a hard threshold at 400 GiB:
 Production sits in the lower tier, so **the rig must stay below 400 GiB** — and at 400 GiB+ the
 *minimum* is 12,000/500, so there is no way to have the larger volume and prod's I/O together.
 
-**Size it to fit two copies inside that ceiling.** The pristine `avni_perf_template` and the per-run
-working copy share the instance, plus WAL and index headroom. At production-scale data (~122 GB)
-that is ~250 GB for the pair, landing around **300–350 GiB** — comfortably inside the tier. Confirm
-against the real dataset size in 1.6.
+**Size it to the reset mechanism, inside that ceiling.** If `TEMPLATE` wins, the pristine template
+and the per-run working copy share the instance: ~250 GB at production-scale data (~122 GB), plus
+WAL and index headroom, landing around **300–350 GiB**. If `pg_restore` or regeneration wins, ~1× is
+enough and **150–200 GiB** suffices. Both sit inside the tier at this dataset size; neither is
+guaranteed to at a larger one. Confirm in 1.6 — and note the 2× commitment is permanent.
 
 **What this costs, and it is not free.** Everything is bounded by 125 MiB/s:
 
 - **The bulk load** (H4) runs at that ceiling. It happens once per environment, so it is tolerable.
-- **The per-run template copy is the one that matters.** `CREATE DATABASE … TEMPLATE` reads and
-  writes the whole dataset on the same volume, so a ~122 GB template is on the order of half an hour
-  before overheads. **That is the floor on run turnaround**, and 4.1 measures it.
+- **The per-run reset is the one that matters**, whichever mechanism wins. A `TEMPLATE` copy reads
+  and writes the whole dataset on the same volume — ~122 GB is on the order of half an hour before
+  overheads — and `pg_restore` or regeneration trades that for a full index rebuild, GIN worst.
+  **Either way it is the floor on run turnaround**, and 4.1 measures all three.
 
 **Storage autoscaling must be off, explicitly.** This is the way the parity decision above gets
 undone silently. RDS storage autoscaling grows the volume when free space runs low; if it grew the
@@ -452,7 +480,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
 - [ ] **1.4** DNS name and zone.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
-- [ ] **1.6** **Follow through on §6.** The platform is settled; get the expected dataset size from the generator's owner and size storage for **two copies plus load headroom, staying below the 400 GiB I/O-parity ceiling**. If two copies will not fit under 400 GiB, that is a finding to raise before building — it forces a choice between parity and capacity.
+- [ ] **1.6** **Get the reset-mechanism decision from the harness owner before provisioning** (§6). It sets whether storage is ~1× or 2× the dataset, and RDS storage cannot be reduced afterwards. With the dataset size from the generator's owner, confirm the chosen multiple fits **below the 400 GiB I/O-parity ceiling** with load headroom. If it does not, raise it before building — it forces a choice between parity and capacity.
 - [ ] **1.7** Injector network position, and whether the module creates it.
 - [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
 - [ ] **1.9** Size the database's memory against the dataset, with the generator's owner (5.5). §6's parameter-group constraint argues for keeping production's 8 GiB unless there is a reason not to.
@@ -480,7 +508,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 4 — Rig operations
 
-- [ ] **4.1** Implement the restore mechanism settled in §6 — `CREATE DATABASE avni_perf TEMPLATE avni_perf_template STRATEGY = FILE_COPY`, with `FILE_COPY` explicit because PG15+ defaults to the slower `WAL_LOG` — and **time it**. Restore duration sets the floor on run turnaround, and at 125 MiB/s it is the price of I/O parity. **If it proves unworkable, that is the trigger to revisit §6's ceiling** — a re-baselining, not a tuning knob.
+- [ ] **4.1** Implement whichever reset mechanism 1.6 settled, and **time all three candidates once** as G4 asks — the decision is meant to come from measurement, not argument. If `TEMPLATE`, pass `STRATEGY = FILE_COPY` explicitly, because PG15+ defaults to the slower `WAL_LOG`. Restore duration sets the floor on run turnaround, and at 125 MiB/s it is the price of I/O parity. **If it proves unworkable, that is the trigger to revisit §6's ceiling** — a re-baselining, not a tuning knob.
 - [ ] **4.2** Expose reference-snapshot capture and restore as repeatable operations the harness can invoke.
 - [ ] **4.3** Documented resize procedure — change a variable, apply, record the parity report. This is the mechanism by which the rig answers "at what size does it stop breaking".
 - [ ] **4.4** Scheduled stop or destroy outside working hours, **with an override guard** so multi-hour runs are not torn down mid-run. Prefer snapshot-and-destroy over stop for gaps beyond a week (5.7).
@@ -601,7 +629,7 @@ the authoritative statement of what the environment must provide (§3).
 | gp3 IOPS left at baseline and the bulk load is throttled | 5.7 — IOPS raised for the load window, lowered after |
 | Database under-sized relative to dataset, changing which bottleneck appears | 1.9 sizes DB memory against the dataset with the generator's owner |
 | Baseline snapshot destroyed with the environment, losing days of dataset generation | §6 — snapshot kept outside module management; 3.2 verifies a destroy/rebuild cycle leaves it intact |
-| Storage sized for one copy of the dataset, so the per-run template copy has nowhere to go | §6; 1.6 sizes for two copies plus load headroom |
+| Storage sized for the wrong reset mechanism — too little for `TEMPLATE`, or 2× committed permanently when ~1× would have done | §6; 1.6 takes the reset decision *before* provisioning |
 | Bulk load takes days because storage was sized for steady state | §6; gp3 IOPS raised for the load window |
 | Load-test make target written fresh and omits `java_apt_package` | 9.4 — copy an existing target; the failure looks like a build error, not a config one |
 | Private networking becomes a multi-day yak shave | 2.2 proves the access path standalone, early |
