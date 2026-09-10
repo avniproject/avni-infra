@@ -430,12 +430,12 @@ values Ansible sets, so one document describes the whole environment.
 
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
-- [ ] **2.3** Compute — app and ETL instances on the fixed-performance classes from 1.8, instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
-- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3**, parameter group carrying `pg_stat_statements`, slow-query logging and autovacuum setting; Performance Insights and Enhanced Monitoring on; storage sized per §6.
+- [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default off** (the harness is sync-only for now, see 5.4); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
+- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 at 400 GiB** (§6: two dataset copies, and RDS cannot provision I/O below that threshold — set it at creation, not by modifying later), **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
 - [ ] **2.6** Storage — media bucket behind `enable_media_bucket`, no replication, lifecycle expiry.
 - [ ] **2.7** DNS.
-- [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags. Include `CPUCreditBalance` and `BurstBalance` alarms **if any burstable resource survives into the final design**, as a guard against silently reintroducing the problem.
+- [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
 - [ ] **2.9** Optional loader and injector instances, both on-demand (5.7).
 - [ ] **2.10** Egress restrictions and an instance role with no SNS or integration-endpoint access, so outbound side effects are impossible regardless of application config (F5.3).
 - [ ] **2.11** Parity report output.
@@ -449,7 +449,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 4 — Rig operations
 
-- [ ] **4.1** Implement the restore mechanism chosen in 1.6, and time it. Restore duration sets the floor on run turnaround.
+- [ ] **4.1** Implement the restore mechanism settled in §6 — `CREATE DATABASE avni_perf TEMPLATE avni_perf_template STRATEGY = FILE_COPY`, with `FILE_COPY` explicit because PG15+ defaults to the slower `WAL_LOG` — and time it. Restore duration sets the floor on run turnaround.
 - [ ] **4.2** Expose reference-snapshot capture and restore as repeatable operations the harness can invoke.
 - [ ] **4.3** Documented resize procedure — change a variable, apply, record the parity report. This is the mechanism by which the rig answers "at what size does it stop breaking".
 - [ ] **4.4** Scheduled stop or destroy outside working hours, **with an override guard** so multi-hour runs are not torn down mid-run. Prefer snapshot-and-destroy over stop for gaps beyond a week (5.7).
