@@ -70,9 +70,10 @@ the harness states what must be true, this plan decides how large.
 |---|---|---|
 | Topology | VPC, two subnets across AZs, app host, RDS primary **+ read replica**, S3 media, load balancer | The replica exists in prod (`configure/group_vars/prod_vars.yml:48`); omitting it changes read-path behaviour |
 | Host separation | avni-server and avni-etl on **separate instances** | Prod runs them apart (`configure/inventory/prod`); co-locating changes CPU and connection contention |
-| Instance classes | See §5 — **deliberately not matched** | Production is burstable; the rig cannot be |
+| Instance classes | See §5 — **deliberately not matched** | Production is burstable (app `t3.large`, ETL `t3.small`, DB `db.t4g.large`); the rig cannot be |
+| Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
 | Postgres version | Match production (16.x) | Planner behaviour is version-specific |
-| Storage | gp3, sized with load-event headroom (§5, §6) | Matches production, which already runs gp3 |
+| Storage | gp3. Production is **40 GB at 3000 IOPS**; the rig needs **more** — see §6 | Type matches; size deliberately does not |
 | LB idle timeout | 400s | `provision/server/elb.tf`. Sync requests are long; a shorter timeout converts slow responses into errors |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
@@ -134,6 +135,10 @@ Verified against two independent sources that agree (see 5.6). Linux, on-demand,
 | App | m6i.large — Intel, fixed | 2 / 8 GiB | 0.1010 | 0.0342 | +13% |
 | App | m7i.large — Intel, fixed | 2 / 8 GiB | 0.1061 | 0.0407 | +18% |
 | App | *(rejected)* c6i.large | 2 / 4 GiB | — | — | Cannot hold prod's ~5 GiB heap |
+| ETL (current) | t3.small — *burstable* | 2 / 2 GiB | 0.0224 | — | — |
+| ETL | **m6g.medium** — Graviton2, fixed | 1 / 4 GiB | **0.0253** | — | +13%, doubles RAM |
+| ETL | c6g.medium — Graviton2, fixed | 1 / 2 GiB | 0.0213 | — | **−5%**, same RAM |
+| ETL | c6g.large — Graviton2, fixed | 2 / 4 GiB | 0.0426 | — | +90% |
 
 **The headline: moving off burstable is a cost reduction, not a premium — if you go Graviton.**
 m6g.large is fixed-performance *and* 44% cheaper per hour than the t3.large production runs today.
@@ -159,7 +164,17 @@ Pricing Calculator or `aws pricing get-products` once the CLI is installed (0.1)
   for 15% more. Whether a Graviton2 core sustains what a bursting t3.large does is a question for
   the first calibration run, not an assumption to bank.
 - **Database: db.m6g.large**, same architecture as the current db.t4g.large.
+- **ETL: m6g.medium**, if the ETL host is needed at all (see below). Production's t3.small runs a
+  ~1.6 GiB JVM (`-Xms1228m -Xmx1228m` plus metaspace) on a 2 GiB box, which is very tight; m6g.medium
+  doubles the memory for three tenths of a cent an hour more, and its 1 fixed vCPU still exceeds the
+  0.4 vCPU sustained baseline a t3.small actually delivers. c6g.medium is *cheaper* than the
+  burstable t3.small if the 2 GiB is kept.
 - **Injector: on-demand**, sized for CPU and network. Spot is rejected — see 5.7.
+
+**The ETL host may not be needed at first.** The harness's scope is sync only, and F5.3 leaves it
+open whether background jobs should run during a test at all. Put it behind `enable_etl`, default
+off, and turn it on when someone wants ETL as a realistic co-tenant on the database. That is a scope
+reduction as much as a cost one.
 
 **On the architecture change.** Moving the app server from x86 to ARM weakens app-server
 extrapolation to production, which the framing above accepts as a nice-to-have. It is also less of
@@ -234,7 +249,7 @@ even buying it — you are being paid to take it.
 | **Destroy or stop between runs** | The dominant saving | A **stopped RDS instance restarts automatically after 7 days**. For gaps longer than that, snapshot and destroy rather than stop |
 | ~~Spot for the injector~~ | **Rejected** | See below — the saving is cents, the failure mode is a lost or misleading run |
 | **NAT Gateway** | An always-on hourly charge plus per-GB processing | On a mostly-idle environment this can exceed the app server's cost. Consider a free S3 gateway endpoint plus interface endpoints, a small NAT instance, or NAT present only during deploy windows |
-| **Single-AZ RDS** | Roughly halves database cost | Multi-AZ changes commit latency through synchronous replication. If write-path testing matters this is a fidelity decision, not just a cost one — settle it against what prod runs (1.1) |
+| **Single-AZ RDS** | Roughly halves database cost | **Settled: production is single-AZ**, so the rig is too. Cheaper *and* higher fidelity — Multi-AZ would add synchronous-standby commit latency production does not have |
 | **Read replica off by default** | Avoids doubling database cost | Turn on only for runs that exercise the read path |
 | **Performance Insights free tier** | 7 days retention at no cost | Sufficient for a rig |
 | **gp3 IOPS tuned per phase** | Provision high for the bulk load, lower for steady state | Adjustable independently of volume size |
@@ -278,9 +293,18 @@ what this plan had recommended: **RDS PostgreSQL 16.8**, with
 
 Postgres-on-EC2 and Aurora are off the table. The consequences that land on this plan:
 
-**Storage must hold roughly two copies of the dataset.** The pristine `avni_perf_template` database
-and the per-run working copy live on the same instance, on top of the bulk-load headroom (indexes
-and WAL) already noted. This is now the largest single input to `db_allocated_storage`.
+**Storage must hold roughly two copies of the dataset — and will therefore be larger than
+production's.** Production's database volume is **40 GB**. The pristine `avni_perf_template` and the
+per-run working copy both live on the same instance, on top of index and WAL headroom for the bulk
+load. Sizing the rig "to match production" at 40 GB would leave the template copy nowhere to go.
+Size against the generated dataset, not against prod.
+
+**gp3 throughput may bind before IOPS during the load.** Production runs 3000 IOPS, which is gp3's
+free baseline at any volume size — but the baseline also caps throughput at 125 MB/s, and a bulk
+`COPY` of millions of rows is a throughput workload. gp3 provisions throughput separately, up to
+1000 MB/s. Raise it for the load window and lower it after (5.7).
+
+This is the largest single input to `db_allocated_storage`.
 
 **The baseline snapshot must survive `tofu destroy`.** It is a *manual* RDS snapshot, deliberately
 not an automated backup, because automated backups expire with the retention window and the dataset
@@ -328,7 +352,7 @@ provision/tofu/
 
 **Variables** — AWS-level only: `app_instance_class`, `etl_instance_class`, `db_instance_class`,
 `db_storage_type`, `db_allocated_storage`, `db_iops`, `db_multi_az`, `enable_read_replica`,
-`db_max_connections`, `db_autovacuum`, `enable_media_bucket`, `enable_cognito`, `enable_injector`,
+`db_max_connections`, `db_autovacuum`, `db_multi_az`, `enable_etl`, `enable_media_bucket`, `enable_cognito`, `enable_injector`,
 `injector_instance_class`, `enable_loader`, `restore_from_snapshot`, `log_retention_days`,
 `retain_on_destroy`.
 
@@ -355,7 +379,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 1 — Decisions that change what gets built
 
-- [ ] **1.1** Confirm from the console what §5 could not: production's volume size and provisioned IOPS, Multi-AZ or not, whether T-unlimited is enabled, and the ETL host's class.
+- [ ] **1.1** ~~Confirm production's volume size, IOPS, Multi-AZ and ETL host class~~ — **answered: 40 GB, 3000 IOPS, single-AZ, ETL on t3.small.** Still open: whether T-unlimited is enabled on the current burstable instances (informative only, it does not change the plan).
 - [ ] **1.2** Isolation posture: Instance Connect Endpoint vs SSM; NAT vs VPC endpoints; private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7) in the choice.
 - [ ] **1.3** Media bucket in scope? Follows D5.
 - [ ] **1.4** DNS name and zone.
