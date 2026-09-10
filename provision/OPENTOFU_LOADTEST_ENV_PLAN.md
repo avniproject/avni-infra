@@ -2,7 +2,12 @@
 
 **Status:** proposed, not started
 **Owner:** _unassigned_
-**Created:** 2026-09-08 · **Revised:** 2026-09-08
+**Created:** 2026-09-08 · **Revised:** 2026-09-10
+**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `875bf54` (2026-09-10). To find
+what has changed since: `git -C ../avni-perf log 875bf54..HEAD -- docs/sync-simulation-plan.md`.
+Update this line whenever you reconcile.
+
+`provision/scripts/check_plan_sync.py` checks this plan against its GitHub issues (#102–#111) and reports whether the upstream plan has moved since the commit above.
 
 ---
 
@@ -28,7 +33,7 @@ environment on its own.
 | Layer | Owner | Covers |
 |---|---|---|
 | **AWS resources** (`provision/`) | **this plan, §§5-8** | Network, compute, RDS, S3, ALB, DNS, IAM, access path, parameter groups, cost controls |
-| **Storage provisioning** | **this plan, §6** | Allocation size, IOPS, throughput, autoscaling. J/I3 states the parity requirement and explicitly delegates the numbers here |
+| **Storage provisioning** | **this plan, §6** | Allocation size, IOPS, throughput, autoscaling. G4 states the parity requirement and explicitly delegates the numbers here |
 | **Environment configuration** (`configure/`) | **this plan, §9** | Inventory, playbooks, group_vars, Makefile targets, JVM flags, pool size, log level, IdP type |
 | **Test harness, workload, data, run ritual** | `avni-perf` | Simulation, scenarios, dataset generation, user provisioning, per-run procedure |
 
@@ -46,10 +51,14 @@ parameter group rather than in application config: `max_connections`, `autovacuu
 
 ## 3. Infrastructure properties the harness depends on
 
-`avni-perf/docs/sync-simulation-plan.md` gathers these itself, in **section J — "What the harness
-requires of the environment"** (formerly section I; I is now multi-tenancy), with each item traced to
-the task that produced it. That is the authoritative list; it is not restated here. Its subsections
-are still labelled I1–I5.
+`avni-perf/docs/sync-simulation-plan.md` gathers these itself, in its **"What the harness requires of
+the environment"** section, with each item traced to the task that produced it. That is the
+authoritative list; it is not restated here.
+
+> **This is the only place in this plan that references that document by section.** Everywhere else
+> cites the stable task ID a requirement traces to — `G4`, `B1`, `F5.3`, `A11`, `D5.4` — because
+> section letters move (that section was `I` until multi-tenancy took the letter) and task IDs have
+> not. When reconciling, follow the task ID, not the heading.
 
 - **I1** network and access — no public reachability, Instance Connect Endpoint or SSM, instance-ID
   addressing, an outbound path for deploy-time package fetches, deliberate DNS, a position for the
@@ -78,8 +87,8 @@ the harness states what must be true, this plan decides how large.
 | Host separation | avni-server and avni-etl on **separate instances** | Prod runs them apart (`configure/inventory/prod`); co-locating changes CPU and connection contention |
 | Instance classes | See §5 — **deliberately not matched** | Production is burstable (app `t3.large`, ETL `t3.small`, DB `db.t4g.large`); the rig cannot be |
 | Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
-| Postgres version | **16.8**, matching production exactly (J/I3) | Planner behaviour is version-specific |
-| Storage | gp3 throughout. Production: app server **40 GB**, RDS **300 GB allocated / ~122 GB used**, both at 3000 IOPS / 125 MiB/s | **I/O parity is required** (J/I3), which caps the rig below 400 GiB — see §6 |
+| Postgres version | **16.8**, matching production exactly (G4) | Planner behaviour is version-specific |
+| Storage | gp3 throughout. Production: app server **40 GB**, RDS **300 GB allocated / ~134 GB used, of which `public` is 70 GB**, both at 3000 IOPS / 125 MiB/s | **I/O parity is required** (G4), which caps the rig below 400 GiB — see §6 |
 | LB idle timeout | 400s | `provision/server/elb.tf`. Sync requests are long; a shorter timeout converts slow responses into errors |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
@@ -341,7 +350,7 @@ RDS snapshot restore remains right for baseline creation and dataset portability
 **Why this lands on infrastructure rather than on the harness.** Two RDS properties make the choice
 irreversible in one direction:
 
-**The harness now owns the requirement and this plan owns the numbers.** J/I3 asks for *"IO parity
+**The harness now owns the requirement and this plan owns the numbers.** G4 asks for *"IO parity
 with production — storage class, IOPS and throughput. The plan requires the parity; the
 infrastructure plan owns how it is achieved and what the numbers are."* It also adds a second,
 broader requirement: **storage I/O characteristics must be stable for the life of the environment**,
@@ -358,7 +367,7 @@ Production reference, confirmed: app server **40 GB gp3**, RDS **300 GB gp3 allo
 actually used** (issue #88, which proposes right-sizing prod to 200 GB), both at 3000 IOPS,
 single-AZ.
 
-**Decision: match production's I/O.** The harness (J/I3) requires storage class, IOPS and throughput
+**Decision: match production's I/O.** The harness (G4) requires storage class, IOPS and throughput
 matching production, and that requirement wins here. Since the goal is finding choke points, giving
 the rig *more* I/O than production would mask a storage bottleneck production actually has.
 
@@ -414,7 +423,7 @@ which is exactly the kind of thing the parity report exists to say precisely.
   `pg_restore` and regeneration pay a full index rebuild instead, GIN worst. **Either is the floor on
   run turnaround**, and 4.1 measures both so the choice is made on a number.
 
-**Storage I/O must be stable for the life of the environment** (J/I3), and autoscaling is the way
+**Storage I/O must be stable for the life of the environment** (G4), and autoscaling is the way
 that gets undone silently. The rule is broader than autoscaling alone: no resizing mid-campaign, no
 storage-type changes, nothing that alters I/O between runs — any of those and runs stop being
 comparable. RDS storage autoscaling grows the volume when free space runs low; if it grew the
@@ -537,7 +546,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
 - [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at ~250 GiB** (§6 — sized on capacity; anything in the 20–399 GiB band gives the same 3,000 IOPS / 125 MiB/s, so only the 400 GiB ceiling matters for parity) to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
-- [ ] **2.6** Storage — a **run-artefacts bucket** (J/I4: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
+- [ ] **2.6** Storage — a **run-artefacts bucket** (A11: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
 - [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags, and a **`FreeStorageSpace` alarm**, which matters more than usual because autoscaling is deliberately off (§6): the volume filling is a hard stop rather than a silent grow. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
 - [ ] **2.9** Optional loader and injector instances, both on-demand (5.7).
@@ -663,8 +672,8 @@ wrong host is worse than having none, and it will collide with the new target be
 ## 10. Owned by the harness
 
 `avni-perf` owns dataset generation and load, user provisioning, per-run restore and statistics
-reset, and injector operation. Dataset size is an input this plan needs (1.6, 1.9); its section I is
-the authoritative statement of what the environment must provide (§3).
+reset, and injector operation. Dataset size is an input this plan needs (1.6, 1.9); its environment
+requirements section is the authoritative statement of what must be provided — see §3.
 
 ---
 
