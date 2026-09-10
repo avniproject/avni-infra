@@ -372,10 +372,14 @@ RDS gp3 for PostgreSQL has a hard threshold at 400 GiB:
 Production sits in the lower tier, so **the rig must stay below 400 GiB** — and at 400 GiB+ the
 *minimum* is 12,000/500, so there is no way to have the larger volume and prod's I/O together.
 
-**Allocate 300 GiB, matching production exactly.** That is the cleanest way to satisfy I/O parity:
-striping keys off allocated storage, so 300 GiB puts the rig on one volume at production's fixed
-3,000 IOPS / 125 MiB/s, whatever the dataset turns out to be. It also clears both reset mechanisms
-with room to spare. The peak, added up:
+**Size on capacity, not on parity — any allocation under 400 GiB is I/O-identical.** An earlier
+version of this section said to allocate 300 GiB "to match production exactly, because striping keys
+off allocated storage". The first half of that is right and the second half does not follow: on gp3,
+RDS PostgreSQL gives a **flat 3,000 IOPS / 125 MiB/s across the whole 20–399 GiB band**. A 250 GiB
+volume and a 300 GiB volume perform identically. Matching production's *number* buys nothing;
+staying inside its *tier* is the entire requirement.
+
+So the figure comes from capacity. The peak, added up:
 
 | Component | Size |
 |---|---|
@@ -384,9 +388,24 @@ with room to spare. The peak, added up:
 | ETL schemas generated during ETL-concurrent runs | up to ~62 GB at production's ratio |
 | **Peak** | **~200 GB** |
 
-Plus WAL, temp files and bloat — comfortably inside 300 GiB with roughly a third spare, and ~230 GB
-spare if `pg_restore` or regeneration wins instead. Note the ETL row is easy to forget: ETL is now a
-required scenario (5.4), so the database grows as it runs, and it is not part of the seeded dataset.
+Note the ETL row is easy to forget: ETL is a required scenario (5.4), so the database grows as it
+runs and that growth is not part of the seeded dataset. It is also per-campaign rather than
+cumulative — a reset returns the database to the reference state, taking the generated ETL schemas
+with it.
+
+**~250 GiB is the recommendation**: roughly 25% over the peak, leaving room for WAL, temp files,
+sort spill and bloat, and well inside the tier. Drop to ~200 GiB if `pg_restore` or regeneration wins
+and the template copy disappears. Confirm against the real dataset in 1.6.
+
+**Two reasons not to cut it fine.** RDS allocated storage can only be increased, and RDS enforces a
+cooldown between storage modifications — so nudging it upward repeatedly is slow and disruptive. And
+with autoscaling deliberately off, running out is a hard stop, not a silent grow.
+
+**The saving is small enough not to drive the decision.** At the \$0.131/GiB-month rate #88 records,
+250 GiB against 300 GiB is about \$6.55/month. That is not a reason to go smaller; the reason is that
+the 300 GiB figure was justified by an argument that does not hold. Pick the number on headroom
+comfort and record it — the deviation from production's allocation is real but performance-neutral,
+which is exactly the kind of thing the parity report exists to say precisely.
 
 **What this costs, and it is not free.** Everything is bounded by 125 MiB/s:
 
@@ -516,7 +535,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
-- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at 300 GiB to match production** (§6 — striping keys off allocated storage, so this is what delivers 3,000 IOPS / 125 MiB/s parity), well below 400 GiB to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
+- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at ~250 GiB** (§6 — sized on capacity; anything in the 20–399 GiB band gives the same 3,000 IOPS / 125 MiB/s, so only the 400 GiB ceiling matters for parity) to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
 - [ ] **2.6** Storage — a **run-artefacts bucket** (J/I4: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
