@@ -28,6 +28,7 @@ environment on its own.
 | Layer | Owner | Covers |
 |---|---|---|
 | **AWS resources** (`provision/`) | **this plan, §§5-8** | Network, compute, RDS, S3, ALB, DNS, IAM, access path, parameter groups, cost controls |
+| **Storage provisioning** | **this plan, §6** | Allocation size, IOPS, throughput, autoscaling. J/I3 states the parity requirement and explicitly delegates the numbers here |
 | **Environment configuration** (`configure/`) | **this plan, §9** | Inventory, playbooks, group_vars, Makefile targets, JVM flags, pool size, log level, IdP type |
 | **Test harness, workload, data, run ritual** | `avni-perf` | Simulation, scenarios, dataset generation, user provisioning, per-run procedure |
 
@@ -315,42 +316,39 @@ perf database is no longer RDS, *"trading away production parity, which is a wor
 reset"*. Aurora fast cloning is the right tool for the problem and is unavailable for the same
 reason. **This retires the Postgres-on-EC2 fallback this plan previously carried.**
 
-**The per-run reset mechanism is now decided, and decided on parity grounds.** G4 rules out
-`CREATE DATABASE … TEMPLATE`: it needs 2x the dataset, and doubling crosses the 400 GiB striping
-threshold, which would hand the rig 12,000 IOPS against production's 3,000 — *"not merely expensive
-here, it breaks IO parity as a side effect."* The choice is **`pg_dump`/`pg_restore --jobs` or
-regenerating from the generator's bulk `COPY`**, both of which keep allocated storage near 1x and
-stay under the ceiling. Reset time is no longer the deciding factor, only something to measure so
-run turnaround is known.
+**The per-run reset mechanism is open, and now benignly so.** An earlier reading of G4 had
+`CREATE DATABASE … TEMPLATE` rejected because doubling the dataset would cross the 400 GiB striping
+threshold and break I/O parity. **That concern is resolved, and the resolution is the important part:
+striping keys off *allocated* storage, which is a provisioning decision — not off how much data is
+put in it.** Allocate to match production and the rig gets one volume and production's 3,000 IOPS
+regardless of dataset size.
 
-| Mechanism | Peak storage | Status |
+Measured on the production read replica, the dataset to reproduce is **~70 GB**, not 300 GiB:
+
+| Bucket | Size | Relations |
 |---|---|---|
-| `pg_dump` / `pg_restore --jobs` | ~1x, artefact in S3 | **Chosen** — decide between these two on measured time |
-| Regenerate from bulk `COPY` | ~1x, no artefact | **Chosen** — same |
-| `CREATE DATABASE … TEMPLATE` | 2x | Rejected — breaks I/O parity via the striping threshold |
+| `public` (transactional) | **70 GB** | 143 |
+| Org schemas (ETL) | 62 GB | 10,367 |
+| System | 1.5 GB | 68 |
+
+So a template copy peaks at ~140 GB, comfortably inside a production-matching allocation and nowhere
+near the threshold. **Both reset mechanisms are viable, and the choice is decided by timing alone** —
+`TEMPLATE` trades storage headroom for a fast page-level copy; `pg_restore`/regenerate trades reset
+time for a pristine index and ~1× storage. 4.1 measures them.
 
 RDS snapshot restore remains right for baseline creation and dataset portability, and wrong per run.
-
-> **Worth confirming before sizing.** G4's rejection of `TEMPLATE` reasons from production's **300 GiB
-> allocated**, doubling to ~600 GiB. But #88 records `proddb02` at **~122 GB actually used**, and G4
-> itself says the generated dataset should be sized against the *transactional* portion — smaller
-> again, since per-organisation ETL schemas plausibly exceed half of it. At ~122 GB, 2x is ~244 GB and
-> stays comfortably under 400 GiB, so `TEMPLATE` would not break parity and would give much faster
-> resets. **Raise this with the harness owner**: if the dataset lands near the used figure rather than
-> the allocated one, the rejection may not hold. The plan proceeds at 1x either way, which is the safe
-> direction — 1x forecloses nothing, and RDS storage only ever grows.
 
 **Why this lands on infrastructure rather than on the harness.** Two RDS properties make the choice
 irreversible in one direction:
 
-- **Allocated storage can only be increased, never decreased**, so any over-provisioning is a
-  permanent commitment for the life of that instance.
-- **Crossing 400 GiB is the parity failure**, and it can happen through sizing rather than through a
-  deliberate decision.
+**The harness now owns the requirement and this plan owns the numbers.** J/I3 asks for *"IO parity
+with production — storage class, IOPS and throughput. The plan requires the parity; the
+infrastructure plan owns how it is achieved and what the numbers are."* It also adds a second,
+broader requirement: **storage I/O characteristics must be stable for the life of the environment**,
+not changing between runs by autoscaling, resizing, or any other means.
 
-**Size at ~1x.** With `TEMPLATE` rejected there is no doubling, so the figure follows the dataset
-alone plus WAL and index headroom. If `pg_dump`/`pg_restore` is chosen, the dump artefact lives in S3
-and needs a home and a lifecycle — larger and longer-lived than the run-artefacts bucket in 2.6.
+If `pg_dump`/`pg_restore` is chosen, the dump artefact lives in S3 and needs a home and a lifecycle —
+larger and longer-lived than the run-artefacts bucket in 2.6.
 
 The consequences that land on this plan:
 
@@ -374,21 +372,33 @@ RDS gp3 for PostgreSQL has a hard threshold at 400 GiB:
 Production sits in the lower tier, so **the rig must stay below 400 GiB** — and at 400 GiB+ the
 *minimum* is 12,000/500, so there is no way to have the larger volume and prod's I/O together.
 
-**Size at ~1x of the dataset, inside that ceiling.** With `TEMPLATE` rejected, allocated storage
-follows the dataset plus WAL and index headroom — **150–200 GiB** at production-scale transactional
-data. Note the dataset is sized against production's **transactional** portion, not the 300 GiB
-allocated figure: per-organisation ETL schemas flatten every JSONB key into a column and plausibly
-account for more than half of it. Confirm that split in 1.6 before fixing the number.
+**Allocate 300 GiB, matching production exactly.** That is the cleanest way to satisfy I/O parity:
+striping keys off allocated storage, so 300 GiB puts the rig on one volume at production's fixed
+3,000 IOPS / 125 MiB/s, whatever the dataset turns out to be. It also clears both reset mechanisms
+with room to spare. The peak, added up:
+
+| Component | Size |
+|---|---|
+| Transactional dataset (`public`) | 70 GB |
+| Template copy, if `TEMPLATE` is chosen | +70 GB |
+| ETL schemas generated during ETL-concurrent runs | up to ~62 GB at production's ratio |
+| **Peak** | **~200 GB** |
+
+Plus WAL, temp files and bloat — comfortably inside 300 GiB with roughly a third spare, and ~230 GB
+spare if `pg_restore` or regeneration wins instead. Note the ETL row is easy to forget: ETL is now a
+required scenario (5.4), so the database grows as it runs, and it is not part of the seeded dataset.
 
 **What this costs, and it is not free.** Everything is bounded by 125 MiB/s:
 
 - **The bulk load** (H4) runs at that ceiling. It happens once per environment, so it is tolerable.
-- **The per-run reset is the one that matters.** `pg_restore` and regeneration both pay a full index
-  rebuild — GIN worst — against 125 MiB/s. **That is the floor on run turnaround**, and 4.1 measures
-  both so the number is known rather than assumed.
+- **The per-run reset is the one that matters.** `TEMPLATE` copies ~70 GB at page level;
+  `pg_restore` and regeneration pay a full index rebuild instead, GIN worst. **Either is the floor on
+  run turnaround**, and 4.1 measures both so the choice is made on a number.
 
-**Storage autoscaling must be off, explicitly.** This is the way the parity decision above gets
-undone silently. RDS storage autoscaling grows the volume when free space runs low; if it grew the
+**Storage I/O must be stable for the life of the environment** (J/I3), and autoscaling is the way
+that gets undone silently. The rule is broader than autoscaling alone: no resizing mid-campaign, no
+storage-type changes, nothing that alters I/O between runs — any of those and runs stop being
+comparable. RDS storage autoscaling grows the volume when free space runs low; if it grew the
 rig past 400 GiB mid-campaign, the volume would restripe to **12,000 IOPS / 500 MiB/s** and every
 subsequent run would sit on different storage performance than the ones before it — with nothing in
 the Gatling report to show for it. That is precisely the class of silent, invalidating change this
@@ -495,7 +505,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
 - [ ] **1.4** DNS name and zone.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
-- [ ] **1.6** **Get the reset-mechanism decision from the harness owner before provisioning** (§6). It sets whether storage is ~1× or 2× the dataset, and RDS storage cannot be reduced afterwards. With the dataset size from the generator's owner, confirm the chosen multiple fits **below the 400 GiB I/O-parity ceiling** with load headroom. If it does not, raise it before building — it forces a choice between parity and capacity.
+- [ ] **1.6** ~~Settle the reset mechanism before provisioning~~ — **largely closed.** The dataset is measured at **~70 GB** transactional and a 300 GiB allocation clears both mechanisms (§6), so the choice no longer constrains provisioning and is decided by timing in 4.1. Confirm only that nothing has changed the ~70 GB figure.
 - [ ] **1.7** Injector network position, and whether the module creates it.
 - [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
 - [ ] **1.10** **Check production's I/O headroom now, before building anything.** G4 flags storage I/O as a prime suspect ahead of any test run: a 300 GiB database with GIN indexes serving page-size-1000 sync reads against a hard 3,000 IOPS / 125 MiB/s ceiling. This is answerable from production CloudWatch today — `ReadIOPS` + `WriteIOPS` against 3,000, `ReadThroughput` + `WriteThroughput` against 125 MiB/s, and `DiskQueueDepth`, where sustained non-zero queue depth is the signal that I/O is the binding constraint. **Cheap, needs no environment, and could pre-empt a large part of the exercise.**
@@ -506,7 +516,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
-- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 sized below 400 GiB** to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
+- [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at 300 GiB to match production** (§6 — striping keys off allocated storage, so this is what delivers 3,000 IOPS / 125 MiB/s parity), well below 400 GiB to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
 - [ ] **2.6** Storage — a **run-artefacts bucket** (J/I4: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
@@ -524,7 +534,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 4 — Rig operations
 
-- [ ] **4.1** Implement whichever reset mechanism 1.6 settled, and **time all three candidates once** as G4 asks — the decision is meant to come from measurement, not argument. If `TEMPLATE`, pass `STRATEGY = FILE_COPY` explicitly, because PG15+ defaults to the slower `WAL_LOG`. Restore duration sets the floor on run turnaround, and at 125 MiB/s it is the price of I/O parity. **If it proves unworkable, that is the trigger to revisit §6's ceiling** — a re-baselining, not a tuning knob.
+- [ ] **4.1** **Time both reset mechanisms and choose on the number** — storage no longer decides it (§6). If `TEMPLATE`, pass `STRATEGY = FILE_COPY` explicitly, because PG15+ defaults to the slower `WAL_LOG`. Reset duration is the floor on run turnaround. Restore duration sets the floor on run turnaround, and at 125 MiB/s it is the price of I/O parity. **If it proves unworkable, that is the trigger to revisit §6's ceiling** — a re-baselining, not a tuning knob.
 - [ ] **4.2** Expose reference-snapshot capture and restore as repeatable operations the harness can invoke.
 - [ ] **4.3** Documented resize procedure — change a variable, apply, record the parity report. This is the mechanism by which the rig answers "at what size does it stop breaking".
 - [ ] **4.4** Scheduled stop or destroy outside working hours, **with an override guard** so multi-hour runs are not torn down mid-run. Prefer snapshot-and-destroy over stop for gaps beyond a week (5.7).
