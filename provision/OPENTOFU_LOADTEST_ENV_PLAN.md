@@ -1,10 +1,10 @@
 # OpenTofu Plan — Reusable Avni Environment, First Instance: Load Testing
 
 **Status:** proposed, not started
-**Owner:** _unassigned_
+**Owner:** the dedicated Avni team for Tanuh (settled in the harness plan's open questions)
 **Created:** 2026-09-08 · **Revised:** 2026-09-10
-**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `875bf54` (2026-09-10). To find
-what has changed since: `git -C ../avni-perf log 875bf54..HEAD -- docs/sync-simulation-plan.md`.
+**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `f23b0a4` (2026-09-11). To find
+what has changed since: `git -C ../avni-perf log f23b0a4..HEAD -- docs/sync-simulation-plan.md`.
 Update this line whenever you reconcile.
 
 `provision/scripts/check_plan_sync.py` checks this plan against its GitHub issues (#102–#111) and reports whether the upstream plan has moved since the commit above.
@@ -89,6 +89,7 @@ the harness states what must be true, this plan decides how large.
 | Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
 | Postgres version | **16.8**, matching production exactly (G4) | Planner behaviour is version-specific |
 | Storage | gp3 throughout. Production: app server **40 GB**, RDS **300 GB allocated / ~134 GB used, of which `public` is 70 GB**, both at 3000 IOPS / 125 MiB/s | **I/O parity is required** (G4), which caps the rig below 400 GiB — see §6 |
+| Edge | **ALB with a WAF web ACL in front**, as production runs | A WAF inspects every request and adds latency production carries; omitting it makes the rig faster than prod. Its rate-based rules are also a live hazard — see §6a |
 | LB idle timeout | 400s | `provision/server/elb.tf`. Sync requests are long; a shorter timeout converts slow responses into errors |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
@@ -479,6 +480,40 @@ loader instance inside the VPC, created and destroyed around the load, remains p
 
 ---
 
+## 6a. The WAF, and why it needs care
+
+Production fronts the ALB with a WAF, so the rig does too — a WAF inspects every request and adds
+per-request latency that production carries. Omitting it would make the rig systematically faster
+than production in a way no other parity check would surface.
+
+**Nothing in this repository describes it.** Like the cross-region snapshot copy, the WAF appears to
+be console-managed: there is no `aws_wafv2_*` resource, no `web_acl`, nothing in the tanuh ALB
+scripts. Its configuration has to be read off the account before it can be reproduced (1.11).
+
+**The hazard: rate-based rules will see the load generator as an attack.** A single injector driving
+hundreds of virtual users against one endpoint is, to a rate-based rule, indistinguishable from what
+the rule exists to stop. If production has one and the rig inherits it unchanged, runs will be
+throttled or blocked — and the failure mode is quiet, because throttled requests look like server
+errors or latency in the Gatling report rather than like a WAF decision. Three options, in order of
+preference:
+
+1. **Allowlist the injector's source** ahead of the rate-based rule. Keeps every other rule in the
+   evaluation path, so the per-request inspection cost stays realistic.
+2. **Raise the rate limit** for the rig. Simple, but changes rule evaluation and is a deviation to
+   record.
+3. **Drop the rate-based rule only.** Last resort — it removes a rule production evaluates.
+
+Whichever is chosen, **record it in the parity report**, and check WAF metrics after the first run:
+`BlockedRequests` and `CountedRequests` on the web ACL will show immediately whether the rig is
+being throttled. Worth doing as part of 3.3 rather than discovering it as an unexplained plateau.
+
+**Cost is a request charge, unlike everything else here.** AWS WAF bills per web ACL, per rule, and
+**per million requests** — the last is the one that scales with testing rather than with uptime,
+though at realistic sync volumes it is small change next to the instance hours. Confirm the current
+ap-south-1 rates in 1.8 with the rest of the pricing.
+
+---
+
 ## 7. Module shape
 
 ```
@@ -488,7 +523,7 @@ provision/tofu/
     compute.tf         # app, etl, optional loader, optional injector
     database.tf        # RDS primary, optional replica, parameter group
     storage.tf         # media bucket (optional)
-    loadbalancer.tf    # ALB, target groups, listeners, ACM
+    loadbalancer.tf    # ALB, target groups, listeners, ACM, WAFv2 web ACL
     dns.tf             # private or public zone
     access.tf          # Instance Connect Endpoint / SSM
     observability.tf   # Performance Insights, CloudWatch, log groups
@@ -500,7 +535,7 @@ provision/tofu/
 **Variables** — AWS-level only: `app_instance_class`, `etl_instance_class`, `db_instance_class`,
 `db_storage_type`, `db_allocated_storage`, `db_iops`, `db_multi_az`, `enable_read_replica`,
 `db_max_connections`, `db_autovacuum`, `db_multi_az`, `enable_etl`, `enable_media_bucket`, `enable_cognito`, `enable_injector`,
-`injector_instance_class`, `enable_loader`, `restore_from_snapshot`, `log_retention_days`,
+`injector_instance_class`, `enable_loader`, `waf_rate_limit_strategy`, `restore_from_snapshot`, `log_retention_days`,
 `retain_on_destroy`.
 
 **Outputs:** base URL, instance IDs, DB endpoints, reference snapshot identifier, parity report.
@@ -508,7 +543,8 @@ provision/tofu/
 **The parity report** satisfies F5.2 and is committed with each apply. It records the AWS facts —
 instance classes **and explicitly that they are fixed-performance where production is burstable**,
 Postgres version, every parameter-group deviation, storage type and IOPS, Multi-AZ, replica present
-or not, **that storage autoscaling is disabled**, injector network position, **whether the run had a concurrent ETL cycle** — now a
+or not, **that storage autoscaling is disabled**, injector network position, **how the WAF's rate-based rule was handled** (§6a), **whether the New Relic agent was attached**,
+**whether the run had a concurrent ETL cycle** — now a
 scenario dimension rather than a housekeeping note, and the delta between the two is itself a finding and **which tenancy model the run used**, shared or dedicated (section I4 — results are not
 comparable across models) — and leaves a slot for the application-side
 values Ansible sets, so one document describes the whole environment.
@@ -529,13 +565,14 @@ values Ansible sets, so one document describes the whole environment.
 ### Phase 1 — Decisions that change what gets built
 
 - [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~122 GB used per #88), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
-- [ ] **1.2** Isolation posture: Instance Connect Endpoint vs SSM; NAT vs VPC endpoints; private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7) in the choice.
+- [ ] **1.2** Isolation posture: **the harness plan has closed this as "no limitation" and settled on an EC2 Instance Connect Endpoint** tunnelling SSH through the AWS API to an instance with no public IP and no inbound rule — it is now build work here, not an open question. Remaining choices: NAT vs VPC endpoints, and private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7).
 - [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
 - [ ] **1.4** DNS name and zone.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
 - [ ] **1.6** ~~Settle the reset mechanism before provisioning~~ — **largely closed.** The dataset is measured at **~70 GB** transactional and a 300 GiB allocation clears both mechanisms (§6), so the choice no longer constrains provisioning and is decided by timing in 4.1. Confirm only that nothing has changed the ~70 GB figure.
 - [ ] **1.7** Injector network position, and whether the module creates it.
 - [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
+- [ ] **1.11** **Read production's WAF configuration off the account** — web ACL, rules and their order, managed rule groups, and above all any **rate-based rules** and their thresholds. Nothing in this repo describes it (§6a), so this is discovery, not translation.
 - [ ] **1.10** **Check production's I/O headroom now, before building anything.** G4 flags storage I/O as a prime suspect ahead of any test run: a 300 GiB database with GIN indexes serving page-size-1000 sync reads against a hard 3,000 IOPS / 125 MiB/s ceiling. This is answerable from production CloudWatch today — `ReadIOPS` + `WriteIOPS` against 3,000, `ReadThroughput` + `WriteThroughput` against 125 MiB/s, and `DiskQueueDepth`, where sustained non-zero queue depth is the signal that I/O is the binding constraint. **Cheap, needs no environment, and could pre-empt a large part of the exercise.**
 - [ ] **1.9** Size the database's memory against the dataset, with the generator's owner (5.5). §6's parameter-group constraint argues for keeping production's 8 GiB unless there is a reason not to.
 
@@ -545,7 +582,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
 - [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at ~250 GiB** (§6 — sized on capacity; anything in the 20–399 GiB band gives the same 3,000 IOPS / 125 MiB/s, so only the 400 GiB ceiling matters for parity) to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
-- [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate.
+- [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate, and a **WAFv2 web ACL associated with the ALB** reproducing production's rules (§6a). Handle the rate-based rule deliberately — an injector looks like an attack — and record which approach was taken.
 - [ ] **2.6** Storage — a **run-artefacts bucket** (A11: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
 - [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags, and a **`FreeStorageSpace` alarm**, which matters more than usual because autoscaling is deliberately off (§6): the volume filling is a hard stop rather than a silent grow. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
@@ -557,7 +594,7 @@ values Ansible sets, so one document describes the whole environment.
 
 - [ ] **3.1** Apply `envs/loadtest/` with `enable_cognito = true`.
 - [ ] **3.2** **Prove `tofu destroy` works, then reapply from scratch**, before anyone depends on the environment. A rig that cannot be rebuilt is not disposable, and the failure mode surfaces at the worst moment otherwise.
-- [ ] **3.3** Verify the AWS layer standalone: instances reachable via the access path, database reachable from them, ALB healthy, metrics flowing, egress restricted as intended.
+- [ ] **3.3** Verify the AWS layer standalone: instances reachable via the access path, database reachable from them, ALB healthy, metrics flowing, egress restricted as intended, and **the WAF passing injector traffic** — check `BlockedRequests` and `CountedRequests` on the web ACL rather than assuming (§6a).
 - [ ] **3.4** Hand off to Ansible — see §9.
 
 ### Phase 4 — Rig operations
@@ -657,9 +694,11 @@ wrong host is worse than having none, and it will collide with the new target be
 - [ ] **9.9** **Suppress outbound side effects in configuration as well as at the boundary** — no
       Glific, SMS or integration credentials in the loadtest secret vars. §8's IAM and egress
       restrictions are the backstop; this is the first line.
-- [ ] **9.10** Decide whether the `newrelic` role runs here. It is the shortest path to the JVM and
-      GC metrics F1 wants and matches production, but it is licensed per host; a JMX exporter is the
-      alternative.
+- [ ] **9.10** **Attach the `newrelic` role — required, not optional.** It is the shortest path to the
+      JVM and GC metrics F1 asks for, but the stronger reason is parity: **production runs the agent,
+      and the agent instruments the JVM at a cost.** A rig without it is measurably faster than
+      production for a reason that has nothing to do with the code under test. Budget the per-host
+      licensing in 1.5 rather than treating it as an optional extra.
 - [ ] **9.11** `security` role `ufw_allowed_ports` for this environment — the ALB's target port and
       the injector's path, and nothing else.
 - [ ] **9.12** Feed the application-side values into the parity report so one document describes the
@@ -693,6 +732,8 @@ requirements section is the authoritative statement of what must be provided —
 | First Ansible run fails on egress | NAT/VPC-endpoint decision in 1.2, not discovered at handoff |
 | A run emits real SMS or hits a real integration | 2.10 — enforced at IAM and egress, not app config |
 | NAT Gateway quietly becomes the largest line on a mostly-idle environment | 1.2 costs it explicitly against endpoint alternatives |
+| **WAF rate-based rule throttles the injector**, and throttled requests read as server latency or errors in the Gatling report rather than as a WAF decision | §6a — handle the rule deliberately at 2.5, and check `BlockedRequests` at 3.3 rather than assuming |
+| New Relic omitted as a cost saving, making the rig faster than production for reasons unrelated to the code | 9.10 — the agent is required for parity, not only for metrics |
 | Scheduled teardown kills a long run | 4.4's override guard |
 | Environment left running between runs | Budget alarm, scheduled destroy, cost tags (2.8, 4.4) |
 | `destroy` fails on a dependent resource; environment becomes semi-permanent | 3.2 tests destroy while nothing depends on it |
@@ -723,7 +764,10 @@ requirements section is the authoritative statement of what must be provided —
 - **No component under test is burstable, and storage is gp3** — two runs of the same workload on
   the same infrastructure produce comparable numbers.
 - It can be destroyed and rebuilt from scratch, demonstrated at least once.
-- RDS-side metrics are live and resettable; log retention is set.
+- RDS-side metrics are live and resettable; log retention is set; **the New Relic agent is attached
+  and reporting JVM and GC metrics**.
+- **The ALB is fronted by a WAF reproducing production's rules**, and a run has been confirmed to pass
+  through it without being throttled.
 - The database can be restored to a reference state at a measured, acceptable turnaround.
 - Sizing is variable-driven, and each apply emits a parity report.
 - State and plan files are encrypted, locked, and hold no secret values.
