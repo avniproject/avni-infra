@@ -1,0 +1,12 @@
+---
+# Connection settings for every host in the load-test environment.
+#
+# The ProxyCommand pushes an ephemeral key through EC2 Instance Connect and
+# then opens the tunnel. Both steps are needed: the key is valid for sixty
+# seconds and the tunnel carries the SSH session. scripts/eice-ssh-proxy.sh
+# does both so this stays readable.
+ansible_user: ubuntu
+ansible_ssh_common_args: >-
+  -o ProxyCommand="{{ playbook_dir }}/scripts/eice-ssh-proxy.sh %h"
+  -o StrictHostKeyChecking=no
+  -o UserKnownHostsFile=/dev/null

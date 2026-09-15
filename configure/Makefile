@@ -419,3 +419,100 @@ deploy-snapshot-server-snapshot: check-app-zip-path check-vault-pwd-file
 deploy-snapshot-server-staging: check-app-zip-path check-vault-pwd-file
 	APPLICATION_ZIP_PATH=$(app_zip_path) APPLICATION_ZIP_FILE_NAME=snapshot-server.tgz ansible-playbook deploy_app_to_servers.yml -i inventory/staging --vault-password-file ${VAULT_PASSWORD_FILE} \
      --extra-vars '{"deploy_app_name":"snapshot","deploy_app_hosts":"snapshotservers","deploy_app_remote_user":"snapshot-server-user","deploy_app_env":"staging","deploy_app_role":"snapshot_server","deploy_app_env_vars_file":"group_vars/staging_vars.yml","deploy_app_env_secret_vars_file":"group_vars/staging-secret-vars.yml.enc"}' -v
+
+# =============================================================================
+# Load-test environment
+#
+# Plan: ../provision/OPENTOFU_LOADTEST_ENV_PLAN.md · issues #105, #108
+#
+# These targets hide the machinery deliberately, because more than one person
+# has to use this environment. A team member should need nothing but a VERSION:
+#
+#     make loadtest-deploy-server VERSION=1.5.0
+#
+# The AWS profile is defaulted, hosts are discovered from tags rather than
+# hardcoded (the environment is disposable, so instance IDs change), the SSH
+# tunnel is wired by the inventory, and the jar comes from the environment's
+# own bucket rather than from whoever happens to have one locally.
+#
+# These are NOT an alternative to CI — CI invokes them, exactly as
+# deploy_as_service already runs `make deploy-avni-server-<env>`.
+# =============================================================================
+
+AVNI_AWS_PROFILE ?= avni-load-test
+AVNI_AWS_REGION  ?= ap-south-1
+LOADTEST_BUCKET  ?= avni-loadtest-$(shell aws sts get-caller-identity --profile $(AVNI_AWS_PROFILE) --query Account --output text 2>/dev/null)
+LOADTEST_INV     := inventory/loadtest/aws_ec2.yml
+LOADTEST_WORK    := /tmp/avni-loadtest-deployables
+
+# openjdk-21-jdk is passed explicitly here for the same reason every other
+# avni-server target does it: the default in group_vars/basic_vars.yml is
+# openjdk-8-jdk, --extra-vars is the only thing that overrides it, and a target
+# written without it fails at first start with UnsupportedClassVersionError --
+# which reads like a build problem rather than a missing variable.
+LOADTEST_COMMON_VARS := "install_jdk":"true","java_apt_package":"openjdk-21-jdk"
+
+check-loadtest-version:
+ifndef VERSION
+	$(error VERSION is undefined. Try: make loadtest-deploy-server VERSION=1.5.0)
+endif
+
+check-loadtest-profile:
+	@aws sts get-caller-identity --profile $(AVNI_AWS_PROFILE) >/dev/null 2>&1 || \
+	  (echo "Cannot authenticate with AWS profile '$(AVNI_AWS_PROFILE)'."; \
+	   echo "Configure it in ~/.aws/config, or pass AVNI_AWS_PROFILE=<name>."; exit 1)
+
+## Show which hosts the dynamic inventory currently finds.
+loadtest-hosts: check-loadtest-profile
+	@AWS_PROFILE=$(AVNI_AWS_PROFILE) ansible-inventory -i $(LOADTEST_INV) --graph
+
+## Prove the tunnel works before blaming anything else.
+loadtest-ping: check-loadtest-profile
+	@AWS_PROFILE=$(AVNI_AWS_PROFILE) ansible -i $(LOADTEST_INV) all -m ping
+
+## Publish a built jar so deploys stop depending on who has one locally.
+## Usage: make loadtest-publish-server VERSION=1.5.0 JAR=/path/to/avni-server.jar
+loadtest-publish-server: check-loadtest-version check-loadtest-profile
+ifndef JAR
+	$(error JAR is undefined. Point it at the built avni-server jar.)
+endif
+	aws s3 cp $(JAR) s3://$(LOADTEST_BUCKET)/deployables/avni-server-$(VERSION).jar \
+	  --profile $(AVNI_AWS_PROFILE)
+
+loadtest-publish-etl: check-loadtest-version check-loadtest-profile
+ifndef JAR
+	$(error JAR is undefined. Point it at the built avni-etl jar.)
+endif
+	aws s3 cp $(JAR) s3://$(LOADTEST_BUCKET)/deployables/avni-etl-$(VERSION).jar \
+	  --profile $(AVNI_AWS_PROFILE)
+
+# Fetch a published jar into a scratch directory the deploy roles can read.
+# The roles copy from the control machine, so the artefact has to land locally
+# first; this is the step that otherwise becomes "ask someone for the jar".
+loadtest-fetch-%: check-loadtest-version check-loadtest-profile
+	@mkdir -p $(LOADTEST_WORK)
+	aws s3 cp s3://$(LOADTEST_BUCKET)/deployables/avni-$*-$(VERSION).jar \
+	  $(LOADTEST_WORK)/avni-$*.jar --profile $(AVNI_AWS_PROFILE)
+
+## Full configure: base, security, jdk, newrelic, webapp, server.
+loadtest-configure-server: check-loadtest-version check-vault-pwd-file loadtest-fetch-server
+	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
+	AWS_PROFILE=$(AVNI_AWS_PROFILE) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	ansible-playbook loadtest_avni_servers.yml -i $(LOADTEST_INV) \
+	  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	  --extra-vars '{$(LOADTEST_COMMON_VARS),"application_user":"avni-server-user"}'
+
+## Deploy only: stop, replace the jar, start.
+loadtest-deploy-server: check-loadtest-version check-vault-pwd-file loadtest-fetch-server
+	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
+	AWS_PROFILE=$(AVNI_AWS_PROFILE) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	ansible-playbook deploy_app_to_servers.yml -i $(LOADTEST_INV) \
+	  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	  --extra-vars '{$(LOADTEST_COMMON_VARS),"deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"loadtest","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/loadtest_vars.yml","deploy_app_env_secret_vars_file":"group_vars/loadtest_vars.yml"}'
+
+loadtest-configure-etl: check-loadtest-version check-vault-pwd-file loadtest-fetch-etl
+	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-etl.jar \
+	AWS_PROFILE=$(AVNI_AWS_PROFILE) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	ansible-playbook loadtest_etl_servers.yml -i $(LOADTEST_INV) \
+	  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	  --extra-vars '{"install_jdk":"true","java_apt_package":"openjdk-17-jdk"}'

@@ -1,0 +1,16 @@
+---
+
+- name: Configure etl servers (load test)
+  hosts: etlservers
+  become: yes
+  become_user: root
+  remote_user: "{{ etl_appserver_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/loadtest_vars.yml
+  roles:
+    - jdk
+    - newrelic
+    - etl_appserver

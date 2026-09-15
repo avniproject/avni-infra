@@ -1,0 +1,19 @@
+---
+
+- name: Configure avni servers (load test)
+  hosts: avniservers
+  become: yes
+  become_user: root
+  remote_user: "{{ avni_appserver_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/loadtest_vars.yml
+  roles:
+    - base
+    - security
+    - jdk
+    - newrelic      # required, not optional — see loadtest_vars.yml
+    - avni_web
+    - avni_appserver
