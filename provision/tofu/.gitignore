@@ -1,0 +1,7 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+# tfvars may carry endpoints and generated values; secrets belong in SSM (task 6.3)
+*.auto.tfvars
