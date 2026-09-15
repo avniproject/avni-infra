@@ -18,6 +18,17 @@ provisioned with OpenTofu and configured with the existing Ansible roles, both o
 repository and are planned together here. Written as a parameterised module from the outset so the
 same code provisions the dedicated customer environments and rebuilt lower environments that follow.
 
+**The environment lives in its own AWS account** — `936573213727`, created under the existing
+organisation. That makes the harness's central safety property structural rather than
+configurational: B1's "must not share a database with anything real" is now an account boundary, not
+a setting someone could get wrong. It also simplifies task 0.6 considerably — a broad apply role
+inside a dedicated account is safe in a way the same role in the production account never would be,
+because the account *is* the scope.
+
+Two consequences to carry: production's Route53 zone and its CloudWatch metrics stay in
+`118388513628`, so anything reading them needs a second credential; and a fresh account ships with
+low service quotas, which want raising before Phase 2 rather than during it.
+
 Greenfield. Nothing here imports, adopts or modifies any existing environment. Production is a
 sizing reference only; `provision/server/` stays as-is, historical, with its warning intact.
 
@@ -606,7 +617,7 @@ values Ansible sets, so one document describes the whole environment.
 - [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~134 GB used, `public` 70 GB), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
 - [ ] **1.2** Isolation posture: **the harness plan has closed this as "no limitation" and settled on an EC2 Instance Connect Endpoint** tunnelling SSH through the AWS API to an instance with no public IP and no inbound rule — it is now build work here, not an open question. Remaining choices: NAT vs VPC endpoints, and private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7).
 - [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
-- [ ] **1.4** DNS name and zone.
+- [x] **1.4** ~~DNS name and zone~~ — **settled: a private hosted zone for `loadtest.avniproject.org` in the load-test account.** No registration or delegation is needed, because a private zone resolves only inside associated VPCs and never touches public DNS — which also sidesteps `avniproject.org` living in the production account. Route53 matches most-specific-first, so this shadows only names at or below it; `app.avniproject.org` still resolves publicly from inside the VPC. A private zone for `avniproject.org` itself would shadow everything under it — do not.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
 - [ ] **1.6** ~~Settle the reset mechanism before provisioning~~ — **largely closed.** The dataset is measured at **~70 GB** transactional and a 300 GiB allocation clears both mechanisms (§6), so the choice no longer constrains provisioning and is decided by timing in 4.1. Confirm only that nothing has changed the ~70 GB figure.
 - [ ] **1.7** Injector network position, and whether the module creates it.
@@ -619,10 +630,10 @@ values Ansible sets, so one document describes the whole environment.
 
 - [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
-- [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
+- [ ] **2.3** Compute — **tag every instance `Environment=loadtest` and `Role=avni-server|avni-etl|injector|loader`; the Ansible inventory keys on these (9.1) and a disposable environment has no stable instance IDs to hardcode.** App instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
 - [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at ~250 GiB** (§6 — sized on capacity; anything in the 20–399 GiB band gives the same 3,000 IOPS / 125 MiB/s, so only the 400 GiB ceiling matters for parity) to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
 - [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **300s idle timeout** (measured on the live prod ALB; the 400s in the old Terraform is the jasper one), ACM certificate, and a **WAFv2 web ACL associated with the ALB** reproducing production's rules (§6a). Handle the rate-based rule deliberately — an injector looks like an attack — and record which approach was taken.
-- [ ] **2.6** Storage — a **run-artefacts bucket** (A11: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
+- [ ] **2.6** Storage — a bucket with two prefixes: **`artefacts/`** (A11: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile; and **`deployables/`**, holding built jars so a deploy never depends on someone having one locally (9.14). Reachable through a **free S3 gateway endpoint**, which also keeps this traffic off the NAT and its per-GB charge. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
 - [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags, and a **`FreeStorageSpace` alarm**, which matters more than usual because autoscaling is deliberately off (§6): the volume filling is a hard stop rather than a silent grow. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
 - [ ] **2.9** Optional loader and injector instances, both on-demand (5.7).
@@ -661,7 +672,11 @@ Gated on the harness's B2 → F4 → B1 ordering; triggered by that plan's owner
 - [ ] **6.4** CI — `plan` on PR, no auto-apply, and no plan bodies in logs (plan files carry secret
       values even when state is encrypted). Use a **GitHub Actions OIDC role for plan-only runs**;
       prior art exists in this account — `reportingSystem/tanuh-metabase/aws_setup.sh` already
-      creates an OIDC provider and a GHA role, so reuse the provider rather than making a second.
+      creates an OIDC provider and a GHA role — but note **that prior art is in the production
+      account**, and this environment is in `936573213727`, so the provider and role have to be
+      created there rather than reused. The same applies to CircleCI's
+      `avni_circleci_instance_connect`, which is why #107 needs a new job rather than a repointed
+      one.
 
 ---
 
@@ -702,12 +717,17 @@ wrong host is worse than having none, and it will collide with the new target be
 
 ### 9.2 Build the environment configuration
 
-- [ ] **9.1** `inventory/loadtest`. **This is the genuinely new pattern.** Every existing inventory
-      addresses hosts by public DNS name; a private environment with no public IP cannot. The
-      inventory must connect through the Instance Connect Endpoint or SSM tunnel, via
-      `ansible_ssh_common_args` with a `ProxyCommand`, addressing hosts by instance ID. Note the
-      existing `setup_server_access` pattern is *not* this — it pushes a key by instance ID and then
-      connects by DNS, which is exactly why it cannot reach a private host.
+- [ ] **9.1** `inventory/loadtest` as **`amazon.aws.aws_ec2` dynamic inventory, not a static file.**
+      This is the genuinely new pattern, and it is new twice over. Every existing inventory addresses
+      hosts by public DNS name, which a private environment with no public IP cannot do — so hosts
+      are addressed by **instance ID**, through an Instance Connect Endpoint tunnel set as a
+      `ProxyCommand` in `ansible_ssh_common_args`. And because the environment is *disposable*,
+      instance IDs change on every rebuild (3.2 mandates one immediately), so they cannot be
+      hardcoded: the plugin filters on the `Environment=loadtest` / `Role=*` tags from 2.3 and sets
+      `hostnames: - instance-id`. **This is why dynamic inventory is a Phase 9 prerequisite rather
+      than the Phase 7 refinement it used to be.** Note the existing `setup_server_access` pattern is
+      *not* this — it pushes a key by instance ID and then connects by DNS, which is exactly why it
+      cannot reach a private host.
 - [ ] **9.2** `loadtest_avni_servers.yml` and `loadtest_etl_servers.yml`, modelled on the prod
       playbooks.
 - [ ] **9.3** `group_vars/loadtest_vars.yml` and its secret-vars counterpart. **Nothing shared with
@@ -742,6 +762,13 @@ wrong host is worse than having none, and it will collide with the new target be
       the injector's path, and nothing else.
 - [ ] **9.12** Feed the application-side values into the parity report so one document describes the
       whole environment.
+- [ ] **9.14** **Make targets that hide the machinery, because more than one person has to use
+      this.** A team member should run `make loadtest-deploy-server VERSION=x.y.z` and hand-manage
+      nothing: the AWS profile defaulted in the target, the tunnel `ProxyCommand` wired by the
+      inventory, the jar pulled from `deployables/` in the bucket (2.6) rather than assumed present
+      locally, and the vault password read from a conventional path or prompted. **These targets are
+      not an alternative to CI — CI invokes them**, exactly as `deploy_as_service` already runs
+      `make deploy-avni-server-<env>`, so both paths ride the same substrate.
 - [ ] **9.13** Run it end to end and confirm the service starts, serves `/ping` through the ALB, and
       reaches its own database and nothing else.
 
