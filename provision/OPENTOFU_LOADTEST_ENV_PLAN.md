@@ -362,11 +362,11 @@ larger and longer-lived than the run-artefacts bucket in 2.6.
 
 The consequences that land on this plan:
 
-**Storage: stay under 400 GiB, for I/O parity with production.**
+**Storage: ~250 GiB, sized on capacity and kept under the 400 GiB ceiling.**
 
-Production reference, confirmed: app server **40 GB gp3**, RDS **300 GB gp3 allocated with ~122 GB
-actually used** (issue #88, which proposes right-sizing prod to 200 GB), both at 3000 IOPS,
-single-AZ.
+Production reference, confirmed: app server **40 GB gp3**, RDS **300 GB gp3 allocated with ~134 GB
+used, of which `public` is 70 GB** (measured on the read replica; #88 separately proposes
+right-sizing prod to 200 GB), both at 3000 IOPS, single-AZ.
 
 **Decision: match production's I/O.** The harness (G4) requires storage class, IOPS and throughput
 matching production, and that requirement wins here. Since the goal is finding choke points, giving
@@ -564,7 +564,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 1 — Decisions that change what gets built
 
-- [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~122 GB used per #88), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
+- [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~134 GB used, `public` 70 GB), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
 - [ ] **1.2** Isolation posture: **the harness plan has closed this as "no limitation" and settled on an EC2 Instance Connect Endpoint** tunnelling SSH through the AWS API to an instance with no public IP and no inbound rule — it is now build work here, not an open question. Remaining choices: NAT vs VPC endpoints, and private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7).
 - [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
 - [ ] **1.4** DNS name and zone.

@@ -27,10 +27,16 @@ UNNUMBERED = {103: "0"}
 # Decisions that were revised. If these reappear, something stale survived an edit.
 SUPERSEDED = {
     104: ["150–200 GiB", "300–350 GiB", "300 GiB to match production",
-          "time all three candidates", "two copies plus load headroom"],
+          "time all three candidates", "two copies plus load headroom",
+          "stay under 400 GiB"],
     105: ["300 GiB to match production", "below 400 GiB to hold", "enable_etl` (default off"],
     109: ["all three candidates"],
 }
+
+# Applied everywhere: section letters in the harness plan move (its environment
+# requirements were section I until multi-tenancy took the letter), and the
+# ~122 GB figure from #88 was superseded by a direct measurement.
+SUPERSEDED_EVERYWHERE = ["J/I", "122 GB", "section J"]
 
 # Current decisions that must be present in the issue that owns them.
 CURRENT = {
@@ -86,6 +92,11 @@ def main():
     stale_plan = [n for ns in SUPERSEDED.values() for n in ns if n in plan]
     ok &= not stale_plan
     print(f"  plan: {'ok' if not stale_plan else 'STALE ' + str(stale_plan)}")
+    for iss, text in list(bodies.items()) + [("plan", plan)]:
+        found = [n for n in SUPERSEDED_EVERYWHERE if n in text]
+        ok &= not found
+        if found:
+            print(f"  {iss}: STALE {found}")
 
     print("\ncurrent facts present")
     for iss, needles in CURRENT.items():
