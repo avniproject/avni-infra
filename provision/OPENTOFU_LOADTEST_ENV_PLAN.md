@@ -83,14 +83,14 @@ the harness states what must be true, this plan decides how large.
 
 | Dimension | Reference | Why it matters |
 |---|---|---|
-| Topology | VPC, two subnets across AZs, app host, RDS primary **+ read replica**, S3 media, load balancer | The replica exists in prod (`configure/group_vars/prod_vars.yml:48`); omitting it changes read-path behaviour |
+| Topology | VPC, two subnets across AZs, app host, RDS primary **+ read replica**, S3 media, load balancer. Note the replica is **db.t4g.medium (4 GiB) — half the primary's memory** — and runs its own parameter group (`openchs-postgres-read-modified-16` against the primary's `openchs-postgres-modified-16`) | The replica exists in prod (`configure/group_vars/prod_vars.yml:48`); omitting it changes read-path behaviour |
 | Host separation | avni-server and avni-etl on **separate instances** | Prod runs them apart (`configure/inventory/prod`); co-locating changes CPU and connection contention |
 | Instance classes | See §5 — **deliberately not matched** | Production is burstable (app `t3.large`, ETL `t3.small`, DB `db.t4g.large`); the rig cannot be |
 | Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
-| Postgres version | **16.8**, matching production exactly (G4) | Planner behaviour is version-specific |
+| Postgres version | **16.8**, matching the production *primary* (G4) | Planner behaviour is version-specific. Note the estate has drifted: the replica, prerelease and staging are all on **16.13**, so 16.8 is a moving target and the primary will likely be upgraded |
 | Storage | gp3 throughout. Production: app server **40 GB**, RDS **300 GB allocated / ~134 GB used, of which `public` is 70 GB**, both at 3000 IOPS / 125 MiB/s | **I/O parity is required** (G4), which caps the rig below 400 GiB — see §6 |
 | Edge | **ALB with a WAF web ACL in front**, as production runs | A WAF inspects every request and adds latency production carries; omitting it makes the rig faster than prod. Its rate-based rules are also a live hazard — see §6a |
-| LB idle timeout | 400s | `provision/server/elb.tf`. Sync requests are long; a shorter timeout converts slow responses into errors |
+| LB idle timeout | **300s** | Measured on `prod-openchs-load-balancer`. The 400s in `provision/server/elb.tf` is stale — 400 is the *jasper* ALB. Sync requests are long, so this is a real constraint to reproduce, not a rounding detail |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
 `aws_elb` Classic → ALB; `storage_encrypted = false` → encrypted; `password = "password"` →
@@ -450,14 +450,19 @@ which is exactly the kind of thing the parity report exists to say precisely.
   `pg_restore` and regeneration pay a full index rebuild instead, GIN worst. **Either is the floor on
   run turnaround**, and 4.1 measures both so the choice is made on a number.
 
-**Storage I/O must be stable for the life of the environment** (G4), and autoscaling is the way
-that gets undone silently. The rule is broader than autoscaling alone: no resizing mid-campaign, no
-storage-type changes, nothing that alters I/O between runs — any of those and runs stop being
-comparable. RDS storage autoscaling grows the volume when free space runs low; if it grew the
-rig past 400 GiB mid-campaign, the volume would restripe to **12,000 IOPS / 500 MiB/s** and every
-subsequent run would sit on different storage performance than the ones before it — with nothing in
-the Gatling report to show for it. That is precisely the class of silent, invalidating change this
-environment exists to avoid.
+**Storage I/O must be stable for the life of the environment** (G4). The rule is broader than
+autoscaling alone — no resizing mid-campaign, no storage-type changes, nothing that alters I/O
+between runs — but autoscaling is the path by which it gets undone *silently*. RDS grows the volume
+when free space runs low; if it grew the rig past 400 GiB mid-campaign the volume would restripe to
+**12,000 IOPS / 500 MiB/s**, and every subsequent run would sit on different storage performance than
+the ones before it, with nothing in the Gatling report to show for it. That is exactly the class of
+invalidating change this environment exists to avoid.
+
+**This is a deliberate deviation from production, which has autoscaling enabled.** Both `proddb02`
+and `proddb02-read` carry `MaxAllocatedStorage: 1000`. Production sits at 300 GiB with ~165 GB free,
+so it is far from triggering — but it is armed, and were it ever to fire it would cross 400 GiB and
+quadruple production's own storage I/O. Record the deviation in the parity report: the rig wants a
+fixed ceiling precisely because production's is not.
 
 In OpenTofu, autoscaling is controlled by `max_allocated_storage` on `aws_db_instance`: setting it
 enables autoscaling, omitting it or setting `0` disables it. **Leave it unset, and say so in a
@@ -516,20 +521,28 @@ than production in a way no other parity check would surface.
 be console-managed: there is no `aws_wafv2_*` resource, no `web_acl`, nothing in the tanuh ALB
 scripts. Its configuration has to be read off the account before it can be reproduced (1.11).
 
-**The hazard: rate-based rules will see the load generator as an attack.** A single injector driving
-hundreds of virtual users against one endpoint is, to a rate-based rule, indistinguishable from what
-the rule exists to stop. If production has one and the rig inherits it unchanged, runs will be
-throttled or blocked — and the failure mode is quiet, because throttled requests look like server
-errors or latency in the Gatling report rather than like a WAF decision. Three options, in order of
-preference:
+**Measured.** Production's web ACL is `avni-prod-web-acl`, with `Block_Known_Spammers`, a `php-rule`,
+`AWS-AWSManagedRulesAntiDDoSRuleSet`, and — the one that matters — **`rate-limit-rule` with a limit of
+550**.
 
-1. **Allowlist the injector's source** ahead of the rate-based rule. Keeps every other rule in the
-   evaluation path, so the per-request inspection cost stays realistic.
-2. **Raise the rate limit** for the rig. Simple, but changes rule evaluation and is a deviation to
-   record.
-3. **Drop the rate-based rule only.** Last resort — it removes a rule production evaluates.
+**That limit makes an un-allowlisted load test impossible, not merely degraded.** A WAFv2 rate-based
+rule counts per source IP over a five-minute window, so 550 works out to roughly **1.8 requests per
+second**. A single injector driving hundreds of virtual users exceeds that within seconds, and every
+request after it is blocked for the remainder of the window. The managed anti-DDoS rule set will
+react to the same traffic.
 
-Whichever is chosen, **record it in the parity report**, and check WAF metrics after the first run:
+**The failure mode is quiet, which is what makes it dangerous.** Blocked requests surface in the
+Gatling report as server errors or latency, not as a WAF decision — so an un-allowlisted run reads as
+a server that fell over at modest concurrency.
+
+**Allowlist the injector's source ahead of the rate-based rule.** This was one of three options
+before the limit was measured; at 550 it is the only workable one. It also happens to be the best of
+the three on its merits, since it leaves every other rule in the evaluation path and keeps the
+per-request inspection cost realistic. The alternatives are now clearly worse: raising a 550 limit to
+a load-test-realistic number changes it beyond recognition, and dropping the rule removes something
+production evaluates on every request.
+
+**Record the choice in the parity report**, and check WAF metrics after the first run:
 `BlockedRequests` and `CountedRequests` on the web ACL will show immediately whether the rig is
 being throttled. Worth doing as part of 3.3 rather than discovering it as an unexplained plateau.
 
@@ -608,7 +621,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — app instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
 - [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at ~250 GiB** (§6 — sized on capacity; anything in the 20–399 GiB band gives the same 3,000 IOPS / 125 MiB/s, so only the 400 GiB ceiling matters for parity) to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
-- [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **400s idle timeout**, ACM certificate, and a **WAFv2 web ACL associated with the ALB** reproducing production's rules (§6a). Handle the rate-based rule deliberately — an injector looks like an attack — and record which approach was taken.
+- [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **300s idle timeout** (measured on the live prod ALB; the 400s in the old Terraform is the jasper one), ACM certificate, and a **WAFv2 web ACL associated with the ALB** reproducing production's rules (§6a). Handle the rate-based rule deliberately — an injector looks like an attack — and record which approach was taken.
 - [ ] **2.6** Storage — a **run-artefacts bucket** (A11: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile and reachable through a free S3 gateway endpoint. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
 - [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags, and a **`FreeStorageSpace` alarm**, which matters more than usual because autoscaling is deliberately off (§6): the volume filling is a hard stop rather than a silent grow. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
