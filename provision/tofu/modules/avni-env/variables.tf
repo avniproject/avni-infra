@@ -214,3 +214,32 @@ variable "ssh_public_key" {
   type        = string
   default     = null
 }
+
+variable "ubuntu_release" {
+  description = <<-EOT
+    Ubuntu release for the hosts, as it appears in Canonical's SSM parameter
+    path. 22.04 is conservative — the Ansible roles predate 24.04 and the
+    `docker` role still defaults its apt release to focal. Note the Makefile
+    passes openjdk-21-jdk explicitly, which 22.04 carries.
+  EOT
+  type        = string
+  default     = "22.04"
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate for the ALB's HTTPS listener. Null gives a plain HTTP listener, which is a deviation from production's TLS termination and must be recorded in the parity report."
+  type        = string
+  default     = null
+}
+
+variable "waf_managed_rule_groups" {
+  description = <<-EOT
+    AWS managed rule groups to evaluate alongside the rate-based rule.
+    Production also runs custom rules — Block_Known_Spammers and a php-rule —
+    whose full statements were not captured by discovery, only their names.
+    Transcribe them from the production web ACL for closer parity, and note
+    AWSManagedRulesAntiDDoSRuleSet carries a standing monthly charge.
+  EOT
+  type        = list(string)
+  default     = ["AWSManagedRulesCommonRuleSet"]
+}
