@@ -176,13 +176,26 @@ m6g.large is fixed-performance *and* 44% cheaper per hour than the t3.large prod
 Staying on x86 for closer prod fidelity costs 13-18% more instead. Either way the absolute
 difference is cents per hour, which §5.6 puts in perspective.
 
-**Database.** The equivalent move is db.t4g.large → **db.m6g.large** (or db.m7g.large), staying on
-Graviton so burstability is the only variable removed. **ap-south-1 RDS rates could not be verified
-from public sources** — third-party pages consistently returned us-east-1 or us-west-2 defaults
-regardless of the region requested. What is clear from those non-Mumbai anchors is that the
-direction reverses for RDS: the fixed-performance M-family runs roughly 20-25% *above* the
-burstable T-family, where on EC2 it runs below. **Get the actual ap-south-1 figures from the AWS
-Pricing Calculator or `aws pricing get-products` once the CLI is installed (0.1), before 1.8.**
+**Database — and here the EC2 pattern inverts.** Fetched from AWS's own price list
+(`pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/ap-south-1/index.json`),
+PostgreSQL single-AZ:
+
+| Instance | vCPU / RAM | $/hr | $/mo @730h | vs current |
+|---|---|--:|--:|--:|
+| db.t4g.large — *burstable, current* | 2 / 8 GiB | 0.1670 | 121.91 | — |
+| **db.m6g.large** — Graviton2, fixed | 2 / 8 GiB | **0.2260** | 164.98 | **+35%** |
+| db.m7g.large — Graviton3, fixed | 2 / 8 GiB | 0.2400 | 175.20 | +44% |
+| db.m6i.large — Intel, fixed | 2 / 8 GiB | 0.2530 | 184.69 | +51% |
+| db.r6g.large — Graviton2, fixed | 2 / **16 GiB** | 0.2560 | 186.88 | +53% |
+
+**On EC2, moving off burstable to Graviton was 44% cheaper; on RDS it is 35% dearer.** The earlier
+estimate in this plan of "20–25% above" was directionally right and understated. The move is still
+correct — it buys the simplicity and fidelity argued in 5.1 — but it is a real premium, not a
+saving, and 5.6 puts it in perspective.
+
+**Worth noting for 1.9:** `db.r6g.large` doubles memory to 16 GiB for **$0.030/hr more than
+db.m6g.large** — 13%. If sizing the buffer cache against the dataset argues for more memory, that is
+what it costs.
 
 `db.r6g.large` (2 vCPU / **16 GiB**) is also worth pricing, for the reason in 5.5.
 
@@ -266,10 +279,23 @@ That is what makes `db.r6g.large` worth pricing rather than dismissing.
 
 ### 5.6 Cost, in perspective
 
-EC2 figures above are from [aws-pricing.com](https://aws-pricing.com/ap-south-1.html) and
-[DoiT Compute](https://www.doit.com/compute/spot/ap-south-1/m6g.large), which agree to the cent on
-every instance checked. RDS ap-south-1 remains outstanding (5.3). gp3 is unchanged from production,
-so no storage price delta applies.
+EC2 figures are from [aws-pricing.com](https://aws-pricing.com/ap-south-1.html) and
+[DoiT Compute](https://www.doit.com/compute/spot/ap-south-1/m6g.large), agreeing to the cent. RDS and
+WAF figures are from the AWS Price List API for ap-south-1 — authoritative, not third-party.
+
+**WAF**: $5.00 per web ACL per month, $1.00 per rule per month, **$0.60 per million requests**. At
+realistic sync volumes the request charge is small change — a 450-user full-sync run is on the order
+of a million requests, so under a dollar — and the standing ACL and rule charges dominate.
+
+**gp3 storage**: $0.131/GB-month single-AZ (the price list shows $0.262 for Multi-AZ, exactly 2×,
+consistent with #88). At 250 GiB that is **$32.75/month**.
+
+**The shape this gives an ephemeral environment is worth seeing plainly.** At ~26 hours a month, the
+database instance costs about \$5.88 and the app server about \$1.32 — while storage costs \$32.75
+whether anything is running or not. **Storage dominates compute by roughly 5×**, which means the
+db.t4g.large → db.m6g.large premium is about \$1.54/month in practice, and that the destroy-versus-stop
+decision matters more than any instance choice: a stopped instance still bills its storage, a
+destroyed one leaves only the snapshot.
 
 **The instance-class choice is not where this environment's cost is decided.** The whole app-server
 spread — t3.large to m7i.large — is under six cents an hour. For an environment that runs a few
@@ -571,7 +597,7 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
 - [ ] **1.6** ~~Settle the reset mechanism before provisioning~~ — **largely closed.** The dataset is measured at **~70 GB** transactional and a 300 GiB allocation clears both mechanisms (§6), so the choice no longer constrains provisioning and is decided by timing in 4.1. Confirm only that nothing has changed the ~70 GB figure.
 - [ ] **1.7** Injector network position, and whether the module creates it.
-- [ ] **1.8** **Pick the instance classes per §5.** Confirm the ap-south-1 **T3/T4g unlimited surplus rate** as well, since 5.1's cost comparison depends on it. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
+- [ ] **1.8** **Pick the instance classes per §5.** Pricing is now settled for EC2, RDS, WAF and gp3 storage (5.3, 5.6). Only the **T3/T4g unlimited surplus rate** remains unfetched — it sits in a 299 MB EC2 price-list file and only illustrates an already-settled decision, so it is not blocking. EC2 pricing is settled; **fetch ap-south-1 RDS rates** for db.t4g.large, db.m6g.large, db.m7g.large and db.r6g.large, which 5.3 could not verify. Decide the app-server architecture question (x86 for extrapolation vs Graviton for cost and determinism) and record it.
 - [ ] **1.11** **Read production's WAF configuration off the account** — web ACL, rules and their order, managed rule groups, and above all any **rate-based rules** and their thresholds. Nothing in this repo describes it (§6a), so this is discovery, not translation.
 - [ ] **1.10** **Check production's I/O headroom now, before building anything.** G4 flags storage I/O as a prime suspect ahead of any test run: a 300 GiB database with GIN indexes serving page-size-1000 sync reads against a hard 3,000 IOPS / 125 MiB/s ceiling. This is answerable from production CloudWatch today — `ReadIOPS` + `WriteIOPS` against 3,000, `ReadThroughput` + `WriteThroughput` against 125 MiB/s, and `DiskQueueDepth`, where sustained non-zero queue depth is the signal that I/O is the binding constraint. **Cheap, needs no environment, and could pre-empt a large part of the exercise.**
 - [ ] **1.9** Size the database's memory against the dataset, with the generator's owner (5.5). §6's parameter-group constraint argues for keeping production's 8 GiB unless there is a reason not to.
