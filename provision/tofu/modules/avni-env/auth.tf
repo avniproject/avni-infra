@@ -1,10 +1,14 @@
 # ---------------------------------------------------------------------------
-# Cognito — present only while the environment is open.
+# Cognito — off by default, and probably never needed.
 #
-# The harness measures the auth-cost offset (B2) against a working Cognito
-# path, and that measurement has to happen *before* the environment closes to
-# AVNI_IDP_TYPE=none, because afterwards there is nothing to measure against.
-# Ordering is B2, then the deploy path opens (F4), then B1 closes it.
+# B1 (AVNI_IDP_TYPE=none) is decided, and B2 — the auth-cost measurement that
+# was the only reason to stand Cognito up — is deferred: it needs a working
+# Cognito path, and the simulation now strips Cognito entirely, so taking the
+# measurement later would mean restoring deliberately deleted code. Auth
+# ordering is simply F4 (open the deploy path) then B1; nothing has to happen
+# before the cutover.
+#
+# Retained because it costs nothing to keep and an un-deferred B2 would want it.
 #
 # Schema attributes are immutable once the pool exists. Getting them wrong
 # means replacing the pool, so they mirror production's exactly.

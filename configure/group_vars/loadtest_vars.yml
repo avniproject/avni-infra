@@ -86,12 +86,16 @@ newrelic_agent_enabled: "true"
 
 # --- Identity ----------------------------------------------------------------
 #
-# STAYS cognito until the environment closes. The harness measures the
-# auth-cost offset against a working Cognito path, and that measurement cannot
-# happen afterwards. Order is: measure, open the deploy path, then close.
-# Flipping this to "none" is the Phase 6 change and belongs with it.
-avni_idp_type: "cognito"
-avni_server_idp_type: "cognito"
+# none from the start. B1 is decided and B2 — the auth-cost measurement that
+# was the only reason to run Cognito here first — is deferred, so there is no
+# open posture to pass through. The server authenticates from the USER-NAME
+# header and skips token verification entirely.
+#
+# This is safe only because the environment is unreachable: no public IP, no
+# inbound rule, its own AWS account. With IdpType.none anyone who can reach the
+# server is whoever they claim to be.
+avni_idp_type: "none"
+avni_server_idp_type: "none"
 avni_server_keycloak_enabled: "false"
 avni_server_keycloak_url: ""
 avni_server_keycloak_client_secret: ""

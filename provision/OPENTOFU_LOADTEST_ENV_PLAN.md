@@ -3,8 +3,8 @@
 **Status:** proposed, not started
 **Owner:** the dedicated Avni team for Tanuh (settled in the harness plan's open questions)
 **Created:** 2026-09-08 · **Revised:** 2026-09-10
-**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `ab4a259` (2026-09-16). To find
-what has changed since: `git -C ../avni-perf log ab4a259..HEAD -- docs/sync-simulation-plan.md`.
+**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `4b2e8b5` (2026-09-16). To find
+what has changed since: `git -C ../avni-perf log 4b2e8b5..HEAD -- docs/sync-simulation-plan.md`.
 Update this line whenever you reconcile.
 
 `provision/scripts/check_plan_sync.py` checks this plan against its GitHub issues (#102–#111) and reports whether the upstream plan has moved since the commit above.
@@ -642,7 +642,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 3 — First environment
 
-- [ ] **3.1** Apply `envs/loadtest/` with `enable_cognito = true`.
+- [ ] **3.1** Apply `envs/loadtest/`. The environment comes up **closed** — `enable_cognito = false`, `AVNI_IDP_TYPE=none` — because B1 is decided and B2, the only reason to pass through an open posture, is deferred.
 - [ ] **3.2** **Prove `tofu destroy` works, then reapply from scratch**, before anyone depends on the environment. A rig that cannot be rebuilt is not disposable, and the failure mode surfaces at the worst moment otherwise.
 - [ ] **3.3** Verify the AWS layer standalone: instances reachable via the access path, database reachable from them, ALB healthy, metrics flowing, egress restricted as intended, and **the WAF passing injector traffic** — check `BlockedRequests` and `CountedRequests` on the web ACL rather than assuming (§6a).
 - [ ] **3.4** Hand off to Ansible — see §9.
@@ -655,14 +655,22 @@ values Ansible sets, so one document describes the whole environment.
 - [ ] **4.4** Scheduled stop or destroy outside working hours, **with an override guard** so multi-hour runs are not torn down mid-run. Prefer snapshot-and-destroy over stop for gaps beyond a week (5.7).
 - [ ] **4.5** Loader instance lifecycle — created for the load, destroyed after.
 
-### Phase 5 — Close the environment
+### Phase 5 — Verify the environment really is closed
 
-Gated on the harness's B2 → F4 → B1 ordering; triggered by that plan's owner, not this one.
+**This phase shrank.** It used to be a cutover: stand Cognito up, let the harness measure the
+auth-cost offset against it (B2), then flip to `AVNI_IDP_TYPE=none`. B1 is now decided and **B2 is
+deferred** — it needs a working Cognito path, and the simulation strips Cognito entirely, so taking
+the measurement later would mean restoring deliberately deleted code. Auth ordering is simply F4
+(open the deploy path) then B1; nothing has to happen before the cutover, so there is no cutover.
 
-- [ ] **5.1** Set `enable_cognito = false` and apply.
-- [ ] **5.2** Remove any remaining public path.
-- [ ] **5.3** Re-verify the deploy access path works closed.
-- [ ] **5.4** Confirm the injector can still reach the environment.
+What remains is verification rather than a posture change, and it belongs with the first apply.
+
+- [ ] **5.1** Confirm no public path exists — no public IP on any host, no inbound rule admitting an open CIDR, ALB internal.
+- [ ] **5.2** Confirm the deploy access path works against a closed environment.
+- [ ] **5.3** Confirm the injector reaches `BASE_URL` through the private zone.
+
+With `IdpType.none` anyone who can reach the server is authenticated as whoever they claim to be, so
+these are the checks that make that acceptable rather than reckless.
 
 ### Phase 6 — Generalise
 

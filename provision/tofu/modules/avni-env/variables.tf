@@ -182,9 +182,16 @@ variable "enable_media_bucket" {
 }
 
 variable "enable_cognito" {
-  description = "Create a Cognito pool. On while the environment is open so the harness can measure the auth-cost offset; off when it closes and the server moves to AVNI_IDP_TYPE=none."
+  description = <<-EOT
+    Create a Cognito pool. Defaults OFF: B1 (AVNI_IDP_TYPE=none) is decided and
+    B2 — the auth-cost measurement that was the only reason to stand Cognito up
+    — is deferred, because it needs a working Cognito path and the simulation
+    strips Cognito entirely. The environment therefore starts closed rather than
+    opening and later closing. Kept as a variable so an un-deferred B2 is one
+    flag away.
+  EOT
   type        = bool
-  default     = true
+  default     = false
 }
 
 # ---------------------------------------------------------------------------
