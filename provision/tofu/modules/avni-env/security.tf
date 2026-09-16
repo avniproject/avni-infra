@@ -155,5 +155,11 @@ resource "aws_vpc_security_group_egress_rule" "hosts_egress" {
 
 locals {
   app_port = 8021
-  etl_port = 8023
 }
+
+# No app -> ETL security group rule, deliberately. Nothing reaches avni-etl over
+# the network: `avni_server_etl_service_origin` is set in group_vars but
+# referenced by no role template, and the nginx `/etl` proxy assumes the two run
+# on the same host, which this environment does not do. ETL's contention with
+# sync is for database I/O, which is the thing being measured.
+

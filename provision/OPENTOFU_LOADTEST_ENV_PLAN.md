@@ -3,8 +3,8 @@
 **Status:** proposed, not started
 **Owner:** the dedicated Avni team for Tanuh (settled in the harness plan's open questions)
 **Created:** 2026-09-08 · **Revised:** 2026-09-10
-**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `f23b0a4` (2026-09-11). To find
-what has changed since: `git -C ../avni-perf log f23b0a4..HEAD -- docs/sync-simulation-plan.md`.
+**Reconciled against** `avni-perf/docs/sync-simulation-plan.md` @ `ab4a259` (2026-09-16). To find
+what has changed since: `git -C ../avni-perf log ab4a259..HEAD -- docs/sync-simulation-plan.md`.
 Update this line whenever you reconcile.
 
 `provision/scripts/check_plan_sync.py` checks this plan against its GitHub issues (#102–#111) and reports whether the upstream plan has moved since the commit above.
