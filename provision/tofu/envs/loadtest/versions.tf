@@ -25,6 +25,11 @@ provider "aws" {
 
   default_tags {
     tags = {
+      # Cost attribution. The account is already a billing dimension in its own
+      # right, so this is for aggregating one client's spend ACROSS accounts.
+      # Remember it does not reach Cost Explorer until activated as a cost
+      # allocation tag in Billing, and activation is not retroactive.
+      Client      = "Tanuh"
       Environment = "loadtest"
       ManagedBy   = "opentofu"
       Plan        = "provision/OPENTOFU_LOADTEST_ENV_PLAN.md"

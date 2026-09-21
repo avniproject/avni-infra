@@ -51,7 +51,8 @@ case "$CMD" in
     aws_ rds create-db-snapshot \
       --db-instance-identifier "$INSTANCE" \
       --db-snapshot-identifier "$ID" \
-      --tags "Key=Role,Value=baseline" \
+      --tags "Key=Client,Value=${AVNI_CLIENT:-Tanuh}" \
+             "Key=Role,Value=baseline" \
              "Key=DoNotDelete,Value=true" \
              "Key=GeneratorSha,Value=${AVNI_GENERATOR_SHA:-unknown}" \
              "Key=OrgConfigRev,Value=${AVNI_ORG_CONFIG_REV:-unknown}" \
