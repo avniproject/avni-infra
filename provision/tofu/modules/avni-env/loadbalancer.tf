@@ -1,16 +1,24 @@
 # ---------------------------------------------------------------------------
-# Edge: internal ALB, fronted by a WAF
+# Edge: internet-facing ALB, fronted by a WAF
 #
-# Internal, not internet-facing. The injector lives inside the VPC, so there is
-# no reason to expose this — and B1 requires the environment be unreachable
-# from outside once AVNI_IDP_TYPE=none is on.
+# This was internal, on the reasoning that the injector lives inside the VPC so
+# there was no reason to expose it. F4 settled the other way — "a security
+# group allowlist, not a private subnet" — because the customer has asked to
+# run the injector from a local machine, and a local machine cannot reach an
+# internal ALB.
+#
+# Internet-facing is a change of mechanism, not of strictness. B1 still
+# requires the environment be unreachable from the internet at large; what
+# enforces it is the ALB security group, whose only ingress is from
+# injector_allowed_cidrs. Nothing under test gains a public IP: the app, ETL,
+# database and loader stay in the private subnets with no inbound path.
 # ---------------------------------------------------------------------------
 
 resource "aws_lb" "this" {
   name               = local.name
-  internal           = true
+  internal           = false
   load_balancer_type = "application"
-  subnets            = aws_subnet.private[*].id
+  subnets            = aws_subnet.public[*].id
   security_groups    = [aws_security_group.alb.id]
 
   # 300s, measured on the live prod-openchs-load-balancer. The 400s in
@@ -47,33 +55,17 @@ resource "aws_lb_target_group_attachment" "app" {
   port             = local.app_port
 }
 
-# TLS is a recorded deviation when absent. Production terminates HTTPS at the
-# ALB, and termination has a measurable per-request cost — but a certificate
-# for a private-zone name needs either DNS validation records added to the
-# public avniproject.org zone (which lives in the production account) or an
-# imported certificate. Pass an ARN to get parity; leave it null and the
-# listener is plain HTTP, which the parity report must then record.
+# HTTPS only, and no plain-HTTP fallback any more. Production terminates TLS at
+# the ALB and termination costs something per request, so this is parity. The
+# fallback existed because DNS validation was impossible for a private-zone
+# name; the public delegated zone in dns.tf removes that obstacle and issues
+# the certificate.
 resource "aws_lb_listener" "https" {
-  count = var.acm_certificate_arn == null ? 0 : 1
-
   load_balancer_arn = aws_lb.this.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.acm_certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
-  }
-}
-
-resource "aws_lb_listener" "http" {
-  count = var.acm_certificate_arn == null ? 1 : 0
-
-  load_balancer_arn = aws_lb.this.arn
-  port              = 443
-  protocol          = "HTTP"
+  certificate_arn   = local.certificate_arn
 
   default_action {
     type             = "forward"
@@ -99,13 +91,23 @@ resource "aws_lb_listener" "http" {
 # losing the per-request inspection cost that is the reason for having the WAF
 # at all. A scope-down excludes the injector from *this* rule's counting while
 # leaving all others in the evaluation path.
+#
+# Managed rule groups are empty by default — see waf_managed_rule_groups for
+# why a guessed group is worse than none. That leaves a parity gap: production
+# also runs Block_Known_Spammers, a php-rule and AWSManagedRulesAntiDDoSRuleSet,
+# none of which is reproduced here. The gap belongs in the parity report rule by
+# rule, because it is the part that most affects measured latency.
 # ---------------------------------------------------------------------------
 
+# Public addresses, not the VPC's private CIDRs. The ALB is internet-facing, so
+# WAF aggregates on the client's real address: the office NAT address for a
+# local run, the injector's elastic IP for an in-VPC one. Same list as the ALB
+# security group ingress, by construction.
 resource "aws_wafv2_ip_set" "injector" {
   name               = "${local.name}-injector"
   scope              = "REGIONAL"
   ip_address_version = "IPV4"
-  addresses          = local.private_cidrs
+  addresses          = var.injector_allowed_cidrs
 
   tags = { Name = "${local.name}-injector" }
 }

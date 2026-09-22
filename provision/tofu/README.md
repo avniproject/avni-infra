@@ -16,3 +16,16 @@ validation only:
     tofu -chdir=envs/loadtest fmt -recursive -check
 
 Nothing here requires AWS credentials until task 0.3.
+
+**Two things must be true before an apply is useful.** The zone is public and
+delegated from `avniproject.org`, which lives in the *production* account: take
+`zone_name_servers` from the output and add it there as an NS record set, or the
+name will not resolve and the ACM certificate will sit pending. And the
+application port is reachable only from `injector_allowed_cidrs`, which is empty
+by default and set per run:
+
+    tofu -chdir=envs/loadtest apply -var 'injector_allowed_cidrs=["203.0.113.4/32"]'
+
+That list feeds both the ALB security group and the WAF IP set. A run from an
+un-enrolled address fails as connection errors that read like a server falling
+over, so enrolling is a pre-run step, not a provisioning one.

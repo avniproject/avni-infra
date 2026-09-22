@@ -1,9 +1,11 @@
 # ---------------------------------------------------------------------------
 # Network
 #
-# Shape: two private subnets carrying everything that matters (instances, RDS,
-# the internal ALB) and two public subnets whose only job is to host the NAT
-# gateway. Nothing under test has a public IP or an inbound rule.
+# Shape: two private subnets carrying everything under test (app, ETL, RDS,
+# loader) and two public subnets carrying the NAT gateway, the internet-facing
+# ALB and the injector. Nothing under test has a public IP or an inbound rule;
+# what reaches the ALB is controlled by injector_allowed_cidrs, not by subnet
+# placement.
 #
 # Two AZs even though the database is single-AZ: an RDS subnet group requires
 # subnets in at least two, and an ALB requires at least two. The database
@@ -28,7 +30,9 @@ locals {
 resource "aws_vpc" "this" {
   cidr_block = var.vpc_cidr
 
-  # Both required for the Route53 private hosted zone to resolve inside the VPC.
+  # Kept on: instances resolve the ALB's public name from inside the VPC, and
+  # EC2 hostname resolution is assumed by enough tooling that turning it off is
+  # a false economy.
   enable_dns_support   = true
   enable_dns_hostnames = true
 
@@ -47,7 +51,9 @@ resource "aws_subnet" "public" {
   cidr_block        = local.public_cidrs[count.index]
   availability_zone = local.azs[count.index]
 
-  # The NAT gateway needs a public IP; nothing else is placed here.
+  # The ALB and the injector live here too now (F4), but neither wants an
+  # auto-assigned address: the ALB manages its own, and the injector takes an
+  # elastic IP so its enrolled address survives a stop/start.
   map_public_ip_on_launch = false
 
   tags = { Name = "${local.name}-public-${local.azs[count.index]}" }

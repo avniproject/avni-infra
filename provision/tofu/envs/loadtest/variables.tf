@@ -3,3 +3,9 @@ variable "region" {
   type        = string
   default     = "ap-south-1"
 }
+
+variable "injector_allowed_cidrs" {
+  description = "Public source addresses permitted to reach the application port, as CIDRs. Set per run; see main.tf. Empty means unreachable."
+  type        = list(string)
+  default     = []
+}

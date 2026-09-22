@@ -14,16 +14,56 @@ variable "vpc_cidr" {
   default     = "10.60.0.0/16"
 }
 
-variable "private_zone_name" {
+variable "zone_name" {
   description = <<-EOT
-    Route53 private hosted zone. Needs no registration or delegation: a private
-    zone resolves only inside associated VPCs and never touches public DNS.
-    Route53 matches most-specific-first, so a zone for loadtest.avniproject.org
-    shadows only names at or below it — app.avniproject.org still resolves
-    publicly from inside the VPC. Do not use avniproject.org itself.
+    Route53 PUBLIC hosted zone for this environment, delegated from
+    avniproject.org.
+
+    This was a private zone until F4 settled on "a security group allowlist,
+    not a private subnet" (plan 1.4). A private zone resolves only inside
+    associated VPCs, and the customer has asked to run the injector from a
+    local machine, so the name has to be publicly resolvable. Access is
+    restricted by injector_allowed_cidrs, not by DNS.
+
+    The parent zone lives in the PRODUCTION account, so delegation is a
+    one-time manual step there: take this zone's name servers from the
+    zone_name_servers output and add them as an NS record set for
+    loadtest.avniproject.org in avniproject.org. Nothing here can do it, and
+    until it is done the name does not resolve and ACM validation will not
+    complete. Do not use avniproject.org itself.
   EOT
   type        = string
   default     = "loadtest.avniproject.org"
+}
+
+variable "injector_allowed_cidrs" {
+  description = <<-EOT
+    Public source addresses permitted to reach the application port. This is
+    the whole of the isolation control for that port (plan 1.2): B1 runs the
+    server with AVNI_IDP_TYPE=none, so anyone who can reach it is authenticated
+    as whoever they claim to be.
+
+    One list, two consumers: the ALB security group ingress and the WAF IP set
+    that exempts the injector from the rate-based rule. Two lists that must
+    agree will not.
+
+    It changes between RUNS rather than between environments — the office NAT
+    address for a local run, the in-VPC injector's elastic IP for a quotable
+    one. Enrolling the address is a pre-run step in the harness's G2 checklist;
+    a run from an un-enrolled address fails as connection errors that read like
+    a server falling over.
+
+    Empty by default, which means the environment is unreachable on the
+    application port. That is the safe default, not an oversight.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    # An open CIDR here would hand an unauthenticated server to the internet.
+    condition     = !contains([for c in var.injector_allowed_cidrs : startswith(c, "0.0.0.0/")], true)
+    error_message = "An open CIDR defeats the only control on the application port. Enrol specific addresses."
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -183,12 +223,27 @@ variable "enable_media_bucket" {
 
 variable "enable_cognito" {
   description = <<-EOT
-    Create a Cognito pool. Defaults OFF: B1 (AVNI_IDP_TYPE=none) is decided and
-    B2 — the auth-cost measurement that was the only reason to stand Cognito up
-    — is deferred, because it needs a working Cognito path and the simulation
-    strips Cognito entirely. The environment therefore starts closed rather than
-    opening and later closing. Kept as a variable so an un-deferred B2 is one
-    flag away.
+    Create a Cognito pool. Defaults OFF, so the environment starts closed and
+    stays closed: B1 (AVNI_IDP_TYPE=none) is decided, and every run uses it.
+
+    B2 — the auth-cost measurement, which is what a pool here would be for — is
+    deferred BY CHOICE, and the distinction matters because the earlier reason
+    recorded here was wrong. It is not that the simulation lacks a Cognito path:
+    AUTH_MODE=cognito is live behind a flag, with its own CognitoHelper, and the
+    harness records B2 as available. It is that the measurement can be taken
+    whenever it is wanted, and an environment that never passes through an open
+    posture is worth more than taking it early.
+
+    To take it: set this true, provision pool users, run the same simulation
+    twice with AUTH_MODE=none and AUTH_MODE=cognito, then set it false again.
+    It has to run HERE rather than against staging or prerelease — an offset
+    measured on a different instance class against a different dataset is not
+    the offset this environment's results need adjusting by.
+
+    Until then the recorded position is that server-side latency is understated
+    by an unmeasured per-request constant: authenticateByToken is JWT
+    verification plus a user lookup, on every request. That belongs in the
+    parity report, not in anyone's memory.
   EOT
   type        = bool
   default     = false
@@ -234,7 +289,18 @@ variable "ubuntu_release" {
 }
 
 variable "acm_certificate_arn" {
-  description = "ACM certificate for the ALB's HTTPS listener. Null gives a plain HTTP listener, which is a deviation from production's TLS termination and must be recorded in the parity report."
+  description = <<-EOT
+    Override with an existing ACM certificate for the ALB's HTTPS listener.
+    Null — the default — means the module issues its own, DNS-validated in the
+    zone it manages.
+
+    There is no longer a plain-HTTP path. That fallback existed because DNS
+    validation was impossible for a private-zone name; the public delegated
+    zone of 1.4 removes the obstacle, and production terminates TLS at the ALB,
+    so the listener does too. Termination has a measurable per-request cost and
+    a rig without it is faster than production for a reason unrelated to the
+    code under test.
+  EOT
   type        = string
   default     = null
 }
@@ -242,11 +308,27 @@ variable "acm_certificate_arn" {
 variable "waf_managed_rule_groups" {
   description = <<-EOT
     AWS managed rule groups to evaluate alongside the rate-based rule.
-    Production also runs custom rules — Block_Known_Spammers and a php-rule —
-    whose full statements were not captured by discovery, only their names.
-    Transcribe them from the production web ACL for closer parity, and note
-    AWSManagedRulesAntiDDoSRuleSet carries a standing monthly charge.
+
+    EMPTY BY DEFAULT, deliberately. This defaulted to
+    AWSManagedRulesCommonRuleSet, which production does not run and which is a
+    live hazard here: its SizeRestrictions_BODY rule blocks request bodies over
+    8 KB, and the first request of every simulated sync is a syncDetails POST
+    that round-trips the whole status array — one row per entity across roughly
+    79 entities — which lands close to that threshold. The push path's
+    per-record POSTs are the other candidate. A block reads as a server error
+    in the Gatling report, not as a WAF decision.
+
+    A guessed group is worse than none: it costs inspection latency production
+    does not pay AND can fail a run. Populate this by transcribing production's
+    actual ACL — Block_Known_Spammers and php-rule, whose full statements
+    discovery never captured, plus AWSManagedRulesAntiDDoSRuleSet.
+
+    Note the anti-DDoS group probably will not work through this variable as
+    written: it takes a managed_rule_group_configs client-side action config
+    that the rule loop in loadbalancer.tf does not emit, and it carries a
+    standing monthly charge. Verify against the account before assuming this is
+    the knob.
   EOT
   type        = list(string)
-  default     = ["AWSManagedRulesCommonRuleSet"]
+  default     = []
 }

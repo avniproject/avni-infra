@@ -1,14 +1,24 @@
 # ---------------------------------------------------------------------------
-# Cognito — off by default, and probably never needed.
+# Cognito — off by default. The environment starts closed and stays closed.
 #
-# B1 (AVNI_IDP_TYPE=none) is decided, and B2 — the auth-cost measurement that
-# was the only reason to stand Cognito up — is deferred: it needs a working
-# Cognito path, and the simulation now strips Cognito entirely, so taking the
-# measurement later would mean restoring deliberately deleted code. Auth
-# ordering is simply F4 (open the deploy path) then B1; nothing has to happen
-# before the cutover.
+# B1 (AVNI_IDP_TYPE=none) is decided and every run uses it, so auth ordering is
+# simply F4 (open the deploy path and the allowlist) then B1. There is no
+# cutover to stage.
 #
-# Retained because it costs nothing to keep and an un-deferred B2 would want it.
+# B2 — the auth-cost measurement a pool here would serve — is deferred BY
+# CHOICE. The reason recorded here previously was wrong and is worth correcting
+# rather than repeating: it is not that the simulation strips Cognito, because
+# AUTH_MODE=cognito is live behind a flag with its own CognitoHelper, and the
+# harness records B2 as available. It is that the measurement can be taken
+# whenever it is wanted, and never passing through an open posture is worth
+# more than taking it early.
+#
+# When it is wanted it runs here, not against staging or prerelease: an offset
+# measured on a different instance class against a different dataset is not the
+# offset this environment's results need adjusting by. Set enable_cognito,
+# provision users, take the two runs, unset it.
+#
+# Retained because it costs nothing to keep and makes that a flag flip.
 #
 # Schema attributes are immutable once the pool exists. Getting them wrong
 # means replacing the pool, so they mirror production's exactly.

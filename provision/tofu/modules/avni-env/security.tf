@@ -2,8 +2,11 @@
 # Security groups
 #
 # No rule anywhere admits 0.0.0.0/0. Every ingress is sourced from another
-# security group, so the reachability graph is explicit: injector -> ALB ->
-# app -> database, plus the Instance Connect Endpoint -> instances on 22.
+# security group — except the ALB's, which is sourced from the enrolled
+# injector addresses, because the ALB is internet-facing (F4) and the injector
+# may be a laptop. The reachability graph stays explicit: enrolled addresses ->
+# ALB -> app -> database, plus the Instance Connect Endpoint -> instances
+# on 22.
 # ---------------------------------------------------------------------------
 
 resource "aws_security_group" "eice" {
@@ -15,7 +18,7 @@ resource "aws_security_group" "eice" {
 
 resource "aws_security_group" "alb" {
   name        = "${local.name}-alb"
-  description = "Internal ALB. Internet-facing is deliberately not used."
+  description = "Internet-facing ALB. Ingress only from enrolled injector addresses; this is the whole isolation control for the application port."
   vpc_id      = aws_vpc.this.id
   tags        = { Name = "${local.name}-alb" }
 }
@@ -43,7 +46,7 @@ resource "aws_security_group" "db" {
 
 resource "aws_security_group" "injector" {
   name        = "${local.name}-injector"
-  description = "Gatling injector. Inside the VPC so it resolves the private zone and is allowlistable in the WAF by CIDR."
+  description = "Gatling injector. In a public subnet with its own elastic IP, so the address the ALB and WAF see is its own."
   vpc_id      = aws_vpc.this.id
   tags        = { Name = "${local.name}-injector" }
 }
@@ -89,13 +92,24 @@ resource "aws_vpc_security_group_ingress_rule" "hosts_from_eice" {
 
 # -- The request path ------------------------------------------------------
 
+# One rule per enrolled address, and no security-group-referenced alternative
+# even for the in-VPC injector. It sits in a public subnet and reaches the ALB
+# by its public name, so the traffic leaves through the internet gateway and
+# arrives with the injector's elastic IP as its source — a group reference
+# would not match it. The same addresses populate the WAF IP set, from the same
+# variable, because two lists that must agree will not.
+#
+# An empty list means nothing reaches the application port. That is the default,
+# and it is the safe one.
 resource "aws_vpc_security_group_ingress_rule" "alb_from_injector" {
-  security_group_id            = aws_security_group.alb.id
-  referenced_security_group_id = aws_security_group.injector.id
-  from_port                    = 443
-  to_port                      = 443
-  ip_protocol                  = "tcp"
-  description                  = "Injector to ALB"
+  for_each = toset(var.injector_allowed_cidrs)
+
+  security_group_id = aws_security_group.alb.id
+  cidr_ipv4         = each.value
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  description       = "Enrolled injector address"
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_app" {

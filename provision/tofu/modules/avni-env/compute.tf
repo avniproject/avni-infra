@@ -38,6 +38,7 @@ locals {
         instance_type = var.app_instance_class
         root_volume   = 60
         sg            = aws_security_group.app.id
+        public        = false
       }
     },
     var.enable_etl ? {
@@ -45,6 +46,7 @@ locals {
         instance_type = var.etl_instance_class
         root_volume   = 40
         sg            = aws_security_group.etl.id
+        public        = false
       }
     } : {},
     var.enable_injector ? {
@@ -52,6 +54,12 @@ locals {
         instance_type = var.injector_instance_class
         root_volume   = 40
         sg            = aws_security_group.injector.id
+        # The only host in a public subnet. It needs a stable address of its
+        # own because that address is what gets enrolled in the ALB security
+        # group and the WAF IP set; from a private subnet its traffic would
+        # leave via the NAT gateway, making the NAT's address the one to enrol
+        # and charging NAT data processing for every request of every run.
+        public = true
       }
     } : {},
     var.enable_loader ? {
@@ -59,6 +67,7 @@ locals {
         instance_type = var.loader_instance_class
         root_volume   = 40
         sg            = aws_security_group.loader.id
+        public        = false
       }
     } : {},
   )
@@ -70,14 +79,21 @@ resource "aws_instance" "host" {
   ami           = data.aws_ssm_parameter.ubuntu.value
   instance_type = each.value.instance_type
 
-  subnet_id              = aws_subnet.private[0].id
+  subnet_id              = each.value.public ? aws_subnet.public[0].id : aws_subnet.private[0].id
   vpc_security_group_ids = [each.value.sg]
   iam_instance_profile   = aws_iam_instance_profile.instance.name
   key_name               = local.key_name
 
-  # No public IP. Reached through the Instance Connect Endpoint, which
-  # authorises by IAM rather than by network position.
-  associate_public_ip_address = false
+  # Nothing under test gets a public IP. The injector does, because its subnet
+  # routes 0.0.0.0/0 at the internet gateway and an instance with no public
+  # address cannot use one — without this it would have no egress at all for
+  # apt and the New Relic agent. The elastic IP below then replaces this
+  # auto-assigned address with a stable one, and that is the address to enrol.
+  #
+  # Either way SSH is the Instance Connect Endpoint, which authorises by IAM
+  # rather than by network position, and no host has an inbound rule from a
+  # public address.
+  associate_public_ip_address = each.value.public
 
   root_block_device {
     volume_size           = each.value.root_volume
@@ -102,4 +118,18 @@ resource "aws_instance" "host" {
     # replace a host mid-campaign. Rebuild deliberately instead.
     ignore_changes = [ami]
   }
+}
+
+# The injector's own address, which is what belongs in injector_allowed_cidrs
+# as a /32 for a run driven from inside the VPC. Deliberately not wired into
+# that variable automatically: enrolment is the step that proves someone
+# decided which addresses may reach an unauthenticated server.
+resource "aws_eip" "injector" {
+  count = var.enable_injector ? 1 : 0
+
+  domain   = "vpc"
+  instance = aws_instance.host["injector"].id
+  tags     = { Name = "${local.name}-injector" }
+
+  depends_on = [aws_internet_gateway.this]
 }

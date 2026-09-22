@@ -1,6 +1,21 @@
 output "base_url" {
-  description = "What the injector points BASE_URL at. Resolves only inside the VPC."
-  value       = "http${var.acm_certificate_arn == null ? "" : "s"}://${var.private_zone_name}"
+  description = "What the injector points BASE_URL at. Publicly resolvable, but reachable only from the enrolled addresses; identical from either injector position, which is what makes runs comparable."
+  value       = "https://${var.zone_name}"
+}
+
+output "zone_name_servers" {
+  description = "Add these as an NS record set for the zone in avniproject.org, which lives in the production account. Until that delegation exists the name does not resolve and the certificate stays pending."
+  value       = aws_route53_zone.this.name_servers
+}
+
+output "injector_public_ip" {
+  description = "The in-VPC injector's elastic IP. Enrol it as a /32 in injector_allowed_cidrs for runs driven from inside the VPC."
+  value       = var.enable_injector ? aws_eip.injector[0].public_ip : null
+}
+
+output "injector_allowed_cidrs" {
+  description = "Addresses currently permitted to reach the application port, echoed back so a run can record what was open. Empty means the environment is unreachable on that port."
+  value       = var.injector_allowed_cidrs
 }
 
 output "instance_ids" {
@@ -34,11 +49,16 @@ output "instance_connect_endpoint_id" {
 }
 
 output "web_acl_arn" {
-  description = "WAF web ACL. Check BlockedRequests and CountedRequests after the first run rather than assuming the injector is passing."
+  description = "WAF web ACL. Check each rule's own CloudWatch metric after the first run, not the ACL's counters: with the injector scope-down the rate rule cannot fire, so BlockedRequests reads clean while a managed group blocks."
   value       = aws_wafv2_web_acl.this.arn
 }
 
 output "cognito_user_pool_id" {
-  description = "Present only while the environment is open, for the harness's auth-cost measurement."
+  description = "For the harness's auth-cost measurement (B2), which runs here and nowhere else. Feed into loadtest_cognito_user_pool_id in Ansible."
   value       = var.enable_cognito ? aws_cognito_user_pool.this[0].id : null
+}
+
+output "cognito_client_id" {
+  description = "App client for B2's AUTH_MODE=cognito run. Feed into loadtest_cognito_client_id in Ansible."
+  value       = var.enable_cognito ? aws_cognito_user_pool_client.this[0].id : null
 }

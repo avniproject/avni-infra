@@ -53,11 +53,36 @@ locals {
 
     | | This environment | Production |
     |---|---|---|
-    | Scheme | internal | internet-facing |
+    | Scheme | internet-facing, ingress restricted to enrolled addresses | internet-facing |
     | Idle timeout | ${var.alb_idle_timeout}s | 300s |
-    | TLS | ${var.acm_certificate_arn == null ? "**none — HTTP listener**" : "ACM"} | HTTPS |
+    | TLS | ${var.acm_certificate_arn == null ? "ACM, issued and DNS-validated here" : "ACM, imported"} | HTTPS |
     | WAF rate limit | ${var.waf_rate_limit} | 550 |
     | Injector exemption | scope-down statement, other rules still evaluated | n/a |
+    | Addresses enrolled for this apply | ${length(var.injector_allowed_cidrs) == 0 ? "**none — the application port is unreachable**" : join(", ", var.injector_allowed_cidrs)} | n/a |
+
+    ### WAF rules, rule by rule
+
+    Recording only "how the rate rule was handled" hides the part that most
+    affects measured latency, so the whole set is listed.
+
+    | Rule | This environment | Production |
+    |---|---|---|
+    | `rate-limit-rule` | ${var.waf_rate_limit} per 5 min per IP, injector exempted by scope-down | 550 per 5 min per IP |
+    | `Block_Known_Spammers` | **absent** | present (statement never captured by discovery) |
+    | `php-rule` | **absent** | present (statement never captured by discovery) |
+    | `AWSManagedRulesAntiDDoSRuleSet` | **absent** | present |
+    | Managed groups evaluated | ${length(var.waf_managed_rule_groups) == 0 ? "none" : join(", ", var.waf_managed_rule_groups)} | none beyond the anti-DDoS set above |
+
+    **This is the one deviation that can push latency either way.** Missing
+    rules understate per-request inspection cost; any managed group here that
+    production does not run overstates it — and `AWSManagedRulesCommonRuleSet`
+    in particular would also block bodies over 8 KB, which the `syncDetails`
+    POST approaches.
+
+    **Check each rule's own CloudWatch metric after the first run**, not the web
+    ACL's `BlockedRequests` and `CountedRequests`: with the injector scope-down
+    the rate rule cannot fire, so the ACL-level counters read clean while a
+    managed group blocks.
 
     ## Database parameters
 
@@ -75,6 +100,11 @@ locals {
     - Whether this run had a concurrent ETL cycle
     - Tenancy model: shared or dedicated
     - Index state: post-load indexes are pristine; production's carry accumulated bloat
+    - Which injector position drove the run, and from which address
+
+    ## Known unmeasured offset
+
+    ${var.enable_cognito ? "Cognito is present, so the auth-cost offset (B2) can be measured here: run the same simulation with AUTH_MODE=none and AUTH_MODE=cognito and record the delta. State which mode produced this run." : "**Authentication is off and no Cognito pool exists, so the auth-cost offset is unmeasured.** `authenticateByToken` — JWT verification plus a user lookup on every request — is absent from every number this environment produces, which understates server-side latency by an unmeasured per-request constant. Deferred deliberately; set `enable_cognito` when the offset is wanted. Until then, a green result here is not automatically a green result in production."}
   EOT
 }
 

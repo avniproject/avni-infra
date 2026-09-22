@@ -26,8 +26,9 @@ inside a dedicated account is safe in a way the same role in the production acco
 because the account *is* the scope.
 
 Two consequences to carry: production's Route53 zone and its CloudWatch metrics stay in
-`118388513628`, so anything reading them needs a second credential; and a fresh account ships with
-low service quotas, which want raising before Phase 2 rather than during it.
+`118388513628`, so anything reading them needs a second credential — and now a one-time *write*
+there too, since F4's publicly resolvable name wants a delegated subzone (1.4); and a fresh account
+ships with low service quotas, which want raising before Phase 2 rather than during it.
 
 Greenfield. Nothing here imports, adopts or modifies any existing environment. Production is a
 sizing reference only; `provision/server/` stays as-is, historical, with its warning intact.
@@ -71,9 +72,11 @@ authoritative list; it is not restated here.
 > section letters move (that section was `I` until multi-tenancy took the letter) and task IDs have
 > not. When reconciling, follow the task ID, not the heading.
 
-- **I1** network and access — no public reachability, Instance Connect Endpoint or SSM, instance-ID
-  addressing, an outbound path for deploy-time package fetches, deliberate DNS, a position for the
-  injector.
+- **I1** network and access — Instance Connect Endpoint or SSM, instance-ID addressing, an outbound
+  path for deploy-time package fetches, deliberate DNS, a position for the injector, and **a WAF
+  whose injector exemption is a scope-down statement rather than an allow rule**. Note the first
+  item used to read "no public reachability": F4 now asks for **publicly resolvable DNS with access
+  restricted by security group**, which is a change of mechanism, not of strictness (1.2, 1.4).
 - **I2** application configuration — Ansible's, per §2.
 - **I3** database — PostgreSQL 16.8, dedicated, production-matched parameter group and storage
   class, `pg_stat_statements` and slow query logging, **storage autoscaling disabled**, storage
@@ -81,8 +84,9 @@ authoritative list; it is not restated here.
   snapshot/restore for baseline creation rather than per-run reset.
 - **I4** data and side effects — including an **outbound path for run artefacts**, and the finding
   that a real media bucket is probably unnecessary (D5.4).
-- **I5** observability — all of F1 restated, and it names the missing loadtest `group_vars` file as
-  the blocker, which is §9's 9.3.
+- **I5** observability — all of F1 restated. It used to name the missing loadtest `group_vars` file
+  as the blocker; that file now exists (9.3), and the harness plan records F1 as no longer blocked.
+  What remains is confirming the agent reports and the pool gauges arrive.
 
 **That section deliberately excludes sizing** — instance classes, storage sizes, pool values and
 heap settings. Those are this plan's (§5) and Ansible's. The division is clean and worth preserving:
@@ -100,7 +104,7 @@ the harness states what must be true, this plan decides how large.
 | Availability | **Single-AZ**, as production is | Multi-AZ would add synchronous-standby commit latency production does not have |
 | Postgres version | **16.8**, matching the production *primary* (G4) | Planner behaviour is version-specific. Note the estate has drifted: the replica, prerelease and staging are all on **16.13**, so 16.8 is a moving target and the primary will likely be upgraded |
 | Storage | gp3 throughout. Production: app server **40 GB**, RDS **300 GB allocated / ~134 GB used, of which `public` is 70 GB**, both at 3000 IOPS / 125 MiB/s | **I/O parity is required** (G4), which caps the rig below 400 GiB — see §6 |
-| Edge | **ALB with a WAF web ACL in front**, as production runs | A WAF inspects every request and adds latency production carries; omitting it makes the rig faster than prod. Its rate-based rules are also a live hazard — see §6a |
+| Edge | **ALB with a WAF web ACL in front**, as production runs, and **internet-facing** as production is | A WAF inspects every request and adds latency production carries; omitting it makes the rig faster than prod. Its rate-based rules are also a live hazard — see §6a. Internet-facing is F4's decision, not a relaxation: access is restricted by security group to enrolled injector addresses (1.2) |
 | LB idle timeout | **300s** | Measured on `prod-openchs-load-balancer`. The 400s in `provision/server/elb.tf` is stale — 400 is the *jasper* ALB. Sync requests are long, so this is a real constraint to reproduce, not a rounding detail |
 
 **Deliberately not copied from the old Terraform:** `ami-531a4c3c`/Amazon Linux → Ubuntu;
@@ -546,16 +550,60 @@ react to the same traffic.
 Gatling report as server errors or latency, not as a WAF decision — so an un-allowlisted run reads as
 a server that fell over at modest concurrency.
 
-**Allowlist the injector's source ahead of the rate-based rule.** This was one of three options
-before the limit was measured; at 550 it is the only workable one. It also happens to be the best of
-the three on its merits, since it leaves every other rule in the evaluation path and keeps the
-per-request inspection cost realistic. The alternatives are now clearly worse: raising a 550 limit to
-a load-test-realistic number changes it beyond recognition, and dropping the rule removes something
-production evaluates on every request.
+**Exempt the injector from the rate-based rule, and keep every other rule in the path.** This was
+one of three options before the limit was measured; at 550 it is the only workable one. It is also
+the best of the three on its merits, since it keeps the per-request inspection cost realistic. The
+alternatives are clearly worse: raising a 550 limit to a load-test-realistic number changes it
+beyond recognition, and dropping the rule removes something production evaluates on every request.
 
-**Record the choice in the parity report**, and check WAF metrics after the first run:
-`BlockedRequests` and `CountedRequests` on the web ACL will show immediately whether the rig is
-being throttled. Worth doing as part of 3.3 rather than discovering it as an unexplained plateau.
+**The exemption must be a scope-down statement, not an allow rule.** *This is the correction the
+harness plan's F4 forced, and it is a real trap rather than a style preference.* In WAFv2 an `allow`
+action **terminates** rule evaluation for that request. An allow rule for the injector placed at a
+lower priority than the rate rule would therefore skip every *subsequent* rule as well — the managed
+groups included — silently discarding the per-request inspection cost that is the entire reason for
+running a WAF here. A `not_statement` wrapping an `ip_set_reference_statement`, used as the rate
+rule's `scope_down_statement`, excludes the injector from *this* rule's counting and leaves all the
+others in the evaluation path. `modules/avni-env/loadbalancer.tf` implements it that way.
+
+**The exempted address is the injector's public egress address, and it changes per run.** *Revised:
+this section previously assumed an internal ALB, where the IP set could hold the VPC's private
+CIDRs.* F4 has settled on an **externally resolvable ALB restricted by security group** (1.2, 1.4),
+because the customer has asked to run the injector from a local machine. An internet-facing ALB sees
+the client's real address, so:
+
+- The IP set holds **public** addresses — the office NAT address for a local run, the in-VPC
+  injector's elastic IP for a quotable one. `local.private_cidrs` matches neither and has to go.
+- **It is the same list the ALB security group needs**, so define it once as a variable and use it
+  in both places. Two lists that must agree will not.
+- **Enrolling the address is a per-run step, not a one-time provisioning step.** The harness plan
+  carries it in G2's pre-run checklist. A run from an un-enrolled address fails in the quiet way
+  described above, so the two lists want to be the kind of thing a Make target prints.
+
+**The remaining parity gap is the rest of the ACL, and it cuts in both directions.** Reproducing the
+rate rule is the part that was in danger of breaking a run; it is not the part that most affects
+measured latency.
+
+- **Production's custom rules are not reproduced.** Discovery captured `Block_Known_Spammers` and
+  `php-rule` by name only, never their statements. Transcribe them from the production web ACL, or
+  record their absence.
+- **`AWSManagedRulesAntiDDoSRuleSet` — the one managed group production runs — is absent**, and
+  adding it is probably not a one-line variable change: it takes a `managed_rule_group_configs`
+  client-side action config that the module's generic rule loop does not emit, and it carries a
+  standing monthly charge. Verify against the account rather than assuming
+  `waf_managed_rule_groups` is the knob.
+- **`AWSManagedRulesCommonRuleSet`, which the module defaults to, is a group production does not
+  run — and it is a live hazard.** Its `SizeRestrictions_BODY` rule blocks request bodies over
+  8 KB. The first request of every simulated sync is a `syncDetails` POST that round-trips the whole
+  status array, one row per entity across roughly 79 entities, which lands close to that threshold;
+  the push path's per-record POSTs are the other candidate. A block in either place reads as a
+  server error, which is the same quiet failure as the rate rule. **Either transcribe production's
+  actual rules or default this to an empty list — do not leave a guessed group inspecting bodies.**
+
+**Record the rule set in the parity report rule by rule**, against production's, rather than
+recording only "how the rate rule was handled". And **check each rule's own CloudWatch metric after
+the first run, not the web ACL's counters**: with the injector scope-down in place the rate rule
+cannot fire, so `BlockedRequests` and `CountedRequests` at the ACL level read clean while a managed
+group blocks. Worth doing as part of 3.3 rather than discovering it as an unexplained plateau.
 
 **Cost is a request charge, unlike everything else here.** AWS WAF bills per web ACL, per rule, and
 **per million requests** — the last is the one that scales with testing rather than with uptime,
@@ -574,7 +622,7 @@ provision/tofu/
     database.tf        # RDS primary, optional replica, parameter group
     storage.tf         # media bucket (optional)
     loadbalancer.tf    # ALB, target groups, listeners, ACM, WAFv2 web ACL
-    dns.tf             # private or public zone
+    dns.tf             # public delegated zone (1.4)
     access.tf          # Instance Connect Endpoint / SSM
     observability.tf   # Performance Insights, CloudWatch, log groups
     auth.tf            # optional Cognito pool
@@ -585,15 +633,19 @@ provision/tofu/
 **Variables** — AWS-level only: `app_instance_class`, `etl_instance_class`, `db_instance_class`,
 `db_storage_type`, `db_allocated_storage`, `db_iops`, `db_multi_az`, `enable_read_replica`,
 `db_max_connections`, `db_autovacuum`, `db_multi_az`, `enable_etl`, `enable_media_bucket`, `enable_cognito`, `enable_injector`,
-`injector_instance_class`, `enable_loader`, `waf_rate_limit_strategy`, `restore_from_snapshot`, `log_retention_days`,
-`retain_on_destroy`.
+`injector_instance_class`, `enable_loader`, `waf_rate_limit`, `waf_managed_rule_groups`, `acm_certificate_arn`,
+`restore_from_snapshot`, `log_retention_days`, `retain_on_destroy`.
+
+**One variable carries the injector addresses** — `injector_allowed_cidrs` or similar — and feeds
+both the ALB security group ingress and the WAF IP set (§6a, 1.2). It is the only variable that
+changes between runs rather than between environments, and two lists that must agree will not.
 
 **Outputs:** base URL, instance IDs, DB endpoints, reference snapshot identifier, parity report.
 
 **The parity report** satisfies F5.2 and is committed with each apply. It records the AWS facts —
 instance classes **and explicitly that they are fixed-performance where production is burstable**,
 Postgres version, every parameter-group deviation, storage type and IOPS, Multi-AZ, replica present
-or not, **that storage autoscaling is disabled**, injector network position, **how the WAF's rate-based rule was handled** (§6a), **whether the New Relic agent was attached**,
+or not, **that storage autoscaling is disabled**, injector network position and the addresses enrolled for the run, **the WAF rule set rule by rule against production's** — not merely how the rate rule was handled (§6a) — **whether the listener terminates TLS**, **whether the New Relic agent was attached**,
 **whether the run had a concurrent ETL cycle** — now a
 scenario dimension rather than a housekeeping note, and the delta between the two is itself a finding and **which tenancy model the run used**, shared or dedicated (section I4 — results are not
 comparable across models) — and leaves a slot for the application-side
@@ -615,9 +667,12 @@ values Ansible sets, so one document describes the whole environment.
 ### Phase 1 — Decisions that change what gets built
 
 - [x] **1.1** ~~Confirm production's storage, IOPS, Multi-AZ, ETL host class and credit mode~~ — **answered in full: app server 40 GB gp3, RDS 300 GB gp3 (~134 GB used, `public` 70 GB), 3000 IOPS on both, single-AZ, ETL on t3.small, and T-unlimited is enabled** (see 5.1 — this materially weakened the original case against burstable).
-- [ ] **1.2** Isolation posture: **the harness plan has closed this as "no limitation" and settled on an EC2 Instance Connect Endpoint** tunnelling SSH through the AWS API to an instance with no public IP and no inbound rule — it is now build work here, not an open question. Remaining choices: NAT vs VPC endpoints, and private hosted zone vs instance-ID addressing. Include NAT's standing cost (5.7).
+- [ ] **1.2** Isolation posture: **settled, and revised once.** SSH is an EC2 Instance Connect Endpoint tunnelling through the AWS API to hosts with no public IP and no inbound rule — unchanged, and build work rather than an open question. **What changed is the application port.** The harness plan's F4 now decides *"a security group allowlist, not a private subnet"*, on the grounds that B1's requirement is isolation from the internet at large rather than confidentiality — the dataset is generated — and that an allowlist takes a source address where a private subnet takes a tunnel. **The customer has asked to run the injector from a local machine, and an internal ALB makes that impossible.** So the ALB becomes internet-facing with ALB-security-group ingress from **enrolled injector addresses only**, never an open CIDR. Authorisation for SSH stays IAM; authorisation for the application port becomes a short, deliberate, revocable address list. Remaining choices: NAT vs VPC endpoints for the private hosts' egress. Include NAT's standing cost (5.7).
 - [ ] **1.3** Media bucket — **D5.4 now answers this: probably not needed.** Presigning is local and nothing validates the bucket's existence, so the requirement is a configured `bucketName` and a populated organisation `mediaDirectory` (Ansible, 9.x), not an AWS resource. Leave `enable_media_bucket` off unless someone opts in deliberately.
-- [x] **1.4** ~~DNS name and zone~~ — **settled: a private hosted zone for `loadtest.avniproject.org` in the load-test account.** No registration or delegation is needed, because a private zone resolves only inside associated VPCs and never touches public DNS — which also sidesteps `avniproject.org` living in the production account. Route53 matches most-specific-first, so this shadows only names at or below it; `app.avniproject.org` still resolves publicly from inside the VPC. A private zone for `avniproject.org` itself would shadow everything under it — do not.
+- [ ] **1.4** DNS name and zone — **reopened by F4, and the private-zone answer no longer works.** The earlier decision was a **private** hosted zone for `loadtest.avniproject.org`, chosen precisely because it needs no delegation and never touches public DNS. A local injector cannot resolve it, so the name has to be publicly resolvable. Three consequences:
+      - **`avniproject.org` lives in the production account** (`118388513628`), which is why the private zone was attractive. Two ways out: create the single `loadtest` record in the production zone, or **delegate a `loadtest.avniproject.org` subzone** — NS records in the production account, the zone itself in the load-test account. **Prefer delegation**: it keeps this environment's records inside this environment's account and state, so a rebuild does not touch production's zone.
+      - **This unblocks TLS parity, which is worth having.** The module currently falls back to a plain HTTP listener when `acm_certificate_arn` is null, and records the absence as a deviation, because DNS validation for a private-zone name was not possible. With a public delegated zone, ACM DNS validation works and the listener can terminate HTTPS exactly as production does. **Make the certificate part of 2.5 rather than an optional variable.**
+      - **One public name for both injector positions**, rather than split-horizon DNS. Identical `BASE_URL` from either position is what makes runs comparable at all, and a second private answer would send the two positions down different network paths and present the WAF with different client addresses. **Put the in-VPC injector in a public subnet with its own elastic IP** so its enrolled address is its own; from a private subnet its traffic would leave via the NAT gateway, making the NAT's address the one to enrol and charging NAT data processing for every request of every run.
 - [ ] **1.5** Monthly cost ceiling, and what happens when it is hit.
 - [ ] **1.6** ~~Settle the reset mechanism before provisioning~~ — **largely closed.** The dataset is measured at **~70 GB** transactional and a 300 GiB allocation clears both mechanisms (§6), so the choice no longer constrains provisioning and is decided by timing in 4.1. Confirm only that nothing has changed the ~70 GB figure.
 - [ ] **1.7** Injector network position, and whether the module creates it.
@@ -628,11 +683,11 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 2 — Build the module
 
-- [ ] **2.1** Network — VPC, two private subnets across AZs, routing, NAT or VPC endpoints.
+- [ ] **2.1** Network — VPC, two private subnets and two public subnets across AZs, routing, NAT or VPC endpoints. **The ALB sits in the public subnets** (1.2), as does the injector (1.4); the app, ETL, database and loader stay private with no inbound path.
 - [ ] **2.2** Access path — Instance Connect Endpoint or SSM, plus the instance role. **Prove a human can reach a bare instance through it before anything is built on top.** The task most likely to consume an unexpected day.
 - [ ] **2.3** Compute — **tag every instance `Environment=loadtest` and `Role=avni-server|avni-etl|injector|loader`; the Ansible inventory keys on these (9.1) and a disposable environment has no stable instance IDs to hardcode.** App instance on the fixed-performance class from 1.8; **ETL instance behind `enable_etl`, default on** (5.4 — the harness needs sync-with-concurrent-ETL as a scenario, so the variable exists to toggle between runs, not to omit the host); instance profile, no static keys, Ubuntu AMI resolved via SSM parameter rather than a hardcoded ID. **Match the AMI architecture to the instance family** — an arm64 AMI for Graviton.
 - [ ] **2.4** Database per 1.6 and 1.8 — `manage_master_user_password`, encryption, **gp3 allocated at ~250 GiB** (§6 — sized on capacity; anything in the 20–399 GiB band gives the same 3,000 IOPS / 125 MiB/s, so only the 400 GiB ceiling matters for parity) to hold production's 3000 IOPS / 125 MiB/s (§6 — crossing the threshold forfeits I/O parity), **`max_allocated_storage` left unset so storage autoscaling cannot silently cross it**, and the same on the read replica if enabled. **PostgreSQL 16.8**, **single-AZ** as production is, parameter group carrying `pg_stat_statements`, slow-query logging and the autovacuum setting, Performance Insights and Enhanced Monitoring on, `pg_prewarm` available.
-- [ ] **2.5** Load balancer — ALB, target group, health check on `/ping`, **300s idle timeout** (measured on the live prod ALB; the 400s in the old Terraform is the jasper one), ACM certificate, and a **WAFv2 web ACL associated with the ALB** reproducing production's rules (§6a). Handle the rate-based rule deliberately — an injector looks like an attack — and record which approach was taken.
+- [ ] **2.5** Load balancer — **internet-facing** ALB in the public subnets (1.2), target group, health check on `/ping`, **300s idle timeout** (measured on the live prod ALB; the 400s in the old Terraform is the jasper one), and an **ACM certificate with an HTTPS listener — required, not optional**, now that 1.4 makes DNS validation possible and production terminates TLS at the ALB. Ingress on the ALB security group comes from the **enrolled injector addresses**, never an open CIDR. Plus a **WAFv2 web ACL associated with the ALB** reproducing production's rules (§6a): the rate rule at 550 with the injector exempted by **scope-down statement — never an allow rule, which terminates evaluation** — and the rule set recorded rule by rule.
 - [ ] **2.6** Storage — a bucket with two prefixes: **`artefacts/`** (A11: `simulation.log`, reports and run metadata must have a way out of a closed environment), written by the injector via its instance profile; and **`deployables/`**, holding built jars so a deploy never depends on someone having one locally (9.14). Reachable through a **free S3 gateway endpoint**, which also keeps this traffic off the NAT and its per-GB charge. Media bucket behind `enable_media_bucket`, default off per 1.3. No replication, lifecycle expiry on both.
 - [ ] **2.7** DNS.
 - [ ] **2.8** Observability resources — log groups with `log_retention_days`, metrics, budget alarm from 1.5, cost tags, and a **`FreeStorageSpace` alarm**, which matters more than usual because autoscaling is deliberately off (§6): the volume filling is a hard stop rather than a silent grow. If any burstable instance survives into the final design, alarm on **`CPUSurplusCreditsCharged`** rather than `CPUCreditBalance`: under T-unlimited the balance no longer signals a performance problem, only a cost one (5.1). `BurstBalance` does not apply at all — it is a gp2 metric and everything here is gp3.
@@ -642,7 +697,7 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 3 — First environment
 
-- [ ] **3.1** Apply `envs/loadtest/`. The environment comes up **closed** — `enable_cognito = false`, `AVNI_IDP_TYPE=none` — because B1 is decided and B2, the only reason to pass through an open posture, is deferred.
+- [ ] **3.1** Apply `envs/loadtest/`. The environment comes up **closed and stays closed** — `enable_cognito = false`, `AVNI_IDP_TYPE=none` from the start. B1 is decided, and B2 is deferred by choice (Phase 5), so there is no open posture to pass through. What makes that safe is `injector_allowed_cidrs`, not the IdP.
 - [ ] **3.2** **Prove `tofu destroy` works, then reapply from scratch**, before anyone depends on the environment. A rig that cannot be rebuilt is not disposable, and the failure mode surfaces at the worst moment otherwise.
 - [ ] **3.3** Verify the AWS layer standalone: instances reachable via the access path, database reachable from them, ALB healthy, metrics flowing, egress restricted as intended, and **the WAF passing injector traffic** — check `BlockedRequests` and `CountedRequests` on the web ACL rather than assuming (§6a).
 - [ ] **3.4** Hand off to Ansible — see §9.
@@ -657,20 +712,36 @@ values Ansible sets, so one document describes the whole environment.
 
 ### Phase 5 — Verify the environment really is closed
 
-**This phase shrank.** It used to be a cutover: stand Cognito up, let the harness measure the
-auth-cost offset against it (B2), then flip to `AVNI_IDP_TYPE=none`. B1 is now decided and **B2 is
-deferred** — it needs a working Cognito path, and the simulation strips Cognito entirely, so taking
-the measurement later would mean restoring deliberately deleted code. Auth ordering is simply F4
-(open the deploy path) then B1; nothing has to happen before the cutover, so there is no cutover.
+**There is no cutover, and this phase is verification.** The environment comes up with
+`AVNI_IDP_TYPE=none` and never passes through an open posture. **What keeps that acceptable is the
+address allowlist, not the IdP** — `IdpType.none` means anyone who can reach the server is whoever
+they claim to be — so the checks below are what make it deliberate rather than reckless.
 
-What remains is verification rather than a posture change, and it belongs with the first apply.
+> **B2 is deferred by choice, and the earlier reason recorded here was wrong.** This phase used to
+> say B2 — the auth-cost offset measurement — was deferred because *"the simulation strips Cognito
+> entirely"*, which would have meant restoring deleted code. **That is false**: `AUTH_MODE=cognito`
+> is live in the simulation behind a flag, with its own `CognitoHelper`, and the harness plan records
+> B2 as *"available, not yet run"*. The correct reason is simply that the measurement can be taken
+> whenever it is wanted, and an environment that stays closed throughout is worth more than taking
+> it early.
+>
+> **When it is wanted, it runs here.** Every test in the harness plan is measured in this
+> environment and nowhere else — staging and prerelease are not substitutes, because an offset
+> measured on a different instance class against a different dataset is not the offset this
+> environment's results need adjusting by. Set `enable_cognito`, provision pool users (harness G5),
+> run the same simulation twice with `AUTH_MODE=none` and `AUTH_MODE=cognito`, unset it.
+>
+> **Until then the offset is unmeasured, and that is a published caveat rather than a private one.**
+> `authenticateByToken` — JWT verification plus a user lookup — is absent from every request this
+> environment serves, so server-side latency is understated by an unmeasured per-request constant.
+> The parity report renders this automatically while `enable_cognito` is false; do not let it become
+> folklore.
 
-- [ ] **5.1** Confirm no public path exists — no public IP on any host, no inbound rule admitting an open CIDR, ALB internal.
-- [ ] **5.2** Confirm the deploy access path works against a closed environment.
-- [ ] **5.3** Confirm the injector reaches `BASE_URL` through the private zone.
-
-With `IdpType.none` anyone who can reach the server is authenticated as whoever they claim to be, so
-these are the checks that make that acceptable rather than reckless.
+- [ ] **5.1** Confirm the only inbound path is the allowlist — no public IP on the app, ETL, database or loader hosts; no inbound rule admitting an open CIDR anywhere; ALB ingress restricted to the enrolled injector addresses.
+- [ ] **5.2** **Confirm it from outside**: a request to `BASE_URL` from a non-enrolled address must fail to connect. An allowlist nobody has tested negatively is an assumption.
+- [ ] **5.3** Confirm the deploy access path works against the closed environment.
+- [ ] **5.4** Confirm both injector positions reach `BASE_URL` — the in-VPC injector and a local machine — and that each one's address is enrolled in **both** the ALB security group and the WAF IP set (§6a).
+- [ ] **5.5** Confirm no Cognito pool exists and `avni_idp_type` is `none` (9.5), so the closed posture is the one actually deployed rather than the one intended.
 
 ### Phase 6 — Generalise
 
@@ -748,7 +819,9 @@ wrong host is worse than having none, and it will collide with the new target be
       variable. `rwb-staging` and `rwb-prod` (89,93) already omit it, so the trap is live.
 - [ ] **9.5** `avni_server_idp_type: none` (B1). The template already passes it through
       (`roles/avni_appserver/templates/appserver.conf.j2:37`), so this is a variable value, not a
-      role change. It must land in step with the Phase 6 close, never before.
+      role change. **It applies from the first deploy** — there is no open posture to pass through —
+      but it is only *safe* once the allowlist of 5.1 and 5.2 is verified, so those checks are the
+      real precondition. The value is already committed in `group_vars/loadtest_vars.yml`.
 - [ ] **9.6** **Set the connection pool size explicitly** (harness requirement I2). It is currently
       unconfigured and sitting at the Tomcat JDBC default, which the harness predicts is itself the
       first choke point — so it has to be a knob rather than an accident. No application change is
@@ -806,7 +879,10 @@ requirements section is the authoritative statement of what must be provided —
 | First Ansible run fails on egress | NAT/VPC-endpoint decision in 1.2, not discovered at handoff |
 | A run emits real SMS or hits a real integration | 2.10 — enforced at IAM and egress, not app config |
 | NAT Gateway quietly becomes the largest line on a mostly-idle environment | 1.2 costs it explicitly against endpoint alternatives |
-| **WAF rate-based rule throttles the injector**, and throttled requests read as server latency or errors in the Gatling report rather than as a WAF decision | §6a — handle the rule deliberately at 2.5, and check `BlockedRequests` at 3.3 rather than assuming |
+| **WAF rate-based rule throttles the injector**, and throttled requests read as server latency or errors in the Gatling report rather than as a WAF decision | §6a — scope-down exemption at 2.5, and check each rule's own metric at 3.3 rather than assuming |
+| **The injector is exempted with an allow rule**, which terminates evaluation and silently drops the managed groups with it — the rig then pays none of the inspection cost the WAF exists to reproduce | §6a — the exemption is a `scope_down_statement`; the parity report records the rule set rule by rule, so a missing group is visible |
+| **A guessed managed rule group blocks legitimate sync traffic** — `AWSManagedRulesCommonRuleSet` is not in production's ACL and its `SizeRestrictions_BODY` rule blocks bodies over 8 KB, which the `syncDetails` POST approaches | §6a — transcribe production's actual rules or default to an empty list; measure the largest body the simulation sends |
+| **A run is driven from an address nobody enrolled**, and fails as connection errors that look like a server falling over | §6a — one variable feeds both the ALB security group and the WAF IP set; enrolment is a pre-run step in the harness's G2 checklist, and 5.2 tests the negative case |
 | New Relic omitted as a cost saving, making the rig faster than production for reasons unrelated to the code | 9.10 — the agent is required for parity, not only for metrics |
 | Scheduled teardown kills a long run | 4.4's override guard |
 | Environment left running between runs | Budget alarm, scheduled destroy, cost tags (2.8, 4.4) |
@@ -833,15 +909,18 @@ requirements section is the authoritative statement of what must be provided —
 
 ## 13. Definition of done
 
-- The environment exists, is deployable to without public ingress, and can be reached by the injector.
+- The environment exists, is deployable to without public ingress, and is reachable on the application port **only from enrolled injector addresses** — verified negatively as well as positively (5.2), from both injector positions (5.4).
 - **avni-server and avni-etl are deployed and running on it from `configure/`**, on Java 21, with the connection pool size set explicitly and no route to any real database or third party.
 - **No component under test is burstable, and storage is gp3** — two runs of the same workload on
   the same infrastructure produce comparable numbers.
 - It can be destroyed and rebuilt from scratch, demonstrated at least once.
 - RDS-side metrics are live and resettable; log retention is set; **the New Relic agent is attached
   and reporting JVM and GC metrics**.
-- **The ALB is fronted by a WAF reproducing production's rules**, and a run has been confirmed to pass
-  through it without being throttled.
+- **The ALB terminates TLS and is fronted by a WAF reproducing production's rules**, the rule set is
+  recorded rule by rule against production's, and a run has been confirmed to pass through it without
+  being throttled or blocked — checked per rule, not on the ACL's counters.
+- **The unmeasured auth-cost offset is recorded in the parity report**, since B2 is deferred by
+  choice and `authenticateByToken` is absent from every request the environment serves.
 - The database can be restored to a reference state at a measured, acceptable turnaround.
 - Sizing is variable-driven, and each apply emits a parity report.
 - State and plan files are encrypted, locked, and hold no secret values.
