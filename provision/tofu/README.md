@@ -7,15 +7,24 @@ reusable for the dedicated customer environments that follow.
     modules/avni-env/    the reusable environment
     envs/loadtest/       first instantiation
 
-**This is not yet applyable.** The backend, state encryption and lock table do
-not exist (plan tasks 0.3-0.5, issue #103), so the root initialises for
-validation only:
+**The backend exists.** `scripts/bootstrap-state-backend.sh` created the KMS key
+and the state bucket (tasks 0.3-0.5), and `envs/loadtest` now carries a real
+`backend "s3"` with S3-native locking plus client-side state *and plan*
+encryption, both `enforced = true`.
+
+Credentials come from `AWS_PROFILE` — the backend and the provider both leave it
+unset deliberately, so they cannot resolve to different accounts:
+
+    export AWS_PROFILE=avni-load-test
+    tofu -chdir=envs/loadtest init
+    tofu -chdir=envs/loadtest plan
+
+Static checks still need no credentials:
 
     tofu -chdir=envs/loadtest init -backend=false
     tofu -chdir=envs/loadtest validate
     tofu -chdir=envs/loadtest fmt -recursive -check
-
-Nothing here requires AWS credentials until task 0.3.
+    ../scripts/lint-tofu.sh
 
 **Two things must be true before an apply is useful.** The zone is public and
 delegated from `avniproject.org`, which lives in the *production* account: take
