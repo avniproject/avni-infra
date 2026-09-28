@@ -4,8 +4,8 @@ output "base_url" {
 }
 
 output "zone_name_servers" {
-  description = "Add these as an NS record set for the zone in avniproject.org, which lives in the production account. Until that delegation exists the name does not resolve and the certificate stays pending."
-  value       = aws_route53_zone.this.name_servers
+  description = "The zone's name servers, for the one-time NS delegation in the production account. The zone is NOT managed here — see scripts/bootstrap-dns-zone.sh — so these survive a destroy and the delegation never needs redoing."
+  value       = data.aws_route53_zone.this.name_servers
 }
 
 output "injector_public_ip" {
