@@ -10,4 +10,10 @@ tfplan
 crash.log
 # tfvars may carry endpoints and generated values; secrets belong in SSM (task 6.3)
 *.auto.tfvars
+# terraform.tfvars is auto-loaded, which is exactly why it must not be
+# committed: it holds injector_allowed_cidrs, and whose office or home address
+# may reach an unauthenticated server is per-person and per-location, not a
+# property of the repo.
+terraform.tfvars
+*.tfvars
 parity-report.md

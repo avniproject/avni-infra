@@ -95,7 +95,14 @@ resource "aws_db_instance" "this" {
 
   engine         = "postgres"
   engine_version = var.db_engine_version
-  instance_class = var.db_instance_class
+
+  # Pinned, because the provider defaults this to true and a rig whose value is
+  # comparability cannot have AWS change its query planner mid-campaign. Same
+  # reasoning as max_allocated_storage being left unset: the plan's standing
+  # rule is that the measured characteristics stay stable for the life of the
+  # environment. Upgrade deliberately, re-baseline, and note it.
+  auto_minor_version_upgrade = false
+  instance_class             = var.db_instance_class
 
   allocated_storage = var.db_allocated_storage
   storage_type      = "gp3"

@@ -17,12 +17,31 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  # THREE AZs, not two, and the third one is not spare capacity for its own
+  # sake. Two was the documented minimum -- an RDS subnet group and an ALB each
+  # require two -- and it is not enough in practice: creating the database
+  # failed with
+  #
+  #   InvalidVPCNetworkStateFault: You can't create a db.m6g.large database
+  #   instance because no subnets exist in Availability Zones with sufficient
+  #   capacity ... choose from these Availability Zones: ap-south-1c
+  #
+  # An instance class can be unavailable in a given AZ at a given moment, and a
+  # subnet group spanning only 1a and 1b gives RDS nowhere else to place it.
+  # Covering every AZ removes the whole class of failure; subnets cost nothing.
+  azs = data.aws_availability_zones.available.names
 
   # /20 per subnet out of a /16: 4094 usable addresses each, far more than
   # needed, but the address space is free and resizing a subnet is not.
-  public_cidrs  = [cidrsubnet(var.vpc_cidr, 4, 0), cidrsubnet(var.vpc_cidr, 4, 1)]
-  private_cidrs = [cidrsubnet(var.vpc_cidr, 4, 2), cidrsubnet(var.vpc_cidr, 4, 3)]
+  #
+  # THE INDEX ORDER IS DELIBERATE AND MUST NOT BE TIDIED. The first four blocks
+  # (0,1 public and 2,3 private) are what the original two-AZ layout allocated
+  # and are already live. Renumbering them to read 0,1,2 and 3,4,5 would change
+  # the CIDR of existing subnets, which replaces them -- and takes every
+  # instance and the database with them. The third AZ therefore appends at 4
+  # and 5 rather than slotting in numerically.
+  public_cidrs  = [cidrsubnet(var.vpc_cidr, 4, 0), cidrsubnet(var.vpc_cidr, 4, 1), cidrsubnet(var.vpc_cidr, 4, 4)]
+  private_cidrs = [cidrsubnet(var.vpc_cidr, 4, 2), cidrsubnet(var.vpc_cidr, 4, 3), cidrsubnet(var.vpc_cidr, 4, 5)]
 
   name = "avni-${var.environment}"
 }

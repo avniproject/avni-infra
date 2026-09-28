@@ -134,9 +134,28 @@ variable "db_instance_class" {
 }
 
 variable "db_engine_version" {
-  description = "Match the production primary. Note the estate has drifted — replica, prerelease and staging are on 16.13 — so this is a moving target."
+  description = <<-EOT
+    As close to the production primary as AWS still offers.
+
+    Production runs 16.8 and this defaulted to 16.8 to match it. **AWS has
+    since withdrawn 16.8 in ap-south-1** — CreateDBInstance fails with
+    "Cannot find version 16.8 for postgres" — and the lowest 16.x still
+    offered is 16.9. The plan predicted exactly this: 16.8 was always a
+    moving target.
+
+    16.9 rather than 16.13, deliberately. The rig should match what production
+    IS, not where the rest of the estate has drifted to: the replica,
+    prerelease and staging are on 16.13, but sync reads and writes hit the
+    PRIMARY, and one minor version away from it is the smallest divergence
+    available. Minor releases are bugfix and security work, not planner
+    changes, so the practical effect should be nil — but it is a deviation and
+    belongs in the parity report as one.
+
+    Revisit when production is upgraded, which its own 16.8 deprecation makes
+    a question of when.
+  EOT
   type        = string
-  default     = "16.8"
+  default     = "16.9"
 }
 
 variable "db_allocated_storage" {
