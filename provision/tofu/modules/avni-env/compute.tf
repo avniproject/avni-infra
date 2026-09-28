@@ -14,8 +14,18 @@
 # Relic agent is architecture-neutral.
 # ---------------------------------------------------------------------------
 
+# ebs-gp2, not ebs-gp3, and deliberately so. Canonical publishes a gp3 variant
+# only from 24.04; for 22.04 the path simply does not exist, and the failure is
+# an unhelpful "couldn't find resource" on the data source rather than anything
+# naming the volume type.
+#
+# It costs nothing: this selects which published AMI to launch, not what the
+# instance ends up with. root_block_device below sets volume_type = "gp3"
+# explicitly, so every host runs on gp3 regardless. Do not "fix" this to gp3
+# without also moving ubuntu_release to 24.04, which var.ubuntu_release
+# explains is not free.
 data "aws_ssm_parameter" "ubuntu" {
-  name = "/aws/service/canonical/ubuntu/server/${var.ubuntu_release}/stable/current/arm64/hvm/ebs-gp3/ami-id"
+  name = "/aws/service/canonical/ubuntu/server/${var.ubuntu_release}/stable/current/arm64/hvm/ebs-gp2/ami-id"
 }
 
 resource "aws_key_pair" "break_glass" {
