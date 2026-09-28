@@ -43,7 +43,15 @@ USAGE
   exit 2
 }
 
-aws_() { aws "$@" --profile "$PROFILE" --region "$REGION"; }
+# --profile overrides credentials already exported into the environment and
+# sends the CLI back down the assume-role path that needs an MFA code it cannot
+# ask for. Only name the profile when nothing is already in the environment --
+# env-teardown.sh calls `verify` below after sourcing aws-session.sh.
+if [ -n "${AWS_ACCESS_KEY_ID:-}" ]; then
+  aws_() { aws "$@" --region "$REGION"; }
+else
+  aws_() { aws "$@" --profile "$PROFILE" --region "$REGION"; }
+fi
 
 case "$CMD" in
   capture)
