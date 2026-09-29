@@ -17,3 +17,7 @@ crash.log
 terraform.tfvars
 *.tfvars
 parity-report.md
+# Its application-side sibling, written by configure/loadtest_parity.yml. Both
+# are per-apply, per-deploy artefacts describing one instance of a disposable
+# environment — they belong beside a run's results, not in version control.
+parity-application.md

@@ -555,6 +555,12 @@ check-loadtest-profile: check-loadtest-creds
 loadtest-hosts: check-loadtest-creds
 	@$(LOADTEST_ANSIBLE_ENV) ansible-inventory -i $(LOADTEST_INV) --graph
 
+## Collect the application-side parity report from the running host (9.12).
+## Pairs with the AWS-side report OpenTofu renders on apply.
+loadtest-parity: check-loadtest-creds
+	@$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	ansible-playbook loadtest_parity.yml -i $(LOADTEST_INV)
+
 ## Prove the tunnel works before blaming anything else.
 loadtest-ping: check-loadtest-creds
 	@$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) ansible -i $(LOADTEST_INV) all -m ping
