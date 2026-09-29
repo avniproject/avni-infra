@@ -460,7 +460,30 @@ LOADTEST_TF_DIR  ?= ../provision/tofu/envs/loadtest
 #
 # Plan task 6.3 (publish endpoints to SSM) is the longer-term answer; reading
 # state keeps one source of truth until then.
-LOADTEST_VARS_JSON := $(LOADTEST_WORK)/extra-vars.json
+# Recursive (=), not immediate (:=). LOADTEST_WORK is defined further down, and
+# := would expand it to empty here -- producing /extra-vars.json and a
+# "Read-only file system" error that says nothing about make variable ordering.
+LOADTEST_VARS_JSON = $(LOADTEST_WORK)/extra-vars.json
+
+# macOS forks Ansible workers, and boto3 inside a forked child crashes: the
+# Objective-C runtime refuses to initialise after fork. It surfaces as
+# "[ERROR]: A worker was found in a dead state" on whichever task first needs a
+# lookup, naming neither AWS nor fork -- here it was the New Relic template,
+# because that is where the SSM lookup is first used.
+#
+# Every credential this environment reads is a boto3 lookup (Secrets Manager
+# for the database password, SSM for the New Relic key), so without this the
+# playbook cannot get past its first secret. Set unconditionally rather than
+# detected: the variable is meaningless on Linux, where CI runs.
+LOADTEST_NR_PARAM       ?= /avni/loadtest/newrelic-license-key
+LOADTEST_SECRETS_SCRIPT := scripts/loadtest-extra-vars.py
+
+# Kept, though it is not sufficient on its own: it suppresses the Obj-C
+# initialiser check after fork, which is a DIFFERENT crash from the
+# CoreFoundation/Network.framework segfault that forced secrets out of Ansible
+# lookups and into scripts/loadtest-extra-vars.py. Cheap, and it removes one
+# class of fork noise.
+LOADTEST_ANSIBLE_ENV := OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 
 # Vault is optional here, unlike every other environment. The load-test vars
 # hold no secrets to encrypt -- the database password is read from Secrets
@@ -504,7 +527,8 @@ check-loadtest-creds:
 # variable that names neither OpenTofu nor the environment.
 check-loadtest-outputs: check-loadtest-creds
 	@mkdir -p $(LOADTEST_WORK)
-	@set -e; \
+	@umask 077; set -e; \
+	 rm -f $(LOADTEST_VARS_JSON); \
 	 host=$$(tofu -chdir=$(LOADTEST_TF_DIR) output -raw db_endpoint 2>/dev/null || true); \
 	 secret=$$(tofu -chdir=$(LOADTEST_TF_DIR) output -raw db_master_secret_arn 2>/dev/null || true); \
 	 host=$${host%%:*}; \
@@ -518,19 +542,22 @@ check-loadtest-outputs: check-loadtest-creds
 	   arn:aws:secretsmanager:*) ;; \
 	   *) echo "No usable db_master_secret_arn in OpenTofu state."; exit 1 ;; \
 	 esac; \
-	 printf '{"loadtest_db_host":"%s","loadtest_db_secret_name":"%s"}\n' "$$host" "$$secret" > $(LOADTEST_VARS_JSON); \
+	 AVNI_DB_HOST="$$host" AVNI_DB_SECRET="$$secret" \
+	 AVNI_NR_PARAM="$(LOADTEST_NR_PARAM)" AVNI_REGION="$(AVNI_AWS_REGION)" \
+	 python3 $(LOADTEST_SECRETS_SCRIPT) > $(LOADTEST_VARS_JSON); \
+	 chmod 600 $(LOADTEST_VARS_JSON); \
 	 echo "database: $$host"
 
 # Kept as an alias so existing targets and muscle memory keep working.
 check-loadtest-profile: check-loadtest-creds
 
 ## Show which hosts the dynamic inventory currently finds.
-loadtest-hosts: check-loadtest-profile
-	@AWS_PROFILE=$(AVNI_AWS_PROFILE) ansible-inventory -i $(LOADTEST_INV) --graph
+loadtest-hosts: check-loadtest-creds
+	@$(LOADTEST_ANSIBLE_ENV) ansible-inventory -i $(LOADTEST_INV) --graph
 
 ## Prove the tunnel works before blaming anything else.
-loadtest-ping: check-loadtest-profile
-	@AWS_PROFILE=$(AVNI_AWS_PROFILE) ansible -i $(LOADTEST_INV) all -m ping
+loadtest-ping: check-loadtest-creds
+	@$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) ansible -i $(LOADTEST_INV) all -m ping
 
 ## Publish a built jar so deploys stop depending on who has one locally.
 ## Usage: make loadtest-publish-server VERSION=1.5.0 JAR=/path/to/avni-server.jar
@@ -559,7 +586,7 @@ loadtest-fetch-%: check-loadtest-version check-loadtest-profile
 ## Full configure: base, security, jdk, newrelic, webapp, server.
 loadtest-configure-server: check-loadtest-version check-loadtest-outputs loadtest-fetch-server
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
-	AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook loadtest_avni_servers.yml -i $(LOADTEST_INV) \
 	  $(LOADTEST_VAULT_ARG) \
 	  --extra-vars @$(LOADTEST_VARS_JSON) \
@@ -568,7 +595,7 @@ loadtest-configure-server: check-loadtest-version check-loadtest-outputs loadtes
 ## Deploy only: stop, replace the jar, start.
 loadtest-deploy-server: check-loadtest-version check-loadtest-outputs loadtest-fetch-server
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
-	AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook deploy_app_to_servers.yml -i $(LOADTEST_INV) \
 	  $(LOADTEST_VAULT_ARG) \
 	  --extra-vars '{$(LOADTEST_COMMON_VARS),"deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"loadtest","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/loadtest_vars.yml","deploy_app_env_secret_vars_file":"group_vars/loadtest_vars.yml"}' \
@@ -576,7 +603,7 @@ loadtest-deploy-server: check-loadtest-version check-loadtest-outputs loadtest-f
 
 loadtest-configure-etl: check-loadtest-version check-loadtest-outputs loadtest-fetch-etl
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-etl.jar \
-	AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook loadtest_etl_servers.yml -i $(LOADTEST_INV) \
 	  $(LOADTEST_VAULT_ARG) \
 	  --extra-vars @$(LOADTEST_VARS_JSON) \
