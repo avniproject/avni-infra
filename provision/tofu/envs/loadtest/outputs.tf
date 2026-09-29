@@ -59,3 +59,13 @@ output "web_acl_arn" {
   description = "WAF web ACL. Check each rule's own metric after a run, not the ACL's counters."
   value       = module.avni_env.web_acl_arn
 }
+
+output "media_bucket" {
+  description = "Media bucket avni-server reads extensions from. syncDetails calls S3, so this is not optional."
+  value       = module.avni_env.media_bucket
+}
+
+output "media_key_params" {
+  description = "SSM parameter names holding the S3 access key; the secret itself is never an output."
+  value       = module.avni_env.media_key_params
+}

@@ -153,12 +153,23 @@ avni_server_minio_secret_access_key: ""
 # A real media bucket is probably unnecessary: presigning is local and nothing
 # validates the bucket's existence. What is required is a configured name and a
 # populated organisation mediaDirectory.
-avni_server_media_bucket_name: "avni-loadtest-media"
+avni_server_media_bucket_name: "{{ loadtest_media_bucket }}"
 
-# The instance profile supplies credentials; there are no static keys to place.
+# Static S3 credentials, passed in by the Makefile from SSM.
+#
+# The instance profile does NOT work here, and the reason is in avni-server
+# rather than in the environment: AWSS3Service builds its client with
+# AWSStaticCredentialsProvider and never consults the AWS credential chain, so
+# an instance profile is invisible to it. Production templates IAM user keys
+# for the same reason.
+#
+# Leaving these empty is not a safe default -- it is a broken one. syncDetails
+# is the FIRST request of every simulated sync and it calls S3 to sync
+# extension files, so an environment without these cannot serve a single sync.
+# The key is scoped to the media bucket alone.
 avni_server_iam_username: ""
-avni_server_iam_access_key: ""
-avni_server_iam_secret_access_key: ""
+avni_server_iam_access_key: "{{ loadtest_media_access_key }}"
+avni_server_iam_secret_access_key: "{{ loadtest_media_secret_key }}"
 
 # --- Host firewall -----------------------------------------------------------
 #

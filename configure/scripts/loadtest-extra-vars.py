@@ -63,11 +63,29 @@ def main() -> None:
     if not key:
         sys.exit(f"{os.environ['AVNI_NR_PARAM']} resolved to an empty value")
 
+    # S3 credentials. avni-server builds its S3 client with static credentials
+    # and never consults the AWS credential chain, so the instance profile the
+    # module otherwise relies on cannot serve it. Without these, syncDetails --
+    # the first request of every simulated sync -- fails on the extension sync.
+    media_key_id = aws("ssm", "get-parameter",
+                       "--name", os.environ["AVNI_MEDIA_KEY_ID_PARAM"],
+                       "--with-decryption", "--region", region,
+                       "--query", "Parameter.Value", "--output", "text")
+    media_secret = aws("ssm", "get-parameter",
+                       "--name", os.environ["AVNI_MEDIA_SECRET_PARAM"],
+                       "--with-decryption", "--region", region,
+                       "--query", "Parameter.Value", "--output", "text")
+    if not media_key_id or not media_secret:
+        sys.exit("the media S3 credentials resolved to an empty value")
+
     json.dump({
         "loadtest_db_host": os.environ["AVNI_DB_HOST"],
         "loadtest_db_secret_name": os.environ["AVNI_DB_SECRET"],
         "loadtest_db_password": password,
         "loadtest_newrelic_license_key": key,
+        "loadtest_media_bucket": os.environ["AVNI_MEDIA_BUCKET"],
+        "loadtest_media_access_key": media_key_id,
+        "loadtest_media_secret_key": media_secret,
     }, sys.stdout)
 
 

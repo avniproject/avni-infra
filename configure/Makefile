@@ -476,6 +476,8 @@ LOADTEST_VARS_JSON = $(LOADTEST_WORK)/extra-vars.json
 # playbook cannot get past its first secret. Set unconditionally rather than
 # detected: the variable is meaningless on Linux, where CI runs.
 LOADTEST_NR_PARAM       ?= /avni/loadtest/newrelic-license-key
+LOADTEST_MEDIA_KEY_ID_PARAM ?= /avni/loadtest/media-access-key-id
+LOADTEST_MEDIA_SECRET_PARAM ?= /avni/loadtest/media-secret-access-key
 LOADTEST_SECRETS_SCRIPT := scripts/loadtest-extra-vars.py
 
 # Kept, though it is not sufficient on its own: it suppresses the Obj-C
@@ -553,8 +555,16 @@ check-loadtest-outputs: check-loadtest-creds
 	   arn:aws:secretsmanager:*) ;; \
 	   *) echo "No usable db_master_secret_arn in OpenTofu state."; exit 1 ;; \
 	 esac; \
+	 bucket=$$(tofu -chdir=$(LOADTEST_TF_DIR) output -raw media_bucket 2>/dev/null || true); \
+	 case "$$bucket" in \
+	   ""|None) echo "No media_bucket in state. syncDetails calls S3 and will fail without it."; \
+	            echo "  set enable_media_bucket = true and apply"; exit 1 ;; \
+	 esac; \
 	 AVNI_DB_HOST="$$host" AVNI_DB_SECRET="$$secret" \
 	 AVNI_NR_PARAM="$(LOADTEST_NR_PARAM)" AVNI_REGION="$(AVNI_AWS_REGION)" \
+	 AVNI_MEDIA_BUCKET="$$bucket" \
+	 AVNI_MEDIA_KEY_ID_PARAM="$(LOADTEST_MEDIA_KEY_ID_PARAM)" \
+	 AVNI_MEDIA_SECRET_PARAM="$(LOADTEST_MEDIA_SECRET_PARAM)" \
 	 python3 $(LOADTEST_SECRETS_SCRIPT) > $(LOADTEST_VARS_JSON); \
 	 chmod 600 $(LOADTEST_VARS_JSON); \
 	 echo "database: $$host"

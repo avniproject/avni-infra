@@ -62,3 +62,16 @@ output "cognito_client_id" {
   description = "App client for B2's AUTH_MODE=cognito run. Feed into loadtest_cognito_client_id in Ansible."
   value       = var.enable_cognito ? aws_cognito_user_pool_client.this[0].id : null
 }
+
+output "media_bucket" {
+  description = "Media bucket avni-server reads extensions from and writes media to. Null when disabled — which means syncDetails cannot complete, since it calls S3."
+  value       = var.enable_media_bucket ? aws_s3_bucket.media[0].id : null
+}
+
+output "media_key_params" {
+  description = "SSM parameter names holding the S3 access key. The secret itself is never an output: Ansible reads these at run time, the same way it reads the New Relic licence key."
+  value = var.enable_media_bucket ? {
+    access_key_id     = aws_ssm_parameter.media_access_key_id[0].name
+    secret_access_key = aws_ssm_parameter.media_secret_access_key[0].name
+  } : null
+}

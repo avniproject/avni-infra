@@ -235,9 +235,29 @@ variable "waf_rate_limit" {
 }
 
 variable "enable_media_bucket" {
-  description = "Off by default. Presigning is local and nothing validates the bucket's existence, so a real bucket is probably unnecessary; the requirement is a configured bucketName and a populated mediaDirectory."
+  description = <<-EOT
+    Create the media bucket and the IAM user avni-server needs to reach it.
+    Defaults ON.
+
+    This was off, on the harness plan's finding that "presigning is local and
+    nothing validates the bucket's existence". True for MEDIA and false for
+    EXTENSIONS: syncDetails -- the first request of every simulated sync --
+    makes a real S3 call to sync extension files, and fails without one.
+
+    It also needs a static access key, which the instance profile cannot
+    supply. access.tf prefers an instance profile precisely to avoid long-lived
+    keys, but avni-server builds its S3 client with
+    AWSStaticCredentialsProvider (AWSS3Service.java) and never consults the
+    credential chain, so the profile is invisible to it. Production templates
+    IAM user keys onto the box for the same reason; matching that is also
+    better parity, because production's S3 calls are real and cost real latency
+    on the sync path.
+
+    The key is scoped to this one bucket, in a disposable account, and is
+    rotatable.
+  EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_cognito" {

@@ -91,3 +91,81 @@ resource "aws_s3_bucket_public_access_block" "media" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+# ---------------------------------------------------------------------------
+# S3 access for avni-server
+#
+# An IAM USER with a static key, not the instance profile, and that is not an
+# oversight. avni-server builds its S3 client with AWSStaticCredentialsProvider
+# (AWSS3Service.java:39-43) and never consults the credential chain, so the
+# instance profile this module otherwise relies on is invisible to it.
+# Production solves it the same way.
+#
+# Scoped to this one bucket. The instance role keeps everything else, so the
+# blast radius of this key is "the media bucket in a disposable account".
+#
+# Discovered the hard way: syncDetails is the first request of every simulated
+# sync and it calls S3 to sync extension files, so an environment without this
+# cannot serve a single sync.
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_user" "media" {
+  count = var.enable_media_bucket ? 1 : 0
+
+  name = "${local.name}-media"
+  tags = { Name = "${local.name}-media" }
+}
+
+data "aws_iam_policy_document" "media" {
+  count = var.enable_media_bucket ? 1 : 0
+
+  statement {
+    sid     = "ListTheBucket"
+    actions = ["s3:ListBucket", "s3:GetBucketLocation"]
+    # Listing is a bucket-level action, so it takes the bucket ARN rather than
+    # an object path. Getting this wrong yields AccessDenied on extension sync
+    # while object reads appear to work.
+    resources = [aws_s3_bucket.media[0].arn]
+  }
+
+  statement {
+    sid       = "ReadWriteObjects"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.media[0].arn}/*"]
+  }
+}
+
+resource "aws_iam_user_policy" "media" {
+  count = var.enable_media_bucket ? 1 : 0
+
+  name   = "${local.name}-media"
+  user   = aws_iam_user.media[0].name
+  policy = data.aws_iam_policy_document.media[0].json
+}
+
+# The secret is written to SSM rather than returned as an output, so it never
+# enters the parity report, a log, or a terminal. Ansible reads it at run time
+# the same way it reads the New Relic licence key.
+resource "aws_iam_access_key" "media" {
+  count = var.enable_media_bucket ? 1 : 0
+
+  user = aws_iam_user.media[0].name
+}
+
+resource "aws_ssm_parameter" "media_access_key_id" {
+  count = var.enable_media_bucket ? 1 : 0
+
+  name  = "/avni/${var.environment}/media-access-key-id"
+  type  = "SecureString"
+  value = aws_iam_access_key.media[0].id
+  tags  = { Name = "${local.name}-media-access-key-id" }
+}
+
+resource "aws_ssm_parameter" "media_secret_access_key" {
+  count = var.enable_media_bucket ? 1 : 0
+
+  name  = "/avni/${var.environment}/media-secret-access-key"
+  type  = "SecureString"
+  value = aws_iam_access_key.media[0].secret
+  tags  = { Name = "${local.name}-media-secret-access-key" }
+}
