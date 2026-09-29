@@ -96,8 +96,15 @@ resolve() {
   KEY_ARN=$(aws_ kms describe-key --key-id alias/avni-tofu-state --query 'KeyMetadata.Arn' --output text) \
     || { echo "state KMS key not found" >&2; exit 1; }
 
+  # The public/private split is filtered in the shell, not in JMESPath.
+  # `HostedZones[?Name=='x.'&&!Config.PrivateZone]` looks right and returns
+  # NOTHING against a public zone whose Config.PrivateZone is False -- the
+  # CLI's JMESPath does not negate it the way it reads. Verified against the
+  # live account. In this script that silent empty result would have been read
+  # as "no zone exists".
   ZONE_ID=$(awsg_ route53 list-hosted-zones-by-name --dns-name "$ZONE_NAME" \
-    --query "HostedZones[?Name=='${ZONE_NAME}.'&&!Config.PrivateZone].Id" --output text | sed 's|/hostedzone/||')
+    --query "HostedZones[?Name=='${ZONE_NAME}.'].[Id,Config.PrivateZone]" --output text \
+    | awk '$2=="False"{print $1; exit}' | sed 's|/hostedzone/||')
   [ -n "$ZONE_ID" ] && [ "$ZONE_ID" != "None" ] || { echo "public hosted zone $ZONE_NAME not found" >&2; exit 1; }
 }
 

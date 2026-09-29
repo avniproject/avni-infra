@@ -44,8 +44,18 @@ fi
 # Idempotent. A second zone with the same name is legal in Route53 and would be
 # a disaster -- two zones, two sets of name servers, one delegation, and
 # resolution that depends on which one the delegation happens to point at.
+# The public/private split is filtered in the shell, not in JMESPath. The
+# obvious `HostedZones[?Name=='x.'&&!Config.PrivateZone]` returns NOTHING
+# against a public zone whose Config.PrivateZone is False -- the CLI's JMESPath
+# does not negate it the way it reads, verified against the live account.
+#
+# That bug is far worse HERE than anywhere else: an empty result reads as "no
+# zone exists", and this script would then have created a SECOND zone with the
+# same name -- exactly the duplicate the comment below warns about, caused by
+# the guard meant to prevent it.
 ID=$(aws_ route53 list-hosted-zones-by-name --dns-name "$ZONE" \
-      --query "HostedZones[?Name=='${ZONE}.'&&!Config.PrivateZone].Id" --output text)
+      --query "HostedZones[?Name=='${ZONE}.'].[Id,Config.PrivateZone]" --output text \
+      | awk '$2=="False"{print $1; exit}')
 
 if [ -n "$ID" ] && [ "$ID" != "None" ]; then
   echo "zone exists: $ID (reusing; NOT creating a second one)"
