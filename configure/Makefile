@@ -500,7 +500,18 @@ LOADTEST_WORK    := /tmp/avni-loadtest-deployables
 # openjdk-8-jdk, --extra-vars is the only thing that overrides it, and a target
 # written without it fails at first start with UnsupportedClassVersionError --
 # which reads like a build problem rather than a missing variable.
-LOADTEST_COMMON_VARS := "install_jdk":"true","java_apt_package":"openjdk-21-jdk"
+# install_jdk is a JSON BOOLEAN, not the string "true". deploy_app_to_servers.yml
+# gates the jdk role with `when: install_jdk`, and ansible-core 2.20 refuses a
+# non-boolean conditional:
+#
+#   Conditional result (True) was derived from value of type 'str'
+#   at "<CLI option '-e'>". Conditionals must have a boolean result.
+#
+# The configure play does not hit this because it includes the role
+# unconditionally -- so the bug only appears on the deploy-only path, which is
+# the one CI invokes. Every other environment's deploy target in this file still
+# passes the string and is broken the same way on this Ansible version.
+LOADTEST_COMMON_VARS := "install_jdk":true,"java_apt_package":"openjdk-21-jdk"
 
 check-loadtest-version:
 ifndef VERSION
