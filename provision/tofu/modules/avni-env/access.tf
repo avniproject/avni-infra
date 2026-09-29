@@ -67,8 +67,8 @@ data "aws_iam_policy_document" "instance" {
       "s3:ListBucket",
     ]
     resources = [
-      aws_s3_bucket.env.arn,
-      "${aws_s3_bucket.env.arn}/*",
+      data.aws_s3_bucket.env.arn,
+      "${data.aws_s3_bucket.env.arn}/*",
     ]
   }
 
@@ -79,7 +79,7 @@ data "aws_iam_policy_document" "instance" {
       "s3:PutObject",
       "s3:AbortMultipartUpload",
     ]
-    resources = ["${aws_s3_bucket.env.arn}/artefacts/*"]
+    resources = ["${data.aws_s3_bucket.env.arn}/artefacts/*"]
   }
 
   statement {

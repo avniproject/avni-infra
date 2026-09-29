@@ -13,65 +13,45 @@
 # NAT or attracts its per-GB processing charge.
 # ---------------------------------------------------------------------------
 
-resource "aws_s3_bucket" "env" {
-  bucket        = "${local.name}-${data.aws_caller_identity.current.account_id}"
-  force_destroy = true # test artefacts; the environment is disposable by design
-  tags          = { Name = local.name }
-}
-
-resource "aws_s3_bucket_public_access_block" "env" {
-  bucket                  = aws_s3_bucket.env.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "env" {
-  bucket = aws_s3_bucket.env.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "env" {
-  bucket = aws_s3_bucket.env.id
-
-  # Run artefacts accumulate per run and are only interesting until analysed.
-  rule {
-    id     = "expire-run-artefacts"
-    status = "Enabled"
-    filter {
-      prefix = "artefacts/"
-    }
-    expiration {
-      days = 90
-    }
-  }
-
-  # Deployables are small and their provenance matters for reading old runs,
-  # so they live longer than artefacts.
-  rule {
-    id     = "expire-old-deployables"
-    status = "Enabled"
-    filter {
-      prefix = "deployables/"
-    }
-    expiration {
-      days = 365
-    }
-  }
+# THE BUCKET IS NOT MANAGED HERE, DELIBERATELY. It is created once by
+# scripts/bootstrap-env-bucket.sh and read below with a data source.
+#
+# It used to be a module resource with force_destroy = true, commented "test
+# artefacts; the environment is disposable by design". That conflated the
+# bucket with its contents, and it defeated both of the bucket's own stated
+# purposes:
+#
+#   deployables/ exists "so a deploy never depends on whoever runs it having
+#   one locally" -- but destroying the bucket reinstates exactly that
+#   dependency, and every rebuild then needs someone to re-upload a 112 MB jar
+#   from their laptop. Observed, three rebuilds running.
+#
+#   artefacts/ exists because "the harness requires an outbound path for these,
+#   and a closed environment otherwise has none" -- so destroying it takes the
+#   run results with it. Those are the output of the whole exercise and the
+#   most expensive thing here to lose.
+#
+# The bucket is an INPUT and an OUTPUT, not part of the environment. It joins
+# the state bucket, the KMS key, the hosted zone and the baseline snapshot as
+# something that outlives a destroy. Lifecycle rules and encryption are set by
+# the bootstrap script, since the module no longer owns them.
+#
+# If this data source errors with "NoSuchBucket", the prerequisite has not been
+# run. That is the fix, not a module bug.
+data "aws_s3_bucket" "env" {
+  bucket = "${local.name}-${data.aws_caller_identity.current.account_id}"
 }
 
 # ---------------------------------------------------------------------------
-# Media bucket — off by default.
+# Media bucket
 #
-# Presigning is local and nothing validates the bucket's existence, so the
-# harness's requirement is a configured bucketName and a populated
-# organisation mediaDirectory, not an actual bucket. Create one only as a
-# deliberate choice.
+# Unlike the environment bucket above, this one IS module-managed and dies with
+# the environment. Its contents are extensions and media belonging to a
+# specific dataset, not inputs or outputs that outlive a rebuild. Revisit if
+# extensions ever become part of a durable org configuration.
+#
+# Not optional despite the variable name: syncDetails calls S3 to list
+# extension files, so an environment without this cannot serve a single sync.
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "media" {

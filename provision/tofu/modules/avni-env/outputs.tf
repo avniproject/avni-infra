@@ -40,7 +40,7 @@ output "db_master_secret_arn" {
 
 output "bucket" {
   description = "Environment bucket. artefacts/ for run output, deployables/ for jars."
-  value       = aws_s3_bucket.env.id
+  value       = data.aws_s3_bucket.env.id
 }
 
 output "instance_connect_endpoint_id" {
