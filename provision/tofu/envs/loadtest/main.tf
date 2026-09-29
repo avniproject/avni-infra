@@ -38,6 +38,17 @@ module "avni_env" {
   # so the caveat travels with the results rather than living here.
   enable_etl = false
 
+  # Injector off while the environment is only being verified and loaded with
+  # data. It is the largest EC2 line at ~USD 148/month and does nothing outside
+  # a run: the local injector position drives everything up to and including a
+  # smoke test, and the in-VPC one only matters for the quotable runs (#110
+  # task 5.4 measured the difference at ~16 ms against ~1.1 ms per request).
+  #
+  # TURN IT BACK ON BEFORE ANY QUOTABLE RUN. Its elastic IP does not survive a
+  # rebuild, so re-enabling it also means re-enrolling the new address in
+  # injector_allowed_cidrs.
+  enable_injector = false
+
   # Everything else takes the module defaults, which encode the decisions in
   # provision/OPENTOFU_LOADTEST_ENV_PLAN.md. Override here only to deviate
   # deliberately — and record the deviation in the parity report.

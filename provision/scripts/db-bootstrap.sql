@@ -52,3 +52,30 @@ $$;
 
 GRANT demo TO openchs WITH ADMIN OPTION;
 GRANT openchs_impl TO openchs WITH ADMIN OPTION;
+
+-- ---------------------------------------------------------------------------
+-- Grant the organisation's database role access to the tables.
+--
+-- SetOrganisationJdbcInterceptor issues `set role "<organisation.db_user>"` on
+-- every connection borrow -- for organisation 1 that role is openchs_impl, not
+-- openchs -- and the role owns nothing, so without this every authenticated
+-- request fails with "permission denied for table ..." while /ping stays green.
+--
+-- THIS FILE MUST BE RUN TWICE ON A FRESH DATABASE, and the two halves want
+-- opposite ordering:
+--
+--   The EXTENSIONS above must exist BEFORE avni-server starts, or Flyway dies
+--   on migration 1.64.5 with "function uuid_generate_v4() does not exist".
+--
+--   This GRANT covers tables that exist WHEN IT RUNS. Before Flyway that is
+--   almost nothing, so all ~488 migrated tables end up ungranted and the first
+--   authenticated request fails naming a table nobody wrote to.
+--
+-- So: run once before the first deploy, and again after migrations complete.
+-- The file is idempotent, so the second run is safe and cheap.
+--
+-- grant_all_on_all is Avni's own function, defined by its migrations and used
+-- by the application when creating an organisation. Preferable to hand-written
+-- GRANTs, which would drift from whatever Avni decides an org role should hold.
+-- ---------------------------------------------------------------------------
+SELECT grant_all_on_all((SELECT db_user FROM organisation WHERE id = 1));

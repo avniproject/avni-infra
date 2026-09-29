@@ -91,19 +91,8 @@ UPDATE user_group SET version = 1
 WHERE version IS NULL
   AND user_id = (SELECT id FROM users WHERE username = 'loadtest@openchs');
 
--- Grant the organisation's database role access to the tables.
---
--- This is the step whose absence produces `permission denied for table users`
--- on every authenticated request while /ping stays green.
--- SetOrganisationJdbcInterceptor issues `set role "<organisation.db_user>"` on
--- every connection borrow -- for organisation 1 that role is openchs_impl, not
--- openchs -- and the role owns nothing, so without grants it can read nothing.
---
--- grant_all_on_all is Avni's own function, defined by its migrations, and is
--- what the application uses when an organisation is created. Calling it is
--- preferable to hand-written GRANTs, which would drift from whatever Avni
--- decides an organisation role should hold.
-SELECT grant_all_on_all((SELECT db_user FROM organisation WHERE id = 1));
+-- The organisation's database role is granted by db-bootstrap.sql, which is
+-- an environment concern rather than a user one.
 
 COMMIT;
 
