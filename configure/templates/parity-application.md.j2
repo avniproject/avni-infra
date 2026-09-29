@@ -77,7 +77,8 @@ added secret cannot reach a report by accident.
 
 | | |
 |---|---|
-| New Relic agent | {{ 'attached' if parity_newrelic.stat.exists else '**ABSENT — results are not comparable to production**' }} |
+| New Relic agent jar | {{ 'present' if parity_newrelic.stat.exists else '**ABSENT**' }} |
+| Agent actually reporting | {% if 'connected to collector' in (parity_nr_connect.stdout | default('')) %}yes — `{{ parity_nr_connect.stdout }}`{% else %}**NO — {{ parity_nr_connect.stdout | default('no evidence in the journal') }}**{% endif %} |
 | App name | `{{ newrelic_app_name | default('unset') }}` |
 | Environment | `{{ newrelic_environment | default('unset') }}` |
 | Application logging | {{ newrelic_application_logging_enabled | default('unset') }} |
@@ -86,6 +87,13 @@ added secret cannot reach a report by accident.
 The agent is required for **parity**, not only for metrics: production runs it
 and it instruments the JVM at a cost. A rig without it is measurably faster than
 production for a reason unrelated to the code under test.
+
+**The jar being present is not evidence of reporting**, which is why both rows
+are here. That distinction is not theoretical: this environment ran with the
+agent attached, logging its own application name, and reaching New Relic not at
+all — the licence key was a User API key rather than an ingest key, and the
+agent failed with `UnknownHostException` against a collector hostname derived
+from it. A report checking only the jar called that "attached".
 
 ## Co-tenant workloads
 

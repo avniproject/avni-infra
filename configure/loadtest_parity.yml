@@ -64,10 +64,26 @@
       register: parity_java
       changed_when: false
 
-    - name: Confirm the New Relic agent is actually attached
+    - name: Confirm the New Relic agent jar is present
       ansible.builtin.stat:
         path: /opt/newrelic/newrelic.jar
       register: parity_newrelic
+
+    # Presence of the jar is NOT evidence of reporting, and treating it as such
+    # hid a real failure: the agent ran, logged its app name, and could not
+    # reach New Relic at all because the licence key was a User API key rather
+    # than an ingest key. It failed with UnknownHostException against a
+    # collector hostname derived from the key. The report said "attached".
+    #
+    # So ask the agent whether it connected.
+    - name: Ask whether the agent actually connected
+      ansible.builtin.shell: >-
+        journalctl -u avni_server_appserver --no-pager --since '-30 min'
+        | grep -aoE 'connected to collector\.[a-z0-9.-]+|Remote preconnect call failed[^:]*'
+        | tail -1
+      register: parity_nr_connect
+      changed_when: false
+      failed_when: false
 
     - name: Read the service state
       ansible.builtin.shell: systemctl is-active avni_server_appserver
