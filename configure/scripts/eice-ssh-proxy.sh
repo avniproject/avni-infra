@@ -14,6 +14,17 @@ set -euo pipefail
 INSTANCE_ID="$1"
 PROFILE="${AVNI_AWS_PROFILE:-avni-load-test}"
 REGION="${AVNI_AWS_REGION:-ap-south-1}"
+
+# Name the profile ONLY when nothing is already in the environment. Passing
+# --profile overrides exported credentials and sends the CLI back down the
+# assume-role path that needs an MFA code it cannot ask for -- and this runs as
+# an SSH ProxyCommand, where there is no terminal to ask on. Same rule as
+# provision/scripts/aws-session.sh and its siblings.
+if [ -n "${AWS_ACCESS_KEY_ID:-}" ]; then
+  aws_() { command aws "$@" --region "$REGION"; }
+else
+  aws_() { command aws "$@" --profile "$PROFILE" --region "$REGION"; }
+fi
 OS_USER="${AVNI_SSH_USER:-ubuntu}"
 PUBKEY="${AVNI_SSH_PUBKEY:-$HOME/.ssh/id_ed25519.pub}"
 
@@ -23,19 +34,16 @@ if [ ! -f "$PUBKEY" ]; then
   exit 1
 fi
 
-AZ=$(aws ec2 describe-instances \
-       --profile "$PROFILE" --region "$REGION" \
+AZ=$(aws_ ec2 describe-instances \
        --instance-ids "$INSTANCE_ID" \
        --query 'Reservations[0].Instances[0].Placement.AvailabilityZone' \
        --output text)
 
-aws ec2-instance-connect send-ssh-public-key \
-  --profile "$PROFILE" --region "$REGION" \
+aws_ ec2-instance-connect send-ssh-public-key \
   --instance-id "$INSTANCE_ID" \
   --instance-os-user "$OS_USER" \
   --availability-zone "$AZ" \
   --ssh-public-key "file://$PUBKEY" >/dev/null
 
-exec aws ec2-instance-connect open-tunnel \
-  --profile "$PROFILE" --region "$REGION" \
+exec aws_ ec2-instance-connect open-tunnel \
   --instance-id "$INSTANCE_ID"

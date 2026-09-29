@@ -441,6 +441,33 @@ deploy-snapshot-server-staging: check-app-zip-path check-vault-pwd-file
 
 AVNI_AWS_PROFILE ?= avni-load-test
 AVNI_AWS_REGION  ?= ap-south-1
+LOADTEST_TF_DIR  ?= ../provision/tofu/envs/loadtest
+
+# The database endpoint and the Secrets Manager ARN come from OpenTofu state,
+# because that is where they are actually true. group_vars/loadtest_vars.yml
+# references loadtest_db_host and loadtest_db_secret_name and defines neither
+# -- without this the first task touching the database config fails on an
+# undefined variable.
+#
+# Resolved inside the recipe and written to a JSON file, NOT held in a
+# `$(shell ...)` make variable. That is not a style preference. With empty or
+# missing state, `tofu output` prints a warning containing BACKTICKS --
+# "define an output ... with the `output` keyword" -- make captures it into the
+# variable, and the recipe shell then EXECUTES the backticked text. Observed:
+# `/bin/sh: output: command not found`, and the emptiness check passed on the
+# junk value instead of failing. Computing in the recipe keeps the text quoted
+# and the failure legible.
+#
+# Plan task 6.3 (publish endpoints to SSM) is the longer-term answer; reading
+# state keeps one source of truth until then.
+LOADTEST_VARS_JSON := $(LOADTEST_WORK)/extra-vars.json
+
+# Vault is optional here, unlike every other environment. The load-test vars
+# hold no secrets to encrypt -- the database password is read from Secrets
+# Manager at run time -- so demanding a vault password file would be friction
+# protecting nothing. Pass VAULT_PASSWORD_FILE and it is used; omit it and
+# nothing breaks.
+LOADTEST_VAULT_ARG = $(if $(VAULT_PASSWORD_FILE),--vault-password-file $(VAULT_PASSWORD_FILE),)
 LOADTEST_BUCKET  ?= avni-loadtest-$(shell aws sts get-caller-identity --profile $(AVNI_AWS_PROFILE) --query Account --output text 2>/dev/null)
 LOADTEST_INV     := inventory/loadtest/aws_ec2.yml
 LOADTEST_WORK    := /tmp/avni-loadtest-deployables
@@ -457,10 +484,45 @@ ifndef VERSION
 	$(error VERSION is undefined. Try: make loadtest-deploy-server VERSION=1.5.0)
 endif
 
-check-loadtest-profile:
-	@aws sts get-caller-identity --profile $(AVNI_AWS_PROFILE) >/dev/null 2>&1 || \
-	  (echo "Cannot authenticate with AWS profile '$(AVNI_AWS_PROFILE)'."; \
-	   echo "Configure it in ~/.aws/config, or pass AVNI_AWS_PROFILE=<name>."; exit 1)
+# Credentials must be in the ENVIRONMENT, not merely available as a profile.
+# tofu's KMS key provider cannot read --profile and cannot answer an MFA
+# prompt, and the SSH ProxyCommand runs where there is no terminal to prompt
+# on. One credential model for the whole environment avoids the class of bug
+# where half the tooling resolves to a different identity than the other half.
+check-loadtest-creds:
+	@test -n "$$AWS_ACCESS_KEY_ID" || \
+	  (echo "No AWS credentials in the environment."; \
+	   echo "  . ../provision/scripts/aws-session.sh"; \
+	   echo "It exports them, verifies the account, and refuses if it is not the load-test one."; exit 1)
+	@aws sts get-caller-identity >/dev/null 2>&1 || \
+	  (echo "Exported AWS credentials do not work — they may have expired."; \
+	   echo "  . ../provision/scripts/aws-session.sh"; exit 1)
+
+# Write the OpenTofu-derived values the playbooks need. group_vars references
+# loadtest_db_host and loadtest_db_secret_name and defines neither, so without
+# this the first task touching the database config dies on an undefined
+# variable that names neither OpenTofu nor the environment.
+check-loadtest-outputs: check-loadtest-creds
+	@mkdir -p $(LOADTEST_WORK)
+	@set -e; \
+	 host=$$(tofu -chdir=$(LOADTEST_TF_DIR) output -raw db_endpoint 2>/dev/null || true); \
+	 secret=$$(tofu -chdir=$(LOADTEST_TF_DIR) output -raw db_master_secret_arn 2>/dev/null || true); \
+	 host=$${host%%:*}; \
+	 case "$$host" in \
+	   ""|*[!a-zA-Z0-9.-]*) \
+	     echo "No usable db_endpoint in OpenTofu state — is the environment applied?"; \
+	     echo "  tofu -chdir=$(LOADTEST_TF_DIR) apply"; \
+	     exit 1 ;; \
+	 esac; \
+	 case "$$secret" in \
+	   arn:aws:secretsmanager:*) ;; \
+	   *) echo "No usable db_master_secret_arn in OpenTofu state."; exit 1 ;; \
+	 esac; \
+	 printf '{"loadtest_db_host":"%s","loadtest_db_secret_name":"%s"}\n' "$$host" "$$secret" > $(LOADTEST_VARS_JSON); \
+	 echo "database: $$host"
+
+# Kept as an alias so existing targets and muscle memory keep working.
+check-loadtest-profile: check-loadtest-creds
 
 ## Show which hosts the dynamic inventory currently finds.
 loadtest-hosts: check-loadtest-profile
@@ -495,24 +557,27 @@ loadtest-fetch-%: check-loadtest-version check-loadtest-profile
 	  $(LOADTEST_WORK)/avni-$*.jar --profile $(AVNI_AWS_PROFILE)
 
 ## Full configure: base, security, jdk, newrelic, webapp, server.
-loadtest-configure-server: check-loadtest-version check-vault-pwd-file loadtest-fetch-server
+loadtest-configure-server: check-loadtest-version check-loadtest-outputs loadtest-fetch-server
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
-	AWS_PROFILE=$(AVNI_AWS_PROFILE) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook loadtest_avni_servers.yml -i $(LOADTEST_INV) \
-	  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	  $(LOADTEST_VAULT_ARG) \
+	  --extra-vars @$(LOADTEST_VARS_JSON) \
 	  --extra-vars '{$(LOADTEST_COMMON_VARS),"application_user":"avni-server-user"}'
 
 ## Deploy only: stop, replace the jar, start.
-loadtest-deploy-server: check-loadtest-version check-vault-pwd-file loadtest-fetch-server
+loadtest-deploy-server: check-loadtest-version check-loadtest-outputs loadtest-fetch-server
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
-	AWS_PROFILE=$(AVNI_AWS_PROFILE) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook deploy_app_to_servers.yml -i $(LOADTEST_INV) \
-	  --vault-password-file ${VAULT_PASSWORD_FILE} \
-	  --extra-vars '{$(LOADTEST_COMMON_VARS),"deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"loadtest","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/loadtest_vars.yml","deploy_app_env_secret_vars_file":"group_vars/loadtest_vars.yml"}'
+	  $(LOADTEST_VAULT_ARG) \
+	  --extra-vars '{$(LOADTEST_COMMON_VARS),"deploy_app_name":"avni","deploy_app_hosts":"avniservers","deploy_app_remote_user":"avni-server-user","deploy_app_env":"loadtest","deploy_app_role":"avni_appserver","deploy_app_env_vars_file":"group_vars/loadtest_vars.yml","deploy_app_env_secret_vars_file":"group_vars/loadtest_vars.yml"}' \
+	  --extra-vars @$(LOADTEST_VARS_JSON)
 
-loadtest-configure-etl: check-loadtest-version check-vault-pwd-file loadtest-fetch-etl
+loadtest-configure-etl: check-loadtest-version check-loadtest-outputs loadtest-fetch-etl
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-etl.jar \
-	AWS_PROFILE=$(AVNI_AWS_PROFILE) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
+	AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook loadtest_etl_servers.yml -i $(LOADTEST_INV) \
-	  --vault-password-file ${VAULT_PASSWORD_FILE} \
+	  $(LOADTEST_VAULT_ARG) \
+	  --extra-vars @$(LOADTEST_VARS_JSON) \
 	  --extra-vars '{"install_jdk":"true","java_apt_package":"openjdk-17-jdk"}'
