@@ -57,6 +57,60 @@ else
   CRED_SOURCE="profile $PROFILE"
 fi
 
+# start/stop-db-instance fails for two very different reasons and the difference
+# matters. InvalidDBInstanceState means the instance is already in, or heading
+# for, the state we asked for — benign. EVERYTHING ELSE is a real failure, and
+# InsufficientDBInstanceCapacity is the one that bites: AWS has no room for the
+# instance class in the instance's AZ, so the call is rejected outright.
+#
+# This used to be `2>/dev/null || echo "already starting or running"`, which
+# reported exactly that for a capacity rejection. On 2026-09-30 `start` printed
+# a reassuring message, exited 0, and left the database stopped — the 502 that
+# followed looked like an application fault. Discarding stderr on a call that
+# can legitimately fail is how a cost-control script lies to you.
+rds_status() {
+  aws_ rds describe-db-instances --db-instance-identifier "$DB_INSTANCE" \
+    --query 'DBInstances[0].DBInstanceStatus' --output text 2>/dev/null || echo absent
+}
+
+# Sets RDS_ERR to the raw AWS error when it returns non-zero, so the caller can
+# offer advice specific to the failure instead of guessing.
+RDS_ERR=""
+rds_transition() {
+  local verb="$1" gerund="$2" out rc now
+  set +e
+  out=$(aws_ rds "${verb}-db-instance" --db-instance-identifier "$DB_INSTANCE" \
+          --query 'DBInstance.DBInstanceStatus' --output text 2>&1)
+  rc=$?
+  set -e
+  RDS_ERR=""
+
+  if [ "$rc" -eq 0 ]; then
+    echo "rds: $gerund $DB_INSTANCE (status: $out)"
+    return 0
+  fi
+
+  # Ask what state the instance is actually in rather than parsing the message.
+  # "already stopped" and "cannot stop, it has a read replica" are BOTH
+  # InvalidDBInstanceState, so treating that code as benign would swallow the
+  # replica case — exactly the failure this function exists to surface. Only the
+  # status distinguishes them.
+  now=$(rds_status)
+  case "$verb:$now" in
+    start:available|start:starting|start:backing-up|start:modifying)
+      echo "rds: $DB_INSTANCE is already $now, nothing to do"; return 0 ;;
+    stop:stopped|stop:stopping)
+      echo "rds: $DB_INSTANCE is already $now, nothing to do"; return 0 ;;
+  esac
+
+  RDS_ERR=$(printf '%s\n' "$out" | sed '/^[[:space:]]*$/d')
+  {
+    echo "rds: FAILED to $verb $DB_INSTANCE (current status: $now)"
+    printf '%s\n' "$RDS_ERR" | sed 's/^/      /'
+  } >&2
+  return 1
+}
+
 usage() {
   cat >&2 <<USAGE
 usage: $(basename "$0") {status|stop|start|stop-idle|destroy|hold|release}
@@ -163,16 +217,17 @@ case "$CMD" in
 
     # A read replica blocks stopping the primary. Say so plainly rather than
     # letting the API error stand on its own.
-    if aws_ rds stop-db-instance --db-instance-identifier "$DB_INSTANCE" \
-         --query 'DBInstance.DBInstanceStatus' --output text 2>/dev/null; then
-      echo "rds: stopping $DB_INSTANCE"
-    else
-      echo "rds: could not stop $DB_INSTANCE. It is absent, already stopped, or has a" >&2
-      echo "     read replica — RDS forbids stopping a primary that has one, so destroy" >&2
-      echo "     the replica first. 'status' distinguishes these." >&2
+    RDS_RC=0
+    rds_transition stop stopping || RDS_RC=1
+    if [ "$RDS_RC" -ne 0 ] && printf '%s' "$RDS_ERR" | grep -q 'InvalidDBInstanceState'; then
+      echo "      RDS forbids stopping a primary that has a read replica. If one exists," >&2
+      echo "      destroy it first. 'status' shows replicas." >&2
     fi
     echo
     echo "Storage still bills (~USD 90/month). Beyond a week, destroy instead."
+    # EC2 is stopped by now either way; a non-zero exit says the DB is still
+    # billing as running, which is the whole point of having stopped.
+    exit "$RDS_RC"
     ;;
 
   start)
@@ -180,9 +235,14 @@ case "$CMD" in
     IDS=$(instance_ids)
     # RDS first: it takes minutes and the app is useless without it, so
     # starting it first overlaps the waits rather than serialising them.
-    aws_ rds start-db-instance --db-instance-identifier "$DB_INSTANCE" \
-      --query 'DBInstance.DBInstanceStatus' --output text 2>/dev/null \
-      || echo "rds: already starting or running"
+    RDS_RC=0
+    rds_transition start starting || RDS_RC=1
+    if [ "$RDS_RC" -ne 0 ] && printf '%s' "$RDS_ERR" | grep -q 'InsufficientDBInstanceCapacity'; then
+      echo "      AWS has no room for this instance class in the AZ the instance is" >&2
+      echo "      pinned to. Usually transient — retry. If it persists, restore the" >&2
+      echo "      latest snapshot into another AZ or a smaller class; a stopped" >&2
+      echo "      instance cannot have its class changed in place." >&2
+    fi
     if [ -n "$IDS" ]; then
       # shellcheck disable=SC2086
       aws_ ec2 start-instances --instance-ids $IDS --query 'StartingInstances[].{id:InstanceId,state:CurrentState.Name}' --output table
@@ -191,6 +251,9 @@ case "$CMD" in
     echo "Instance IDs are unchanged by stop/start, so the Ansible dynamic"
     echo "inventory still resolves. Public IPs are NOT: the injector keeps its"
     echo "elastic IP, but re-check anything else you enrolled."
+    # The app server comes up regardless and will serve 502 against a database
+    # that never started, so a non-zero exit here is the only honest signal.
+    exit "$RDS_RC"
     ;;
 
   destroy)
