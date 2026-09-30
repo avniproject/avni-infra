@@ -19,6 +19,11 @@ module "avni_env" {
   # oversight.
   injector_allowed_cidrs = var.injector_allowed_cidrs
 
+  # Normally the module default. Overridden only to park the environment
+  # cheaply while idle — see the warning in terraform.tfvars. A measured run
+  # must have this back at db.m6g.large.
+  db_instance_class = var.db_instance_class
+
   # ETL host off: testing under concurrent ETL load is deferred.
   #
   # This is a deliberate deviation, not a saving, and it is worth being precise
