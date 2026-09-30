@@ -79,3 +79,31 @@ GRANT openchs_impl TO openchs WITH ADMIN OPTION;
 -- GRANTs, which would drift from whatever Avni decides an org role should hold.
 -- ---------------------------------------------------------------------------
 SELECT grant_all_on_all((SELECT db_user FROM organisation WHERE id = 1));
+
+-- ---------------------------------------------------------------------------
+-- Drop the duplicate observation GIN indexes that the migrations create.
+--
+-- V1_03 creates idx_program_enrolment_obs and idx_program_encounter_obs.
+-- V1_227.4 then creates program_enrolment_obs_idx and program_encounter_obs_idx
+-- over the IDENTICAL column and expression -- GIN (observations jsonb_path_ops)
+-- -- and CREATE INDEX IF NOT EXISTS dedupes on name, not definition, so both
+-- survive. No migration drops either: `drop index ... obs` appears nowhere in
+-- the 488.
+--
+-- PRODUCTION DOES NOT HAVE THE V1_03 PAIR. It still has idx_individual_obs, so
+-- V1_03 certainly ran there; it is missing exactly the two that had duplicates
+-- and kept the one that did not. Someone dropped them by hand, outside Flyway,
+-- and nothing records that -- so every database built from scratch, including
+-- this one on every rebuild, reintroduces them.
+--
+-- This matters for measurement, not for storage. Two redundant GIN indexes are
+-- two extra index writes on every program_encounter and program_enrolment
+-- insert, which makes the load-test write path SLOWER than the production one
+-- it is supposed to model. Both tables are empty in the current dataset, so the
+-- cost is zero today and arrives with the first program data.
+--
+-- Harmless on the first of this file's two runs, when the tables do not exist
+-- yet: DROP INDEX IF EXISTS on a missing index is a no-op.
+-- ---------------------------------------------------------------------------
+DROP INDEX IF EXISTS idx_program_encounter_obs;
+DROP INDEX IF EXISTS idx_program_enrolment_obs;
