@@ -36,11 +36,22 @@ resource "aws_db_parameter_group" "this" {
     value = "all"
   }
 
-  # Slow query log. 1000ms is a starting point, not a considered threshold —
-  # tune it once a run has shown what normal looks like.
+  # Slow query log, matched to production 1 Oct 2026. This was 1000ms, described
+  # in this comment as "a starting point, not a considered threshold". Production's
+  # considered threshold is 5000ms, so that is what this now uses.
+  #
+  # **It is not in production's parameter group.** It is set with ALTER DATABASE,
+  # which `describe-db-parameters` cannot see — a group-to-group comparison reports
+  # production as having no slow query log at all, which is how this was first
+  # recorded and was wrong. Only `pg_settings` shows it, as `source = database`.
+  # Worth remembering whenever parity is checked by comparing groups alone.
+  #
+  # 1000ms also costs more than it looks on a rig: every statement between one and
+  # five seconds becomes a log write that production would not make, at load-test
+  # request rates, competing for the same IOPS being measured.
   parameter {
     name  = "log_min_duration_statement"
-    value = "1000"
+    value = tostring(var.db_log_min_duration_ms)
   }
 
   # Production peaks at 122-130 connections, above the ~100 Tomcat JDBC default
@@ -49,8 +60,31 @@ resource "aws_db_parameter_group" "this" {
   # not be the thing that caps it first.
   parameter {
     name         = "max_connections"
-    value        = tostring(var.db_max_connections)
+    value        = var.db_max_connections
     apply_method = "pending-reboot"
+  }
+
+  # ---------------------------------------------------------------------------
+  # Timeouts, matched to production 1 Oct 2026.
+  #
+  # Both were unset or effectively unset here, and both matter MORE on a load rig
+  # than in production: this is precisely where a pathological query or an
+  # abandoned transaction appears. An un-killed statement holds its snapshot,
+  # which blocks vacuum, which carries bloat into the NEXT run -- so the damage
+  # outlives the run that caused it.
+  # ---------------------------------------------------------------------------
+
+  # Production: 7200000. Was unset, so a runaway query here ran forever.
+  parameter {
+    name  = "statement_timeout"
+    value = tostring(var.db_statement_timeout_ms)
+  }
+
+  # Production: 3600000. Was the engine default of 86400000 -- an injector that
+  # dies mid-run left a transaction open for a day.
+  parameter {
+    name  = "idle_in_transaction_session_timeout"
+    value = tostring(var.db_idle_in_transaction_timeout_ms)
   }
 
   # Left on for realism. Production has it on, and an autovacuum storm during a

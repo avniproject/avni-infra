@@ -196,9 +196,40 @@ variable "replica_instance_class" {
 }
 
 variable "db_max_connections" {
-  description = "RDS parameter group max_connections. Production peaks at 122-130, above the ~100 Tomcat JDBC default that caused the July pool exhaustion."
+  description = <<-EOT
+    RDS parameter group max_connections, as a STRING so it can carry RDS's own
+    expression rather than a constant.
+
+    The default is production's exact value, captured 1 Oct 2026 from
+    `openchs-postgres-modified-16`. A constant was 200 here, which is ample for
+    the pool (production peaks at 122-130, above the ~100 Tomcat JDBC default
+    that caused the July pool exhaustion) but wrong for parity in a way that is
+    not about capacity: `work_mem` is allocated per sort per connection, so the
+    ceiling sets worst-case memory, and a constant does not track a resize the
+    way an expression over instance memory does.
+
+    On a db.m6g.large this resolves to roughly 890.
+  EOT
+  type        = string
+  default     = "LEAST({DBInstanceClassMemory/9531392},5000)"
+}
+
+variable "db_log_min_duration_ms" {
+  description = "Slow query log threshold. Production's value, captured 1 Oct 2026 from pg_settings — it is set there with ALTER DATABASE, not in the parameter group, so a group comparison does not reveal it."
   type        = number
-  default     = 200
+  default     = 5000
+}
+
+variable "db_statement_timeout_ms" {
+  description = "Kill a statement after this long. Production's value, captured 1 Oct 2026. 0 disables it, which is what this environment had."
+  type        = number
+  default     = 7200000
+}
+
+variable "db_idle_in_transaction_timeout_ms" {
+  description = "Kill a session idle inside a transaction after this long. Production's value; the engine default of 86400000 leaves an abandoned transaction blocking vacuum for a day."
+  type        = number
+  default     = 3600000
 }
 
 variable "db_autovacuum" {
