@@ -76,6 +76,11 @@ rds_status() {
 # Sets RDS_ERR to the raw AWS error when it returns non-zero, so the caller can
 # offer advice specific to the failure instead of guessing.
 RDS_ERR=""
+
+# How long to keep retrying a capacity rejection, and how long to wait between
+# attempts. Overridable so a scheduled caller can be more patient than a person.
+RDS_RETRY_SECONDS="${AVNI_RDS_RETRY_SECONDS:-600}"
+RDS_RETRY_INTERVAL="${AVNI_RDS_RETRY_INTERVAL:-120}"
 rds_transition() {
   local verb="$1" gerund="$2" out rc now
   set +e
@@ -109,6 +114,51 @@ rds_transition() {
     printf '%s\n' "$RDS_ERR" | sed 's/^/      /'
   } >&2
   return 1
+}
+
+# RETRY, BUT ONLY FOR CAPACITY.
+#
+#   InsufficientDBInstanceCapacity means AWS had no room for this class in the
+#   instance's AZ AT THAT MOMENT. Observed on 30 Sep and 1 Oct 2026: rejected on
+#   the first attempt, accepted ~120s later, both times. So it is not a shortage
+#   to work around, it is a race to re-enter.
+#
+#   A person can retry by hand; a schedule cannot. #109 task 4.4 wants an
+#   unattended stop, which implies an unattended start, and a single-shot start
+#   would simply fail on a morning like those two. Hence a bounded retry here
+#   rather than in a caller.
+#
+# EVERYTHING ELSE FAILS IMMEDIATELY. Retrying DBInstanceNotFound, or a stop
+# blocked by a read replica, would turn a clear error into a ten-minute silence
+# and then the same error -- which is the failure mode the error handling in this
+# file exists to prevent. The distinction is RDS_ERR, set above.
+rds_transition_retrying() {
+  local verb="$1" gerund="$2" deadline attempt=1
+  deadline=$(( $(date +%s) + RDS_RETRY_SECONDS ))
+
+  while :; do
+    if rds_transition "$verb" "$gerund"; then return 0; fi
+
+    printf '%s' "$RDS_ERR" | grep -q 'InsufficientDBInstanceCapacity' || return 1
+
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      {
+        echo "rds: gave up after ${attempt} attempts over ~${RDS_RETRY_SECONDS}s."
+        echo "      The AZ has not freed up a $(aws_ rds describe-db-instances \
+                --db-instance-identifier "$DB_INSTANCE" \
+                --query 'DBInstances[0].DBInstanceClass' --output text 2>/dev/null) slot."
+        echo "      This instance is pinned to one AZ only by where it was created, and the"
+        echo "      subnet group already spans three. Restoring the latest snapshot into"
+        echo "      another AZ is the durable fix -- and the only way to change the class of"
+        echo "      a stopped instance. See issue #109 task 4.3."
+      } >&2
+      return 1
+    fi
+
+    echo "rds: no capacity in the AZ (attempt ${attempt}); retrying in ${RDS_RETRY_INTERVAL}s" >&2
+    attempt=$(( attempt + 1 ))
+    sleep "$RDS_RETRY_INTERVAL"
+  done
 }
 
 usage() {
@@ -218,7 +268,7 @@ case "$CMD" in
     # A read replica blocks stopping the primary. Say so plainly rather than
     # letting the API error stand on its own.
     RDS_RC=0
-    rds_transition stop stopping || RDS_RC=1
+    rds_transition_retrying stop stopping || RDS_RC=1
     if [ "$RDS_RC" -ne 0 ] && printf '%s' "$RDS_ERR" | grep -q 'InvalidDBInstanceState'; then
       echo "      RDS forbids stopping a primary that has a read replica. If one exists," >&2
       echo "      destroy it first. 'status' shows replicas." >&2
@@ -236,7 +286,7 @@ case "$CMD" in
     # RDS first: it takes minutes and the app is useless without it, so
     # starting it first overlaps the waits rather than serialising them.
     RDS_RC=0
-    rds_transition start starting || RDS_RC=1
+    rds_transition_retrying start starting || RDS_RC=1
     if [ "$RDS_RC" -ne 0 ] && printf '%s' "$RDS_ERR" | grep -q 'InsufficientDBInstanceCapacity'; then
       echo "      AWS has no room for this instance class in the AZ the instance is" >&2
       echo "      pinned to. Usually transient — retry. If it persists, restore the" >&2
