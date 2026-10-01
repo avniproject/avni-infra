@@ -22,9 +22,9 @@ locals {
 
     | | This environment | Production |
     |---|---|---|
-    | App server | ${var.app_instance_class} (fixed) | t3.large (burstable, unlimited) |
-    | ETL | ${var.enable_etl ? var.etl_instance_class : "absent"} (fixed) | t3.small (burstable, unlimited) |
-    | Database | ${var.db_instance_class} (fixed) | db.t4g.large (burstable, unlimited) |
+    | App server | ${var.app_instance_class} (${local.perf_class[var.app_instance_class]}) | t3.large (burstable, unlimited) |
+    | ETL | ${var.enable_etl ? var.etl_instance_class : "absent"} (${var.enable_etl ? local.perf_class[var.etl_instance_class] : "n/a"}) | t3.small (burstable, unlimited) |
+    | Database | ${var.db_instance_class} (${local.perf_class[var.db_instance_class]}) | db.t4g.large (burstable, unlimited) |
     | Read replica | ${var.enable_read_replica ? var.replica_instance_class : "absent"} | db.t4g.medium |
     | Architecture | arm64 | x86_64 app, arm64 database |
 
@@ -106,6 +106,22 @@ locals {
 
     ${var.enable_cognito ? "Cognito is present, so the auth-cost offset (B2) can be measured here: run the same simulation with AUTH_MODE=none and AUTH_MODE=cognito and record the delta. State which mode produced this run." : "**Authentication is off and no Cognito pool exists, so the auth-cost offset is unmeasured.** `authenticateByToken` — JWT verification plus a user lookup on every request — is absent from every number this environment produces, which understates server-side latency by an unmeasured per-request constant. Deferred deliberately; set `enable_cognito` when the offset is wanted. Until then, a green result here is not automatically a green result in production."}
   EOT
+}
+
+# Whether a class is fixed-performance or burstable, derived from its family
+# rather than asserted.
+#
+# This table used to read "(fixed)" as a literal next to the class name. That is
+# true of the m6g/m7g/c6g defaults and false the moment anyone sets a t-family
+# class -- which is exactly what a cost-driven override does. A parity report
+# that calls a burstable instance fixed-performance is worse than no parity
+# report: it is the document a reader trusts when deciding whether a result
+# means anything, and t-family instances throttle once CPU credits are gone,
+# which is precisely the failure a sustained load test provokes.
+locals {
+  perf_class = { for c in toset([var.app_instance_class, var.etl_instance_class, var.db_instance_class]) :
+    c => startswith(replace(c, "db.", ""), "t") ? "BURSTABLE -- throttles when credits are exhausted" : "fixed"
+  }
 }
 
 resource "local_file" "parity" {
