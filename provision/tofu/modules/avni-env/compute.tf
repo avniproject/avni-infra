@@ -49,6 +49,17 @@ locals {
         root_volume   = 60
         sg            = aws_security_group.app.id
         public        = false
+        # 1-minute CloudWatch rather than the 5-minute default.
+        #
+        # **A knee is a shape, and 5-minute buckets cannot show one.** The case 1
+        # sweep of 5 Oct 2026 found the app server at 99.25% CPU, which is enough
+        # to name it as the constraint, but every run was shorter than one bucket
+        # -- the 15 s run took 135 s -- so the saturation curve was unreadable.
+        # A finding was defensible and its shape was not.
+        #
+        # ~USD 2.10 a month per instance, which against this environment's ~USD
+        # 290 running is not a cost worth thinking about.
+        monitoring = true
       }
     },
     var.enable_etl ? {
@@ -57,6 +68,10 @@ locals {
         root_volume   = 40
         sg            = aws_security_group.etl.id
         public        = false
+        # Co-tenant contention is the thing F5.4 exists to measure, and it is
+        # measured by comparing this host's CPU against the app server's during
+        # the same run. Same granularity or the comparison is not one.
+        monitoring = true
       }
     } : {},
     var.enable_injector ? {
@@ -70,6 +85,11 @@ locals {
         # leave via the NAT gateway, making the NAT's address the one to enrol
         # and charging NAT data processing for every request of every run.
         public = true
+        # The injector's own CPU is what distinguishes a saturated server from a
+        # saturated client, and that claim is only as good as its resolution. The
+        # 5 Oct runs leaned on a load average read over SSH after the fact, which
+        # is a snapshot rather than a curve.
+        monitoring = true
       }
     } : {},
     var.enable_loader ? {
@@ -78,6 +98,9 @@ locals {
         root_volume   = 40
         sg            = aws_security_group.loader.id
         public        = false
+        # Nothing is measured while this exists -- it loads a dataset and is
+        # destroyed. Basic monitoring is enough to see that it is alive.
+        monitoring = false
       }
     } : {},
   )
@@ -104,6 +127,8 @@ resource "aws_instance" "host" {
   # rather than by network position, and no host has an inbound rule from a
   # public address.
   associate_public_ip_address = each.value.public
+
+  monitoring = each.value.monitoring
 
   root_block_device {
     volume_size           = each.value.root_volume
