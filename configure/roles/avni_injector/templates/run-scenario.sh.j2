@@ -132,4 +132,19 @@ aws s3 cp --recursive --only-show-errors "$STAGE" "$DEST"
 echo "published. exit ${RC}"
 echo
 echo "  aws s3 ls ${DEST}/"
+echo
+# The run log is GENERATED from this prefix rather than appended to by this host.
+#
+# This host has no git credentials on purpose -- the harness arrives as a tarball
+# of one commit precisely so a disposable instance never holds a deploy key -- and
+# it is destroyed between campaigns. So it cannot write to avni-perf.
+#
+# Generating the doc from artefacts/ is better than appending anyway: the prefix is
+# append-only and durable, so it is the source of truth. A regenerated doc cannot
+# drift from it, a half-finished upload cannot leave a half-row, and runs nobody
+# remembered to log still appear.
+echo "Update the run log from a machine with the repo (regenerates from artefacts/,"
+echo "idempotent, back-fills anything missing):"
+echo
+echo "  make -C <avni-perf> run_log"
 exit "$RC"
