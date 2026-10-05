@@ -71,12 +71,46 @@ case " $* " in
   *) echo "WARNING: no -DSERVER_BUILD. The run will record it as 'unrecorded'." >&2 ;;
 esac
 
+# CACHE_POLICY is a judgement nothing on disk records, so it can only be asked
+# for. It is worth asking loudly: on 5 Oct 2026 two runs against a server that
+# had been up for three minutes recorded `warm-incidental-no-reset` -- the
+# default, not an observation -- and cache state turned out to be worth a factor
+# of three on throughput. A mislabelled run is worse than an unlabelled one.
+case " $* " in
+  *" -DCACHE_POLICY="*) ;;
+  *) echo "WARNING: no -DCACHE_POLICY. The run will record it as 'unrecorded'." >&2
+     echo "         Cache state was worth 3x on throughput here, so this is not a" >&2
+     echo "         formality -- see avni-perf docs/findings-case1.md." >&2 ;;
+esac
+
+# AUTOVACUUM is NOT a judgement -- it is `SHOW autovacuum`, and the staged
+# context already carries it as a row of pg_settings.csv, which this script
+# copies into the run directory anyway. Deriving it beats asking an operator to
+# retype a fact sitting on disk beside the run: both warm reruns of 5 Oct
+# recorded `unrecorded` precisely because nobody retyped it.
+AUTO_ARGS=()
+case " $* " in
+  *" -DAUTOVACUUM="*) ;;
+  *)
+    AV="$(awk -F, '$1 == "autovacuum" { print $2; exit }' \
+            "{{ injector_home }}/context/pg_settings.csv" 2>/dev/null || true)"
+    if [ -n "$AV" ]; then
+      AUTO_ARGS+=("-DAUTOVACUUM=$AV")
+    else
+      echo "WARNING: no -DAUTOVACUUM, and no autovacuum row in the staged" >&2
+      echo "         pg_settings.csv. The run will record it as 'unrecorded'." >&2
+    fi
+    ;;
+esac
+
 mkdir -p "$STAGE"
 echo "run        ${RUN_ID}"
 echo "harness    ${SHA}"
 echo "injector   ${INSTANCE_ID} (${INSTANCE_TYPE})"
 echo "target     ${BASE_URL}"
 echo "results    ${DEST}"
+# Printed because a derived value that nobody sees is a value nobody checks.
+[ ${#AUTO_ARGS[@]} -eq 0 ] || echo "autovacuum ${AUTO_ARGS[0]#-DAUTOVACUUM=} (from staged pg_settings.csv)"
 echo
 
 # --- environment context, captured BEFORE the run -------------------------
@@ -112,6 +146,7 @@ RC=0
     -DBASE_URL="${BASE_URL}" \
     -DINJECTOR="${INSTANCE_ID}" \
     -DSIMULATION_SHA="${SHA}" \
+    ${AUTO_ARGS[@]+"${AUTO_ARGS[@]}"} \
     "$@" ) 2>&1 | tee "$STAGE/gradle.log" || RC=$?
 
 # --- collect --------------------------------------------------------------
