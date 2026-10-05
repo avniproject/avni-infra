@@ -49,10 +49,14 @@ module "avni_env" {
   # smoke test, and the in-VPC one only matters for the quotable runs (#110
   # task 5.4 measured the difference at ~16 ms against ~1.1 ms per request).
   #
-  # TURN IT BACK ON BEFORE ANY QUOTABLE RUN. Its elastic IP does not survive a
-  # rebuild, so re-enabling it also means re-enrolling the new address in
-  # injector_allowed_cidrs.
-  enable_injector = false
+  # Re-enabled 2026-10-05 to prepare the first quotable run. Its elastic IP does
+  # not survive a rebuild, so this also means enrolling the new address in
+  # injector_allowed_cidrs -- the module plans to REMOVE the ALB ingress rule if
+  # that variable is ever empty, so the two changes belong in one sitting.
+  #
+  # Turn it off again between campaigns: it is the largest EC2 line at
+  # ~USD 148/month and does nothing outside a run.
+  enable_injector = true
 
   # Everything else takes the module defaults, which encode the decisions in
   # provision/OPENTOFU_LOADTEST_ENV_PLAN.md. Override here only to deviate

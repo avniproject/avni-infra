@@ -39,13 +39,39 @@
   remote_user: ubuntu
   vars:
     update_apt_cache: true
+    # The security role guards its hardening on `application_user != "root"`.
+    # It does not create the user -- the tasks install sudo, limit su to the
+    # sudo group, disallow root SSH and clear the root password -- so the value
+    # only has to be something other than "root" for that to run.
+    #
+    # Worth running here more than anywhere else: the injector is the ONLY host
+    # in this environment with a public IP, because its subnet routes at the
+    # internet gateway so run traffic avoids NAT data processing charges.
+    application_user: ubuntu
+    install_jdk: true
   vars_files:
     - group_vars/basic_vars.yml
     - group_vars/loadtest_vars.yml
   roles:
     - base
     - security
-    - jdk
+
+    # JDK 17, not the openjdk-8-jdk that group_vars/basic_vars.yml sets for
+    # every environment. The Gatling 3.15 Gradle plugin refuses anything older:
+    # "Dependency requires at least JVM runtime version 11. This build uses a
+    # Java 8 JVM."
+    #
+    # Set on the ROLE rather than in the play's `vars:`, because Ansible ranks
+    # play vars_files ABOVE play vars -- so a play-level override is silently
+    # ignored while basic_vars.yml keeps winning. Role vars outrank vars_files.
+    # The Makefile's loadtest-configure-etl reaches the same place with
+    # --extra-vars; this keeps the playbook correct without having to remember
+    # a flag.
+    #
+    # basic_vars.yml is left alone deliberately: it is shared with production.
+    - role: jdk
+      vars:
+        java_apt_package: openjdk-17-jdk
     # newrelic is deliberately absent, unlike loadtest_avni_servers.yml.
     #
     # The agent exists to attribute latency inside the system under test. The

@@ -36,6 +36,9 @@ BUCKET="{{ injector_env_bucket }}"
 PREFIX="{{ injector_artefacts_prefix }}"
 BASE_URL="${BASE_URL:-{{ injector_base_url }}}"
 export GRADLE_USER_HOME="{{ injector_gradle_home }}"
+# Pinned for the same reason the role pins it: Java 8 owns the `java`
+# alternative on this host and the Gatling plugin needs 11 or newer.
+export JAVA_HOME="{{ injector_java_home }}"
 
 SHA="$(cat {{ injector_home }}/.harness-sha 2>/dev/null || echo unknown)"
 RUN_ID="$(date -u +%Y-%m-%dT%H-%M-%SZ)-${LABEL}-${SHA:0:7}"

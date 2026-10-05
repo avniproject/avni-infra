@@ -109,6 +109,37 @@
         state: absent
   tags: [injector]
 
+- name: Locate the JDK the harness must build with
+  # Installing openjdk-17 does not make it the default: Java 8 arrives first via
+  # basic_vars.yml and keeps the `java` alternative, so Gradle would still pick
+  # 8 off PATH. Pinning JAVA_HOME is better than re-pointing the alternative,
+  # which is system-wide state another role may be relying on.
+  #
+  # Globbed rather than hardcoded because the path carries the architecture --
+  # java-17-openjdk-arm64 here, amd64 elsewhere -- and #111 wants this module to
+  # work for environments that may not be Graviton.
+  find:
+    paths: /usr/lib/jvm
+    patterns: "java-17-openjdk-*"
+    file_type: directory
+    depth: 1
+  register: injector_jdk17
+  tags: [injector, build]
+
+- name: Require a JDK 17
+  assert:
+    that:
+      - injector_jdk17.files | length > 0
+    fail_msg: >-
+      No java-17-openjdk-* under /usr/lib/jvm. The jdk role installed
+      {{ java_apt_package }}; the Gatling plugin needs 11 or newer.
+  tags: [injector, build]
+
+- name: Record JAVA_HOME for the harness
+  set_fact:
+    injector_java_home: "{{ injector_jdk17.files | map(attribute='path') | sort | first }}"
+  tags: [injector, build]
+
 - name: Warm the Gradle and Gatling dependency cache
   # Resolving dependencies is not run time, but it delays the start of a run by
   # minutes on a fresh instance and competes with nothing else for bandwidth
@@ -120,6 +151,7 @@
     chdir: "{{ injector_home }}/harness"
   environment:
     GRADLE_USER_HOME: "{{ injector_gradle_home }}"
+    JAVA_HOME: "{{ injector_java_home }}"
   become: true
   become_user: "{{ injector_user }}"
   register: injector_build
