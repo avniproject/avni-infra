@@ -102,9 +102,16 @@ fi
 # context above, and discarding them on a non-zero exit is how one wasted
 # afternoon becomes two. The exit code is preserved and returned at the end.
 RC=0
+# SIMULATION_SHA is what makes a run from this host reproducible. The harness
+# resolves its own commit with `git rev-parse`, and the tarball delivery strips
+# .git, so without this archiveRun records gitSha=unknown -- and, worse, reads
+# its own "unknown" return as a dirty working tree and warns that the run cannot
+# be reproduced. The 2026-10-05 case 1 run has exactly that defect in its
+# metadata. .harness-sha holds the truth; pass it.
 ( cd "$HARNESS" && ./gradlew --no-daemon gatlingRun \
     -DBASE_URL="${BASE_URL}" \
     -DINJECTOR="${INSTANCE_ID}" \
+    -DSIMULATION_SHA="${SHA}" \
     "$@" ) 2>&1 | tee "$STAGE/gradle.log" || RC=$?
 
 # --- collect --------------------------------------------------------------
