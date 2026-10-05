@@ -1,0 +1,56 @@
+---
+# Prepare the Gatling injector for the load-test environment.
+#
+#   ansible-playbook -i inventory/loadtest loadtest_injector.yml \
+#     -e injector_harness_sha=$(git -C ../../avni-perf rev-parse HEAD)
+#
+# The harness commit is required, not defaulted. A result whose harness
+# revision is unknown is not reproducible, and the sha is what gets recorded
+# beside the numbers.
+#
+# BEFORE THIS WILL FIND A HOST
+#   `enable_injector` must be true and applied. The injector is on-demand: it
+#   is created for a campaign and destroyed with the environment, so the
+#   dynamic inventory resolves `injectors` only while one exists. An empty run
+#   here means no instance is tagged Role=injector, not a broken playbook.
+#
+#   Its elastic IP also has to be enrolled in BOTH the ALB security group and
+#   the WAF IP set — `injector_allowed_cidrs` in terraform.tfvars. That is a
+#   second allowlist entry alongside the operator's own address, and the module
+#   plans to REMOVE the ingress rule if the variable is ever empty, which
+#   closes the environment in silence.
+#
+# PUBLISHING THE HARNESS FIRST
+#   This role fetches a tarball of one commit from the environment bucket
+#   rather than cloning a private repo onto a disposable host. Publish it from
+#   a workstation that can read the repo:
+#
+#     SHA=$(git -C ../../avni-perf rev-parse HEAD)
+#     git -C ../../avni-perf archive --format=tar.gz --prefix='' "$SHA" \
+#       | aws s3 cp - "s3://avni-loadtest-<account>/deployables/avni-perf-$SHA.tar.gz"
+#
+#   The instance profile's ReadDeployables statement covers the download, so
+#   the injector needs no credential of its own.
+
+- name: Prepare the Gatling injector (load test)
+  hosts: injectors
+  become: true
+  become_user: root
+  remote_user: ubuntu
+  vars:
+    update_apt_cache: true
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/loadtest_vars.yml
+  roles:
+    - base
+    - security
+    - jdk
+    # newrelic is deliberately absent, unlike loadtest_avni_servers.yml.
+    #
+    # The agent exists to attribute latency inside the system under test. The
+    # injector is not under test: instrumenting it would bill a host, add an
+    # agent competing for the injector's own CPU — which is the resource the
+    # run depends on being unconstrained — and attribute nothing useful, since
+    # Gatling already reports client-side timings in far more detail.
+    - avni_injector

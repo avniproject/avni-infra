@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# Run one scenario and publish its results. Installed by roles/avni_injector.
+#
+#   ./run-scenario.sh case1 -DDATASET_ID=states-day-180 -DSERVER_BUILD=17.3.0-SNAPSHOT [-Dkey=value ...]
+#
+# `case1` is a LABEL for the run id, not a simulation selector. avni-perf has
+# one simulation class (AvniSyncSimulation) and scenarios are expressed as
+# system properties, so everything after the label is passed to Gradle
+# untouched.
+#
+# WHAT THIS DOES NOT DO: record its own metadata.
+#   The harness already writes run-metadata.json beside simulation.log, with
+#   the simulation commit and dirty flag, the target, server build, dataset,
+#   the properties that ACTUALLY applied, and the injector's OS, JVM, CPU,
+#   heap and measured round-trip time to the target. Its README is explicit
+#   that an earlier version restated those in the build file and drifted —
+#   recording a property that had been removed, and omitting push, media,
+#   co-tenants and injection profiles. Restating them here would repeat that
+#   mistake one layer further out.
+#
+#   So this script passes inputs through and copies the harness's own output.
+#   The only things it adds are the ones the harness cannot know: the state of
+#   the environment it ran against.
+#
+# WHY THE UPLOAD IS PART OF THE RUN
+#   The injector is on-demand. Its /tmp is cleared on every boot and its root
+#   volume goes with the instance, so anything still here when it dies is gone.
+#   Publishing cannot be a step somebody remembers afterwards.
+set -euo pipefail
+
+LABEL="${1:?usage: $0 <label> [-Dkey=value ...]}"
+shift || true
+
+HARNESS="{{ injector_home }}/harness"
+BUCKET="{{ injector_env_bucket }}"
+PREFIX="{{ injector_artefacts_prefix }}"
+BASE_URL="${BASE_URL:-{{ injector_base_url }}}"
+export GRADLE_USER_HOME="{{ injector_gradle_home }}"
+
+SHA="$(cat {{ injector_home }}/.harness-sha 2>/dev/null || echo unknown)"
+RUN_ID="$(date -u +%Y-%m-%dT%H-%M-%SZ)-${LABEL}-${SHA:0:7}"
+STAGE="{{ injector_home }}/runs/${RUN_ID}"
+DEST="s3://${BUCKET}/${PREFIX}/${RUN_ID}"
+
+# The instance id is a better injector label than the hostname the harness
+# falls back to: it is what the parity report and the WAF IP set refer to, and
+# it survives being asked about after the host is gone.
+imds() {
+  local t
+  t=$(curl -sS --max-time 5 -X PUT http://169.254.169.254/latest/api/token \
+        -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' 2>/dev/null) || return 1
+  curl -sS --max-time 5 -H "X-aws-ec2-metadata-token: $t" \
+    "http://169.254.169.254/latest/meta-data/$1" 2>/dev/null
+}
+INSTANCE_ID="$(imds instance-id || echo unknown)"
+INSTANCE_TYPE="$(imds instance-type || echo unknown)"
+
+# DATASET_ID and SERVER_BUILD are not discoverable — the server exposes only
+# /ping — and the harness records them as `unrecorded` when absent. Warn rather
+# than fail: an unattributed run is worth less, but refusing to start one is
+# not this script's call to make.
+case " $* " in
+  *" -DDATASET_ID="*)   ;;
+  *) echo "WARNING: no -DDATASET_ID. The run will record it as 'unrecorded'." >&2 ;;
+esac
+case " $* " in
+  *" -DSERVER_BUILD="*) ;;
+  *) echo "WARNING: no -DSERVER_BUILD. The run will record it as 'unrecorded'." >&2 ;;
+esac
+
+mkdir -p "$STAGE"
+echo "run        ${RUN_ID}"
+echo "harness    ${SHA}"
+echo "injector   ${INSTANCE_ID} (${INSTANCE_TYPE})"
+echo "target     ${BASE_URL}"
+echo "results    ${DEST}"
+echo
+
+# --- environment context, captured BEFORE the run -------------------------
+# The harness describes itself and the injector. It cannot describe the system
+# under test, and that is what makes a number comparable later: which indexes
+# existed, which database parameters applied, how big the dataset was.
+# Staged by the operator into {{ injector_home }}/context before the run —
+# typically parity-report.md, stats.json and pg_settings.csv.
+#
+# Copied rather than referenced, so the run directory stands alone once the
+# environment it describes has been destroyed.
+if [ -d "{{ injector_home }}/context" ] && [ -n "$(ls -A "{{ injector_home }}/context" 2>/dev/null)" ]; then
+  cp -a "{{ injector_home }}/context/." "$STAGE/"
+  echo "staged environment context: $(ls "{{ injector_home }}/context" | tr '\n' ' ')"
+else
+  echo "WARNING: no {{ injector_home }}/context — this run will carry no record of" >&2
+  echo "         the environment it measured. Stage parity-report.md, stats.json and" >&2
+  echo "         pg_settings.csv there first." >&2
+fi
+
+# --- the run --------------------------------------------------------------
+# Failure is not fatal here: a failed run still has a report, a log and the
+# context above, and discarding them on a non-zero exit is how one wasted
+# afternoon becomes two. The exit code is preserved and returned at the end.
+RC=0
+( cd "$HARNESS" && ./gradlew --no-daemon gatlingRun \
+    -DBASE_URL="${BASE_URL}" \
+    -DINJECTOR="${INSTANCE_ID}" \
+    "$@" ) 2>&1 | tee "$STAGE/gradle.log" || RC=$?
+
+# --- collect --------------------------------------------------------------
+# Gatling writes build/reports/gatling/<sim>-<ts>/, which holds simulation.log,
+# index.html and the harness's own run-metadata.json. Take the newest, since an
+# instance may hold several from earlier runs in the same campaign.
+REPORT="$(find "$HARNESS/build/reports/gatling" -maxdepth 1 -mindepth 1 -type d 2>/dev/null \
+           | sort | tail -1 || true)"
+if [ -n "$REPORT" ]; then
+  cp -a "$REPORT/." "$STAGE/"
+  [ -f "$STAGE/run-metadata.json" ] \
+    || echo "WARNING: report has no run-metadata.json — provenance is missing." >&2
+else
+  echo "WARNING: gatling produced no report directory. Keeping gradle.log only." >&2
+fi
+
+# --- publish --------------------------------------------------------------
+# The instance profile grants PutObject on artefacts/* and NOT DeleteObject, so
+# the archive is append-only: no run can overwrite or erase an earlier result.
+# A half-finished upload therefore cannot be tidied from here — use a fresh run
+# id rather than retrying into the same prefix.
+echo
+echo "publishing to ${DEST}"
+aws s3 cp --recursive --only-show-errors "$STAGE" "$DEST"
+echo "published. exit ${RC}"
+echo
+echo "  aws s3 ls ${DEST}/"
+exit "$RC"

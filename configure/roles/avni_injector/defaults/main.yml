@@ -1,0 +1,46 @@
+---
+# The Gatling injector for the load-test environment.
+#
+# This role PREPARES the injector; it does not start a run. A run is an
+# explicit act with a scenario and a duration attached, and burying it in a
+# configuration playbook would mean `ansible-playbook` could start one by
+# accident. The role installs a runner script and the operator invokes it.
+
+# Where the harness lives. NOT /tmp: the instance's /tmp is cleared by
+# systemd-tmpfiles on every boot, which on 2026-10-01 silently deleted 2 GB of
+# staged datasets and the benchmark tooling after a stop/start cycle.
+injector_home: /opt/avni-perf
+injector_user: ubuntu
+
+# The harness is delivered as a tarball of one commit, not a git clone.
+#
+# avni-perf is private. A clone would need a deploy key or token on a host that
+# is deliberately disposable and recreated on every apply, re-provisioned from
+# SSM each time. The instance profile ALREADY grants s3:GetObject on the
+# environment bucket (the ReadDeployables statement), so a tarball needs no
+# credential on the host at all.
+#
+# The sha in the object name is the provenance: it is what gets recorded
+# alongside the results, and it is why a run is reproducible. Losing `git pull`
+# on the box is a feature for a measurement rig.
+injector_env_bucket: "avni-loadtest-{{ injector_aws_account_id }}"
+injector_harness_prefix: deployables
+injector_harness_sha: ""          # required: the avni-perf commit to run
+injector_artefacts_prefix: artefacts
+
+# Gradle needs somewhere to cache dependencies that survives between runs on a
+# given instance. Under injector_home for the same reason as above.
+injector_gradle_home: "{{ injector_home }}/.gradle"
+
+# The address the harness drives. The injector reaches it over the public
+# internet by design — its subnet routes at the internet gateway rather than
+# the NAT, so request traffic is not charged NAT data processing and the
+# address enrolled in the WAF IP set is the injector's own elastic IP.
+injector_base_url: "https://loadtest.avniproject.org"
+
+# awscli is needed on the host for exactly one job: pushing results to S3 at
+# the end of a run. Everything else the role does is a fetch, which curl can do
+# with a presigned URL — but a run must be able to publish its own results
+# without a laptop in the loop, because the injector is destroyed between runs
+# and anything still on its disk when it dies is gone.
+injector_install_awscli: true
