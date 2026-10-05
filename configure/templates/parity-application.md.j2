@@ -1,0 +1,121 @@
+# Parity report — application side
+
+Collected from the running host on {{ ansible_date_time.iso8601 }} by
+`loadtest_parity.yml`. **These are observed values, not configured intent** —
+read off `{{ inventory_hostname }}` rather than out of `group_vars`, because the
+two have diverged in this environment before.
+
+Pairs with `parity-report.md`, which OpenTofu renders for the AWS layer. Neither
+is complete alone.
+
+## Host
+
+| | |
+|---|---|
+| Instance | `{{ inventory_hostname }}` |
+| OS | {{ ansible_distribution }} {{ ansible_distribution_version }} ({{ ansible_architecture }}) |
+| Kernel | {{ ansible_kernel }} |
+| vCPU / RAM | {{ ansible_processor_vcpus }} / {{ (ansible_memtotal_mb / 1024) | round(1) }} GiB |
+| Java | {{ parity_java.stdout | default('unknown') }} |
+
+**Production runs Ubuntu 22.04.5 LTS**, so the OS matches. The architecture is
+arm64 here against production's x86_64 app server — a deliberate deviation
+recorded in the AWS-side report.
+
+## Deployed artefact
+
+| | |
+|---|---|
+| Jar | `/opt/avni_server/avni-server.jar` |
+| Size | {{ (parity_jar.stat.size / 1024 / 1024) | round(1) }} MiB |
+| SHA256 | `{{ parity_jar.stat.checksum | default('absent') }}` |
+| Service | `avni_server_appserver` — {{ parity_service.stdout | default('unknown') }} |
+
+The checksum is the point: a run is only comparable to another run if the same
+bytes were serving. Record it beside any result.
+
+## JVM options, as the process was started
+
+{% if parity_jvm.stdout_lines | length > 0 %}
+```
+{% for opt in parity_jvm.stdout_lines %}
+{{ opt }}
+{% endfor %}
+```
+{% else %}
+*None read — `start.sh` did not match the expected shape.*
+{% endif %}
+
+**Heap matches production exactly** (`-Xms2560m -Xmx5120m`). GC behaviour is
+load-sensitive, so a different heap would make results untransferable.
+
+Two options here are additions production does not have, both deliberate:
+`spring.datasource.tomcat.max-active`, because the pool is unconfigured in
+production and sits at the Tomcat JDBC default — the harness predicts that
+default is itself the first choke point, so it has to be a knob rather than an
+accident; and `logging.level.org.avni`, because `AuthenticationFilter` logs
+twice per request including the full query string, which is a plausible
+bottleneck in its own right.
+
+## Application configuration
+
+{% if parity_conf.stdout_lines | default([]) | length > 0 %}
+| Setting | Value |
+|---|---|
+{% for line in parity_conf.stdout_lines %}
+| `{{ line.split('=')[0] }}` | `{{ line.split('=')[1:] | join('=') }}` |
+{% endfor %}
+{% else %}
+*No allowlisted settings matched.*
+{% endif %}
+
+Only an allowlist is extracted. The configuration file also holds the database
+password and encryption keys, and nothing here reads it wholesale, so a newly
+added secret cannot reach a report by accident.
+
+## Observability
+
+| | |
+|---|---|
+| New Relic agent jar | {{ 'present' if parity_newrelic.stat.exists else '**ABSENT**' }} |
+| Agent actually reporting | {% if 'connected to collector' in (parity_nr_connect.stdout | default('')) %}yes — `{{ parity_nr_connect.stdout }}`{% else %}**NO — {{ parity_nr_connect.stdout | default('no evidence in the journal') }}**{% endif %} |
+| App name | `{{ newrelic_app_name | default('unset') }}` |
+| Environment | `{{ newrelic_environment | default('unset') }}` |
+| Application logging | {{ newrelic_application_logging_enabled | default('unset') }} |
+| Distributed tracing | {{ newrelic_distributed_tracing_enabled | default('unset') }} |
+
+The agent is required for **parity**, not only for metrics: production runs it
+and it instruments the JVM at a cost. A rig without it is measurably faster than
+production for a reason unrelated to the code under test.
+
+**The jar being present is not evidence of reporting**, which is why both rows
+are here. That distinction is not theoretical: this environment ran with the
+agent attached, logging its own application name, and reaching New Relic not at
+all — the licence key was a User API key rather than an ingest key, and the
+agent failed with `UnknownHostException` against a collector hostname derived
+from it. A report checking only the jar called that "attached".
+
+## Co-tenant workloads
+
+| | |
+|---|---|
+| ETL hosts in this environment | {{ parity_etl_hosts }} |
+
+{% if parity_etl_hosts | int == 0 %}
+**No ETL host.** Results describe sync with the database to itself. ETL runs a
+90-minute Quartz cycle that reads `public` in competition with sync, writes org
+schemas and rebuilds materialised views, all against the same fixed 3,000 IOPS —
+so an environment without it is quieter than any real one. The number the
+hosting decision needs is the *delta* between the two, which cannot be measured
+from this configuration alone.
+{% endif %}
+
+## Still to be recorded per run, by hand
+
+These cannot be read off the host and belong beside the results:
+
+- **Tenancy model** — shared or dedicated. Results are not comparable across models.
+- **Index state** — post-load indexes are pristine; production's carry accumulated bloat.
+- **Injector position and address** — a sync is ~109 requests, so 16 ms of round trip is 1.74 s on a 14.1 s median. A constant offset, not noise.
+- **Whether a concurrent ETL cycle ran**, once an ETL host exists.
+- **Dataset identity** — generator SHA and org config revision, per the baseline snapshot's tags.

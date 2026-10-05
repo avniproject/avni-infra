@@ -2,6 +2,22 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+# `-out=tfplan` is what people actually type, and it matches neither *.tfplan
+# nor any rule above. A plan file carries the same secrets the state does --
+# the generated RDS master password among them -- so the bare name is ignored
+# explicitly rather than relying on everyone remembering a suffix.
+tfplan
 crash.log
 # tfvars may carry endpoints and generated values; secrets belong in SSM (task 6.3)
 *.auto.tfvars
+# terraform.tfvars is auto-loaded, which is exactly why it must not be
+# committed: it holds injector_allowed_cidrs, and whose office or home address
+# may reach an unauthenticated server is per-person and per-location, not a
+# property of the repo.
+terraform.tfvars
+*.tfvars
+parity-report.md
+# Its application-side sibling, written by configure/loadtest_parity.yml. Both
+# are per-apply, per-deploy artefacts describing one instance of a disposable
+# environment — they belong beside a run's results, not in version control.
+parity-application.md

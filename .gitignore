@@ -1,7 +1,15 @@
 .idea
 *.iml
 .terraform
+# Both, not just the backup. This file ignored terraform.tfstate.backup and not
+# terraform.tfstate itself, which is backwards -- state carries resource
+# attributes and can carry secrets, the backup is a copy of the same. A stray
+# `tofu` run outside provision/tofu/ (whose own .gitignore does cover this)
+# drops one here, and it was committable.
+terraform.tfstate
 terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
 *.pem
 *.png
 # Allow branding assets baked into Docker images

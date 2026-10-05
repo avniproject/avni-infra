@@ -1,0 +1,146 @@
+---
+# Prepare the Gatling injector. Does not start a run — see defaults/main.yml.
+
+- name: Require the harness commit to be named
+  assert:
+    that:
+      - injector_harness_sha | length > 0
+    fail_msg: >-
+      injector_harness_sha is empty. Pass the avni-perf commit to run, e.g.
+      -e injector_harness_sha=$(git -C ../avni-perf rev-parse HEAD). A run whose
+      harness revision is unknown produces a result nobody can reproduce, so
+      this is required rather than defaulted.
+  tags: [injector, always]
+
+- name: Resolve the AWS account id for the bucket name
+  # The bucket is named <env>-<account>, and hardcoding the account would make
+  # this role useless for the customer environments #111 is about.
+  command: aws sts get-caller-identity --query Account --output text
+  register: injector_sts
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: injector_aws_account_id is not defined
+  tags: [injector]
+
+- name: Record the account id
+  set_fact:
+    injector_aws_account_id: "{{ injector_sts.stdout | trim }}"
+  when: injector_aws_account_id is not defined
+  tags: [injector]
+
+- name: Install the AWS CLI
+  # Ubuntu's awscli package is v1 and old, but it is enough to copy a directory
+  # to S3 and it avoids pulling an installer from the internet mid-provision.
+  # The alternative — a presigned URL per object — cannot work for an upload of
+  # a directory whose file names are only known after the run.
+  apt:
+    name: awscli
+    state: present
+    update_cache: "{{ update_apt_cache | default(true) }}"
+  become: true
+  when: injector_install_awscli | bool
+  tags: [injector, packages]
+
+- name: Create the harness directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ injector_user }}"
+    group: "{{ injector_user }}"
+    mode: "0755"
+  become: true
+  loop:
+    - "{{ injector_home }}"
+    - "{{ injector_gradle_home }}"
+  tags: [injector]
+
+- name: Is this commit already unpacked?
+  # Idempotence by content rather than by timestamp: the stamp file holds the
+  # sha, so re-running with the same commit is a no-op and re-running with a
+  # different one replaces the tree.
+  slurp:
+    src: "{{ injector_home }}/.harness-sha"
+  register: injector_current_sha
+  failed_when: false
+  changed_when: false
+  tags: [injector]
+
+- name: Fetch and unpack the harness
+  when: (injector_current_sha.content | default('') | b64decode | trim) != injector_harness_sha
+  become: true
+  become_user: "{{ injector_user }}"
+  block:
+    - name: Download the harness tarball from the environment bucket
+      # No credential on the host: the instance profile's ReadDeployables
+      # statement covers s3:GetObject on this bucket.
+      command: >-
+        aws s3 cp
+        s3://{{ injector_env_bucket }}/{{ injector_harness_prefix }}/avni-perf-{{ injector_harness_sha }}.tar.gz
+        {{ injector_home }}/harness.tar.gz
+      args:
+        creates: "{{ injector_home }}/harness.tar.gz"
+
+    - name: Remove any previous tree
+      # Deliberately not `unarchive` over the top: a stale file from an earlier
+      # commit that the new one deleted would survive, and the run would use a
+      # tree matching no commit at all.
+      file:
+        path: "{{ injector_home }}/harness"
+        state: absent
+
+    - name: Unpack
+      unarchive:
+        src: "{{ injector_home }}/harness.tar.gz"
+        dest: "{{ injector_home }}"
+        remote_src: true
+        extra_opts: ["--one-top-level=harness", "--strip-components=0"]
+
+    - name: Record the unpacked commit
+      copy:
+        content: "{{ injector_harness_sha }}\n"
+        dest: "{{ injector_home }}/.harness-sha"
+        mode: "0644"
+
+    - name: Drop the tarball
+      file:
+        path: "{{ injector_home }}/harness.tar.gz"
+        state: absent
+  tags: [injector]
+
+- name: Warm the Gradle and Gatling dependency cache
+  # Resolving dependencies is not run time, but it delays the start of a run by
+  # minutes on a fresh instance and competes with nothing else for bandwidth
+  # now, whereas during a run it would. `build` compiles the simulations too,
+  # so a compile error surfaces here rather than at the moment someone is
+  # waiting to measure something.
+  command: ./gradlew --no-daemon build
+  args:
+    chdir: "{{ injector_home }}/harness"
+  environment:
+    GRADLE_USER_HOME: "{{ injector_gradle_home }}"
+  become: true
+  become_user: "{{ injector_user }}"
+  register: injector_build
+  changed_when: "'BUILD SUCCESSFUL' in injector_build.stdout"
+  tags: [injector, build]
+
+- name: Install the run script
+  template:
+    src: run-scenario.sh.j2
+    dest: "{{ injector_home }}/run-scenario.sh"
+    owner: "{{ injector_user }}"
+    group: "{{ injector_user }}"
+    mode: "0755"
+  become: true
+  tags: [injector]
+
+- name: Report how to start a run
+  debug:
+    msg: >-
+      Injector ready at {{ injector_home }}, harness {{ injector_harness_sha[:7] }}.
+      Start a run with:
+      ssh <instance-id> '{{ injector_home }}/run-scenario.sh <scenario> [gatling args]'
+      Results land in s3://{{ injector_env_bucket }}/{{ injector_artefacts_prefix }}/<run-id>/
+  tags: [injector]

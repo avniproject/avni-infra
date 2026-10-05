@@ -1,0 +1,108 @@
+---
+# Collect the application-side half of the parity report (plan task 9.12).
+#
+# OpenTofu renders the AWS half on every apply and leaves a section headed "to
+# be completed by the deploying side". This fills it, and it reads the values
+# off the RUNNING HOST rather than out of group_vars.
+#
+# That distinction is the whole point. group_vars says what was intended; the
+# host says what is. They have already diverged in this environment more than
+# once -- the systemd unit is avni_server_appserver, not avni-server, and
+# OPENCHS_STATIC_PATH points at a directory nothing populates. A parity report
+# that restates its own inputs proves nothing.
+#
+# SECRETS
+#   /etc/avni_server_appserver.conf holds the database password and encryption
+#   keys. Nothing here reads the file wholesale: only an explicit allowlist of
+#   variable names is extracted, so a newly added secret cannot leak into a
+#   report by default. Adding a name to the allowlist is a deliberate act.
+
+- name: Collect application-side parity facts (load test)
+  hosts: avniservers
+  become: yes
+  become_user: root
+  gather_facts: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/loadtest_vars.yml
+  vars:
+    parity_output: "{{ playbook_dir }}/../provision/tofu/envs/loadtest/parity-application.md"
+    # Explicit, and deliberately short. Everything absent from this list stays
+    # absent from the report.
+    parity_conf_keys:
+      - OPENCHS_MODE
+      - OPENCHS_IDP_TYPE
+      - OPENCHS_STATIC_PATH
+      - OPENCHS_DATABASE_HOST
+      - OPENCHS_DATABASE_NAME
+      - AVNI_IDP_TYPE
+
+  tasks:
+    - name: Read the deployed JVM options
+      ansible.builtin.shell: >-
+        grep -oE '\-(X|XX:)[a-zA-Z0-9:+=.]*|\-D[a-zA-Z0-9.]+(-[a-zA-Z0-9.]+)*=[^ ]*'
+        /opt/avni_server/start.sh | grep -viE 'password|secret|key|token'
+      register: parity_jvm
+      changed_when: false
+
+    - name: Read allowlisted configuration values
+      ansible.builtin.shell: >-
+        grep -hE '^export ({{ parity_conf_keys | join("|") }})=' /etc/avni_server_appserver.conf
+        | sed 's/^export //'
+      register: parity_conf
+      changed_when: false
+      failed_when: false
+
+    - name: Identify the deployed artefact
+      ansible.builtin.stat:
+        path: /opt/avni_server/avni-server.jar
+        checksum_algorithm: sha256
+      register: parity_jar
+
+    - name: Read the running Java version
+      ansible.builtin.shell: java -version 2>&1 | head -1
+      register: parity_java
+      changed_when: false
+
+    - name: Confirm the New Relic agent jar is present
+      ansible.builtin.stat:
+        path: /opt/newrelic/newrelic.jar
+      register: parity_newrelic
+
+    # Presence of the jar is NOT evidence of reporting, and treating it as such
+    # hid a real failure: the agent ran, logged its app name, and could not
+    # reach New Relic at all because the licence key was a User API key rather
+    # than an ingest key. It failed with UnknownHostException against a
+    # collector hostname derived from the key. The report said "attached".
+    #
+    # So ask the agent whether it connected.
+    - name: Ask whether the agent actually connected
+      ansible.builtin.shell: >-
+        journalctl -u avni_server_appserver --no-pager --since '-30 min'
+        | grep -aoE 'connected to collector\.[a-z0-9.-]+|Remote preconnect call failed[^:]*'
+        | tail -1
+      register: parity_nr_connect
+      changed_when: false
+      failed_when: false
+
+    - name: Read the service state
+      ansible.builtin.shell: systemctl is-active avni_server_appserver
+      register: parity_service
+      changed_when: false
+      failed_when: false
+
+    - name: Count ETL hosts in this environment
+      ansible.builtin.set_fact:
+        parity_etl_hosts: "{{ groups.get('etlservers', []) | length }}"
+
+    - name: Write the application-side parity report
+      ansible.builtin.template:
+        src: templates/parity-application.md.j2
+        dest: "{{ parity_output }}"
+        mode: '0644'
+      delegate_to: localhost
+      become: no
+
+    - name: Say where it landed
+      ansible.builtin.debug:
+        msg: "Wrote {{ parity_output }}"

@@ -3,3 +3,15 @@ variable "region" {
   type        = string
   default     = "ap-south-1"
 }
+
+variable "injector_allowed_cidrs" {
+  description = "Public source addresses permitted to reach the application port, as CIDRs. Set per run; see main.tf. Empty means unreachable."
+  type        = list(string)
+  default     = []
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class. The module default (db.m6g.large) is fixed-performance on purpose; override only to park an idle environment, never for a measured run."
+  type        = string
+  default     = "db.m6g.large"
+}

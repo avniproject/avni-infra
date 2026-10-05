@@ -42,7 +42,7 @@ SUPERSEDED_EVERYWHERE = ["J/I", "122 GB", "section J"]
 CURRENT = {
     104: ["~250 GiB", "20–399 GiB", "70 GB", "1.10", "by timing"],
     105: ["~250 GiB", "default on", "16.8", "single-AZ", "max_allocated_storage",
-          "run-artefacts", "FreeStorageSpace"],
+          "deployables/", "FreeStorageSpace"],
     106: ["3.4", "enable_cognito"],
     108: ["instance ID", "java_apt_package", "max-active"],
     109: ["Time both", "FILE_COPY"],

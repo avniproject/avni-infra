@@ -1,0 +1,85 @@
+# CircleCI job for deploying avni-server to the load-test environment.
+#
+# Paste into avni-server/.circleci/config.yml. This replaces the PERF_deploy
+# job that avniproject/avni-infra#107 removed — that one authorised a key on
+# the perf instance and then deployed to prerelease, because the migration
+# away from hostname-based deploys had no perf make target to convert to.
+#
+# THREE THINGS DIFFER FROM THE OTHER DEPLOY JOBS
+#
+#   The role lives in a different AWS account. avni_circleci_instance_connect
+#   is in production (118388513628) and cannot reach the load-test account, so
+#   this assumes a role created there by provision/scripts/ci-oidc-bootstrap.sh.
+#
+#   It does not use setup_server_access. That command pushes an Instance
+#   Connect key and then connects by DNS, which cannot reach a host with no
+#   public IP. This environment is addressed by instance ID through an Instance
+#   Connect Endpoint, which the Ansible dynamic inventory and
+#   configure/scripts/eice-ssh-proxy.sh handle between them.
+#
+#   It does not use deploy_as_service. That runs `make deploy-avni-server-<env>`
+#   with paths this environment does not have; the loadtest targets take a
+#   VERSION and pull the jar from the environment's own bucket instead.
+
+jobs:
+  LOADTEST_deploy:
+    docker:
+      - image: cimg/deploy:2023.09
+    working_directory: ~/
+    steps:
+      - aws-cli/setup:
+          # From ci-oidc-bootstrap.sh output. Note the account differs from
+          # every other deploy job in this file — that is deliberate.
+          role_arn: "arn:aws:iam::936573213727:role/avni-loadtest-circleci"
+          region: "ap-south-1"
+
+      - run:
+          name: Install Ansible and the AWS collection
+          command: |
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ansible make
+            ansible-galaxy collection install amazon.aws
+
+      - run:
+          name: Generate an ephemeral key for the Instance Connect tunnel
+          # eice-ssh-proxy.sh pushes this public key through the AWS API, where
+          # it is valid for sixty seconds. Nothing persists between jobs.
+          command: |
+            ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
+            echo 'export AVNI_SSH_PUBKEY=~/.ssh/id_ed25519.pub' >> "$BASH_ENV"
+
+      - run:
+          name: Fetch avni-infra
+          command: |
+            cd ~/
+            curl -sSL -o infra.zip \
+              https://github.com/avniproject/avni-infra/archive/master.zip
+            unzip -q infra.zip && mv avni-infra-master avni-infra && rm infra.zip
+
+      - run:
+          name: Deploy
+          # VERSION comes from the build. The jar is published to the
+          # environment's deployables/ prefix rather than passed through the
+          # workspace, so a laptop deploy and a CI deploy read the same artefact.
+          command: |
+            cd ~/avni-infra/configure
+            echo "$ANSIBLE_VAULT_PASS" > ~/.vault-pass.txt
+            VAULT_PASSWORD_FILE=~/.vault-pass.txt \
+              make loadtest-deploy-server VERSION="${CIRCLE_TAG:-$CIRCLE_SHA1}"
+            rm -f ~/.vault-pass.txt
+
+workflows:
+  # Manual approval, as the other non-production deploys have. The load-test
+  # environment is destroyed between campaigns, so a deploy to a torn-down
+  # environment should be a deliberate act rather than something that fires on
+  # every merge.
+  _fragment_paste_into_existing_workflow:
+    jobs:
+      - LOADTEST_approve:
+          type: approval
+          requires:
+            - build
+      - LOADTEST_deploy:
+          context: non-prod-deploy
+          requires:
+            - LOADTEST_approve

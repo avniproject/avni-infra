@@ -1,0 +1,36 @@
+# Dynamic inventory for the load-test environment.
+#
+# Every other inventory in this repo is a static file of DNS names. Two things
+# make that impossible here.
+#
+# The hosts have no public IP and no inbound security group rule, so there is
+# no name or address to connect to — they are reached by *instance ID* through
+# an EC2 Instance Connect Endpoint, which tunnels SSH over the AWS API and
+# authorises by IAM rather than by network position.
+#
+# And the environment is disposable: a destroy-and-reapply is mandated before
+# anything depends on it, so instance IDs change regularly. Hardcoding them
+# would leave this stale within a day. The OpenTofu module tags every host
+# Environment and Role for exactly this reason.
+---
+plugin: amazon.aws.aws_ec2
+
+regions:
+  - ap-south-1
+
+filters:
+  tag:Environment: loadtest
+  instance-state-name: running
+
+# The inventory hostname IS the instance ID, so SSH's %h expands to it and the
+# ProxyCommand below needs no lookup.
+hostnames:
+  - instance-id
+
+# Map the Role tag onto the group names the existing playbooks already use,
+# so loadtest_avni_servers.yml can say `hosts: avniservers` like its siblings.
+groups:
+  avniservers: tags.Role == 'avni-server'
+  etlservers: tags.Role == 'avni-etl'
+  injectors: tags.Role == 'injector'
+  loaders: tags.Role == 'loader'

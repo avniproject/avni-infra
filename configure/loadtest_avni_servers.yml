@@ -1,0 +1,30 @@
+---
+
+- name: Configure avni servers (load test)
+  hosts: avniservers
+  become: yes
+  become_user: root
+  remote_user: "{{ avni_appserver_user }}"
+  vars:
+    update_apt_cache: yes
+  vars_files:
+    - group_vars/basic_vars.yml
+    - group_vars/loadtest_vars.yml
+  roles:
+    - base
+    - security
+    - jdk
+    - newrelic      # required, not optional — see loadtest_vars.yml
+    # avni_web is deliberately absent. It extracts the React admin UI from a
+    # webapp zip built in a different repository, and this environment never
+    # serves it: the harness drives sync API endpoints, and the ALB targets
+    # avni-server on 8021 directly with no nginx in front. Including it would
+    # add a cross-repo artefact dependency for zero measurement value.
+    #
+    # The parity cost is negligible and worth stating anyway: production serves
+    # static content from the same host, so a few MB of disk and page cache are
+    # absent here. No request the harness makes touches it. Note F5.4's
+    # "webapp" co-tenant load means concurrent users hitting /web/* on
+    # avni-server -- which this omission does not affect, because those are
+    # server endpoints rather than static files.
+    - avni_appserver
