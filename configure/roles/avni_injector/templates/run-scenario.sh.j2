@@ -98,6 +98,13 @@ esac
 # retype a fact sitting on disk beside the run: both warm reruns of 5 Oct
 # recorded `unrecorded` precisely because nobody retyped it.
 AUTO_ARGS=()
+# AV is kept as a scalar purely so the banner below can test it. A bash
+# array-length test cannot be used anywhere in this file: it would start with a
+# brace immediately followed by a hash, which is how a Jinja comment opens, and
+# the play then fails with "Missing end of comment tag" at template time --
+# nowhere near the shell line that caused it. (This comment is worded around
+# the sequence for the same reason.)
+AV=""
 case " $* " in
   *" -DAUTOVACUUM="*) ;;
   *)
@@ -119,7 +126,7 @@ echo "injector   ${INSTANCE_ID} (${INSTANCE_TYPE})"
 echo "target     ${BASE_URL}"
 echo "results    ${DEST}"
 # Printed because a derived value that nobody sees is a value nobody checks.
-[ ${#AUTO_ARGS[@]} -eq 0 ] || echo "autovacuum ${AUTO_ARGS[0]#-DAUTOVACUUM=} (from staged pg_settings.csv)"
+[ -z "$AV" ] || echo "autovacuum ${AV} (from staged pg_settings.csv)"
 echo
 
 # --- environment context, captured BEFORE the run -------------------------
