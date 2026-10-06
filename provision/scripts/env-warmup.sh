@@ -28,16 +28,30 @@
 #   gentle, good-looking row in the run log belonging to no curve.
 #
 # HOW LONG, AND WHY IT DIFFERS FROM STEP 6
-#   prepare-run.sh step 6 specifies BURST_SECONDS=900 -- 4,300 requests at ~5
-#   rps, fifteen minutes, matching the accidental warm-up of 5 Oct. That is
-#   right before a measured campaign and too slow to sit in every start, so the
-#   default here is 180 s: the SAME 4,300 requests at ~22.75 rps, which is still
-#   comfortably below the knee (the knee's left edge is 90 s), in about three
-#   and a half minutes.
+#   prepare-run.sh step 6 specifies BURST_SECONDS=900 -- 4,300 requests at ~4.8
+#   rps, fifteen minutes, matching the accidental warm-up of 5 Oct. Right before
+#   a campaign, too slow to sit in every start.
 #
-#   **The minimum sufficient warm-up is unmeasured.** 4,300 requests is the only
-#   volume known to work; nothing establishes that delivering them faster warms
-#   as well. Before a campaign whose numbers matter, prefer step 6 and set
+#   At a fixed 4,300 requests, short and gentle trade against each other:
+#
+#     180 s   23.9 rps   1,433 req/min   ~3.5 min   measured 27-29% app CPU
+#     300 s   14.3 rps     860 req/min   ~5.5 min   <- default
+#     600 s    7.2 rps     430 req/min   ~11 min
+#     900 s    4.8 rps     287 req/min   ~15 min    step 6, the known-good shape
+#
+#   180 s was the first default and was dropped: it is the same demand as a
+#   MEASURED 180 s run (22.75 rps achieved on 5 Oct), so the warm-up was running
+#   a load-test shape rather than warming. 300 s halves the rate for two extra
+#   minutes.
+#
+#   The window is widened rather than the device count cut, deliberately. 4,300
+#   requests is the only quantity there is evidence for -- it is what the
+#   accidental warm-up delivered -- so halving the cohort would reduce the one
+#   thing known to work in order to fix the one thing that is merely suspected.
+#
+#   **The minimum sufficient warm-up is unmeasured**, in both directions: nothing
+#   establishes that 4,300 requests delivered 3x faster than the known-good shape
+#   warms as well. Before a campaign whose numbers matter, prefer step 6 --
 #   AVNI_WARMUP_BURST_SECONDS=900.
 set -uo pipefail
 
@@ -49,7 +63,7 @@ REGION="${AVNI_AWS_REGION:-ap-south-1}"
 BASE_URL="${AVNI_BASE_URL:-https://loadtest.avniproject.org}"
 PROXY="${AVNI_EICE_PROXY:-$HERE/../../configure/scripts/eice-ssh-proxy.sh}"
 WAIT="${AVNI_WARMUP_WAIT:-600}"
-BURST="${AVNI_WARMUP_BURST_SECONDS:-180}"
+BURST="${AVNI_WARMUP_BURST_SECONDS:-300}"
 USERS="${AVNI_WARMUP_USERS:-100}"
 HOME_DIR="${AVNI_INJECTOR_HOME:-/opt/avni-perf}"
 
@@ -105,4 +119,5 @@ echo "warm-up: ${USERS} devices over ${BURST}s against ${BASE_URL} (discarded)"
 
 echo "warm-up: done, result discarded. Measured runs can start."
 echo "         How long warm lasts is unmeasured: 20 min was warm, 2m49s was not."
+echo "         For a campaign, prefer step 6's shape: AVNI_WARMUP_BURST_SECONDS=900."
 exit 0
