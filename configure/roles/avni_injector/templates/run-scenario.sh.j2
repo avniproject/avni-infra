@@ -72,10 +72,19 @@ case " $* " in
 esac
 
 # CACHE_POLICY is a judgement nothing on disk records, so it can only be asked
-# for. It is worth asking loudly: on 5 Oct 2026 two runs against a server that
-# had been up for three minutes recorded `warm-incidental-no-reset` -- the
-# default, not an observation -- and cache state turned out to be worth a factor
-# of three on throughput. A mislabelled run is worse than an unlabelled one.
+# for -- and the warning is the weaker half of the fix, because the 5 Oct
+# failure was not an omission. All ten runs that day PASSED
+# `-DCACHE_POLICY=warm-incidental-no-reset`, including two against a server that
+# had been up for three minutes, where it was false. build.gradle defaults the
+# field to `unrecorded`, so nothing was defaulted; an assertion was simply
+# wrong, and nothing could contradict it. Cache state proved worth a factor of
+# three on throughput.
+#
+# An unset field announces itself -- archiveRun prints a NOTE and the run log
+# raises a caveat -- so this warning only catches the milder case. The real fix
+# is to produce the warmth rather than declare it: a discarded pass, in
+# avni-perf prepare-run.sh step 6 and in provision/scripts/env-warmup.sh, which
+# runs on every env-teardown.sh start.
 case " $* " in
   *" -DCACHE_POLICY="*) ;;
   *) echo "WARNING: no -DCACHE_POLICY. The run will record it as 'unrecorded'." >&2

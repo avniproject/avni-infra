@@ -301,6 +301,18 @@ case "$CMD" in
     echo "Instance IDs are unchanged by stop/start, so the Ansible dynamic"
     echo "inventory still resolves. Public IPs are NOT: the injector keeps its"
     echo "elastic IP, but re-check anything else you enrolled."
+    # A warm-up, unless RDS failed to start -- warming against a database that
+    # never came up measures nothing and would bury the real error in Gatling
+    # output. A just-restarted server delivers about a third of its warm
+    # throughput (avni-perf docs/findings-case1.md), and on 5 Oct the only
+    # reason the morning sweep looked sane was that its first run happened to be
+    # gentle enough to act as one. env-warmup.sh never fails the start.
+    if [ "$RDS_RC" -eq 0 ]; then
+      echo
+      "$(dirname "${BASH_SOURCE[0]}")/env-warmup.sh" || true
+    else
+      echo "Skipping warm-up: the database did not start." >&2
+    fi
     # The app server comes up regardless and will serve 502 against a database
     # that never started, so a non-zero exit here is the only honest signal.
     exit "$RDS_RC"
