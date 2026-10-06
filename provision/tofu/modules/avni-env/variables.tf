@@ -402,3 +402,20 @@ variable "waf_managed_rule_groups" {
   type        = list(string)
   default     = []
 }
+
+variable "db_secret_rotation_days" {
+  description = <<-EOT
+    How often RDS rotates the master password it owns. RDS defaults this to 7,
+    which breaks avni-server: the password is copied into appserver.conf at
+    playbook time, and a rotation invalidates that copy in a way only visible
+    once load forces the connection pool to grow. See the comment on
+    aws_secretsmanager_secret_rotation.db_master in database.tf.
+  EOT
+  type        = number
+  default     = 365
+
+  validation {
+    condition     = var.db_secret_rotation_days >= 30
+    error_message = "Anything under 30 days will land mid-campaign; the server holds a copy of this password, not a reference to it."
+  }
+}

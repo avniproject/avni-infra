@@ -213,3 +213,35 @@ resource "aws_db_instance" "replica" {
 
   tags = { Name = "${local.name}-read" }
 }
+
+# **Rotation every 7 days breaks the app server, silently and only under load.**
+#
+# `manage_master_user_password` has RDS create and own the secret, and RDS
+# defaults it to a 7-day rotation. avni-server does not read Secrets Manager:
+# configure/Makefile fetches the password at playbook time and writes it into
+# /etc/avni_server_appserver.conf, so what the server holds is a point-in-time
+# copy that a rotation invalidates.
+#
+# The failure mode is the problem rather than the frequency. Connections already
+# in the Hikari pool keep working, so /ping and /idp-details answer 200 and light
+# traffic is served correctly; only a NEW connection fails. On 6 Oct 2026 a
+# rotation at 09:54 left the 900 s run (1.2 devices in flight) with zero failures
+# and the 75 s run half an hour later (about 18 in flight) with 38 HTTP 500s.
+# Nothing reports the fault until load happens to force the pool to grow, and
+# when it does it looks like an application bug.
+#
+# 365 days does not fix the design -- it makes the window longer than any
+# environment this module builds, which is disposable and rebuilt from a
+# snapshot. The real fix is for the server to read the secret when it connects.
+#
+# **rotate_immediately is false deliberately.** It defaults to TRUE, and leaving
+# it so would rotate on apply -- causing exactly the outage this resource exists
+# to prevent, at a moment nobody associates with Terraform.
+resource "aws_secretsmanager_secret_rotation" "db_master" {
+  secret_id          = aws_db_instance.this.master_user_secret[0].secret_arn
+  rotate_immediately = false
+
+  rotation_rules {
+    automatically_after_days = var.db_secret_rotation_days
+  }
+}
