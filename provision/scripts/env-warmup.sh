@@ -100,7 +100,7 @@ echo "warm-up: ${USERS} devices over ${BURST}s against ${BASE_URL} (discarded)"
     -DSYNC_USERS=case1-users.csv \
     -DUSER_COUNT=$USERS \
     -DCACHE_POLICY=discarded-warmup" 2>&1 \
-  | grep -aE '^(Profile|Sync mode):|^(request count|mean response time|mean throughput)|BUILD (SUCCESSFUL|FAILED)|error:' \
+  | grep -aE '^(Profile|Sync mode):|^> *(request count|mean response time|response time 95th|mean throughput)|BUILD (SUCCESSFUL|FAILED)|error:' \
   || true
 
 echo "warm-up: done, result discarded. Measured runs can start."
