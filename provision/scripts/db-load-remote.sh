@@ -100,7 +100,7 @@ HOSTPREP
 # --- credentials ----------------------------------------------------------
 aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
   --query SecretString --output text \
-  | python3 -c 'import json,sys;print(json.load(sys.stdin)["password"])' \
+  | python3 -c 'import json,sys;pw=json.load(sys.stdin)["password"];print(pw.replace("\\","\\\\").replace(":","\\:"))' \
   | "${SSH[@]}" "umask 077; cat > /tmp/.pgpass_$TAG.raw; \
        printf '%s:5432:%s:%s:%s' '$DB_HOST' '$DB_NAME' '$DB_USER' \"\$(cat /tmp/.pgpass_$TAG.raw)\" > /tmp/.pgpass_$TAG; \
        rm -f /tmp/.pgpass_$TAG.raw; chmod 600 /tmp/.pgpass_$TAG"
@@ -115,14 +115,21 @@ trap cleanup EXIT
 # partway through a multi-hour COPY would kill psql and roll the whole thing
 # back. \timing gives a per-\copy breakdown, which is what says whether a slow
 # load is the encounter table or everything.
+#
+# **psql's exit status is captured, not assumed.** Polling `kill -0` only says
+# the process ended, not how. Without the .rc file below a failed load exits 0
+# here, and on 7 Oct 2026 that reported ten tenants loaded when authentication
+# had failed on every one of them -- a caller cannot tell an empty database from
+# a full one without checking, and by then the next step is already running.
 LOG="/tmp/${TAG}.load.log"
 echo "[$(date -u +%H:%M:%S)] starting load, logging to $LOG on the host"
 START=$(date +%s)
 "${SSH[@]}" bash -s <<HOSTLOAD
 set -euo pipefail
 printf '\\\\timing on\n\\\\i /tmp/$REL/load.sql\n' > /tmp/${TAG}.run.sql
-PGPASSFILE=/tmp/.pgpass_$TAG nohup psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
-  -v ON_ERROR_STOP=1 -f /tmp/${TAG}.run.sql > "$LOG" 2>&1 &
+rm -f /tmp/${TAG}.rc
+nohup bash -c 'PGPASSFILE=/tmp/.pgpass_$TAG psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+  -v ON_ERROR_STOP=1 -f /tmp/${TAG}.run.sql > "$LOG" 2>&1; echo \$? > /tmp/${TAG}.rc' >/dev/null 2>&1 &
 echo \$! > /tmp/${TAG}.pid
 echo "  pid \$(cat /tmp/${TAG}.pid)"
 HOSTLOAD
@@ -138,3 +145,13 @@ echo
 echo "[$(date -u +%H:%M:%S)] finished in $(( (END-START)/60 ))m $(( (END-START)%60 ))s"
 echo "--- per-statement timing ---"
 "${SSH[@]}" "grep -E 'loading|Time:|COPY|ERROR|ROLLBACK|COMMIT' $LOG | tail -60"
+
+RC=$("${SSH[@]}" "cat /tmp/${TAG}.rc 2>/dev/null || echo 1" 2>/dev/null | tr -cd '0-9')
+if [ "${RC:-1}" != "0" ]; then
+  echo >&2
+  echo "LOAD FAILED (psql exit ${RC:-unknown}). The database is NOT loaded for $REL." >&2
+  echo "Last lines of $LOG on the host:" >&2
+  "${SSH[@]}" "tail -15 $LOG" 2>/dev/null | sed 's/^/  /' >&2
+  exit 1
+fi
+echo "load OK (psql exit 0)"
