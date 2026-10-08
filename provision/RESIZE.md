@@ -61,14 +61,25 @@ are no instances of the requested class available in the current instance's
 availability zone.
 ```
 
-Observed four times across 2026-09-30 and 10-01, for **both** `db.m6g.large` and
-`db.t4g.medium`, in `ap-south-1a`. It is not a sustained shortage — a retry
-120 seconds later has succeeded every time — so treat it as a race to re-enter,
-not a blocker.
+Observed repeatedly in `ap-south-1a` for **both** `db.m6g.large` and
+`db.t4g.medium`: four times across 2026-09-30 and 10-01, again on 10-07, and
+twice on 10-08.
 
-`env-teardown.sh start|stop` retries this automatically since `f1e8c7f`, bounded
-at ten minutes, and **only** for capacity. A `tofu apply` does not retry: re-run
-the apply.
+**It is no longer safe to call this a race to re-enter.** That reading came from
+2026-09-30/10-01, when a retry 120 seconds later succeeded every time. On
+2026-10-07 the start needed four attempts. On 2026-10-08 it exhausted six
+attempts over the full ten-minute bound and **gave up**; a second invocation with
+a thirty-minute window succeeded on its second attempt, so the AZ had refused for
+something like twelve to fourteen minutes continuously.
+
+`env-teardown.sh start|stop` retries this automatically since `f1e8c7f`, and
+**only** for capacity. The bound is `AVNI_RDS_RETRY_SECONDS`, raised from 600 to
+1800 on 2026-10-08 because 600 demonstrably was not enough. A `tofu apply` does
+not retry: re-run the apply.
+
+EC2 is affected too and got the same treatment later — see `ec2_start_retrying`
+and `AVNI_EC2_RETRY_SECONDS`. On 2026-10-07 `ap-south-1a` refused `m6g.large` and
+`m6g.xlarge` as well as the database class.
 
 If it persists, the durable fix is to stop being pinned to one AZ. The subnet
 group already spans three; the instance sits in `ap-south-1a` only because that

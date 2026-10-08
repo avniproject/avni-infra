@@ -79,7 +79,9 @@ RDS_ERR=""
 
 # How long to keep retrying a capacity rejection, and how long to wait between
 # attempts. Overridable so a scheduled caller can be more patient than a person.
-RDS_RETRY_SECONDS="${AVNI_RDS_RETRY_SECONDS:-600}"
+# 1800, not 600: on 2026-10-08 six attempts over ten minutes gave up, and a
+# thirty-minute window then succeeded on its second attempt. See RESIZE.md.
+RDS_RETRY_SECONDS="${AVNI_RDS_RETRY_SECONDS:-1800}"
 RDS_RETRY_INTERVAL="${AVNI_RDS_RETRY_INTERVAL:-120}"
 EC2_RETRY_SECONDS="${AVNI_EC2_RETRY_SECONDS:-600}"
 EC2_RETRY_INTERVAL="${AVNI_EC2_RETRY_INTERVAL:-60}"
