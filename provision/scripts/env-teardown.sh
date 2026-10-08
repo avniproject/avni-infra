@@ -81,6 +81,8 @@ RDS_ERR=""
 # attempts. Overridable so a scheduled caller can be more patient than a person.
 RDS_RETRY_SECONDS="${AVNI_RDS_RETRY_SECONDS:-600}"
 RDS_RETRY_INTERVAL="${AVNI_RDS_RETRY_INTERVAL:-120}"
+EC2_RETRY_SECONDS="${AVNI_EC2_RETRY_SECONDS:-600}"
+EC2_RETRY_INTERVAL="${AVNI_EC2_RETRY_INTERVAL:-60}"
 rds_transition() {
   local verb="$1" gerund="$2" out rc now
   set +e
@@ -158,6 +160,67 @@ rds_transition_retrying() {
     echo "rds: no capacity in the AZ (attempt ${attempt}); retrying in ${RDS_RETRY_INTERVAL}s" >&2
     attempt=$(( attempt + 1 ))
     sleep "$RDS_RETRY_INTERVAL"
+  done
+}
+
+# **EC2 runs out of capacity in the same AZ, for the same reason, and had no
+# retry.** On 7 Oct 2026 ap-south-1a refused db.m6g.large four times and then
+# m6g.large and m6g.xlarge as well. RDS recovered because of the retry above;
+# the EC2 call was a bare invocation under `set -e`, so the script died there --
+# the warm-up never ran, and because callers pipe this through `tail` the
+# pipeline returned tail's zero. A start that did not start anything reported
+# success.
+#
+# Classified by ACTUAL STATE, not by the error alone, for the same reason
+# rds_transition is: StartInstances is not atomic across instances, so a partial
+# failure can leave some running. Anything already running or pending needs no
+# retry, and only the remainder is worth asking about again.
+ec2_pending_ids() {
+  # Instances that still need starting. Deliberately not 'stopping' -- an
+  # instance mid-stop cannot be started and asking only earns an error.
+  aws_ ec2 describe-instances \
+    --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
+              "Name=instance-state-name,Values=stopped" \
+    --query 'Reservations[].Instances[].InstanceId' --output text
+}
+
+ec2_start_retrying() {
+  local deadline attempt=1 todo
+  deadline=$(( $(date +%s) + EC2_RETRY_SECONDS ))
+
+  while :; do
+    todo=$(ec2_pending_ids)
+    [ -n "$todo" ] || { echo "ec2: all instances already running or pending"; return 0; }
+
+    # shellcheck disable=SC2086
+    if EC2_ERR=$(aws_ ec2 start-instances --instance-ids $todo \
+                   --query 'StartingInstances[].{id:InstanceId,state:CurrentState.Name}' \
+                   --output table 2>&1); then
+      printf '%s\n' "$EC2_ERR"
+      return 0
+    fi
+
+    printf '%s' "$EC2_ERR" | grep -q 'InsufficientInstanceCapacity' || {
+      printf '%s\n' "$EC2_ERR" >&2
+      return 1
+    }
+
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      {
+        echo "ec2: gave up after ${attempt} attempts over ~${EC2_RETRY_SECONDS}s."
+        echo "      The AZ has no room for these instance types. Still stopped:"
+        ec2_pending_ids | tr '\t' '\n' | sed 's/^/        /'
+        echo "      Unlike RDS these are not pinned -- the launch template spans the"
+        echo "      subnets, so a stopped instance can be replaced in another AZ by"
+        echo "      tainting it in OpenTofu. Cheaper first: wait, or start them one at a"
+        echo "      time, since capacity is per instance type."
+      } >&2
+      return 1
+    fi
+
+    echo "ec2: no capacity in the AZ (attempt ${attempt}); retrying in ${EC2_RETRY_INTERVAL}s" >&2
+    attempt=$(( attempt + 1 ))
+    sleep "$EC2_RETRY_INTERVAL"
   done
 }
 
@@ -293,9 +356,9 @@ case "$CMD" in
       echo "      latest snapshot into another AZ or a smaller class; a stopped" >&2
       echo "      instance cannot have its class changed in place." >&2
     fi
+    EC2_RC=0
     if [ -n "$IDS" ]; then
-      # shellcheck disable=SC2086
-      aws_ ec2 start-instances --instance-ids $IDS --query 'StartingInstances[].{id:InstanceId,state:CurrentState.Name}' --output table
+      ec2_start_retrying || EC2_RC=1
     fi
     echo
     echo "Instance IDs are unchanged by stop/start, so the Ansible dynamic"
@@ -307,15 +370,21 @@ case "$CMD" in
     # throughput (avni-perf docs/findings-case1.md), and on 5 Oct the only
     # reason the morning sweep looked sane was that its first run happened to be
     # gentle enough to act as one. env-warmup.sh never fails the start.
-    if [ "$RDS_RC" -eq 0 ]; then
+    if [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ]; then
       echo
       "$(dirname "${BASH_SOURCE[0]}")/env-warmup.sh" || true
-    else
+    elif [ "$RDS_RC" -ne 0 ]; then
       echo "Skipping warm-up: the database did not start." >&2
+    else
+      echo "Skipping warm-up: the instances did not start." >&2
     fi
     # The app server comes up regardless and will serve 502 against a database
-    # that never started, so a non-zero exit here is the only honest signal.
-    exit "$RDS_RC"
+    # that never started, so a non-zero exit here is the only honest signal --
+    # and the same holds for instances that never started at all. Callers that
+    # pipe this through `tail` get the pipeline's status, not this one, which is
+    # how 7 Oct's failed start reported success: use PIPESTATUS or do not pipe.
+    [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ] || exit 1
+    exit 0
     ;;
 
   destroy)
