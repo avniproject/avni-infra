@@ -22,7 +22,7 @@ cmd="\${@: -1}"
 case "\$cmd" in
   *pkill*)        echo killed >> "$WORK/kills"; exit 0 ;;
   *pgrep*)        case "$1" in hang) sleep 60 ;; *) echo "__ARGV_OK__"; echo 1 ;; esac; exit 0 ;;
-  *run-scenario*) echo launched; exit 0 ;;
+  *run-scenario*) case "$1" in hanglaunch) echo launched; sleep 60 ;; *) echo launched ;; esac; exit 0 ;;
 esac
 case "\$cmd" in
   *__ARGV_OK__*ps\ -eo*)
@@ -31,6 +31,7 @@ case "\$cmd" in
       missing) echo "__ARGV_OK__"; echo "java -DUSER_COUNT=400 x" ;;
       silent)  : ;;                        # no sentinel: the probe did not answer
       hang)    sleep 60 ;;                   # never returns -- the 12 Oct incident
+      hanglaunch) echo "__ARGV_OK__"; echo "java -DUSER_COUNT=400 -DPUSH=on -DSYNC_MODE=realistic x" ;;
     esac; exit 0 ;;
   *__ARGV_OK__*Profile*)
     case "$1" in
@@ -38,6 +39,7 @@ case "\$cmd" in
       missing) echo "__ARGV_OK__"; echo "Profile: steady | 46 syncs/hour for 15 min" ;;
       silent)  : ;;
       hang)    sleep 60 ;;
+      hanglaunch) echo "__ARGV_OK__"; echo "Profile: steady | 1600 syncs/hour for 15 min" ;;
     esac; exit 0 ;;
 esac
 exit 0
@@ -50,6 +52,7 @@ run() { # $1 mode, $2.. args
   mkssh "$mode"; rm -f "$WORK/kills"
   PATH="$WORK:$PATH" AVNI_EICE_PROXY=/bin/true AVNI_PROBE_TIMEOUT="${PROBE_T:-2}" \
     AVNI_RETRY_SLEEP=0 AVNI_JVM_WAIT_TRIES=3 AVNI_JVM_WAIT_SLEEP=0 \
+    AVNI_LAUNCH_TIMEOUT="${AVNI_LAUNCH_T:-30}" \
     "$SCRIPT" "$@" >"$WORK/out" 2>&1
   echo $?
 }
@@ -99,6 +102,17 @@ if [ "$el" -lt 10 ]; then
   echo "  PASS fast-path-in-${el}s with a 30s timeout (waiting on the watchdog would cost 30s+ per call)"; pass=$((pass+1))
 else
   echo "  FAIL took ${el}s -- the bound is charging its own timeout on every call"; fail=$((fail+1))
+fi
+
+echo "8. the LAUNCH ssh hangs -> bounded, run still accepted"
+t0=$(date +%s)
+rc=$(PROBE_T=2 AVNI_LAUNCH_T=2 run hanglaunch L -DUSER_COUNT=400 -DPUSH=on -DSYNC_MODE=realistic)
+el=$(( $(date +%s) - t0 ))
+check "launch-hang-accepted" 0 0 "$rc"
+if [ "$el" -lt 20 ]; then
+  echo "  PASS launch bounded in ${el}s (unbounded it held 14-18 minutes in production)"; pass=$((pass+1))
+else
+  echo "  FAIL took ${el}s -- the launch ssh is not bounded"; fail=$((fail+1))
 fi
 
 echo

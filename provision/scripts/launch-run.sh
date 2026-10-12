@@ -81,7 +81,16 @@ bounded() {
 }
 
 echo "launch-run: $LABEL on $INJECTOR"
-"${SSH[@]}" "cd $HOME_DIR && rm -f $LABEL.log && setsid nohup ./run-scenario.sh $LABEL $PROPS > $LABEL.log 2>&1 < /dev/null & sleep 3; echo launched" 2>/dev/null
+# BOUNDED, because this is the call that actually hangs. The remote command
+# backgrounds a setsid/nohup'd run and echoes "launched" in about three
+# seconds, but the ssh channel has repeatedly stayed open afterwards -- on
+# 12 Oct it held for fourteen minutes on one launch and eighteen on another,
+# blocking every downstream step while the run itself proceeded perfectly.
+#
+# Safe to bound: killing the ssh client does not touch a detached remote
+# process. That was demonstrated several times the same day.
+PROBE_TIMEOUT="${AVNI_LAUNCH_TIMEOUT:-30}" bounded "${SSH[@]}" \
+  "cd $HOME_DIR && rm -f $LABEL.log && setsid nohup ./run-scenario.sh $LABEL $PROPS > $LABEL.log 2>&1 < /dev/null & sleep 3; echo launched"
 
 # --- wait for the JVM ------------------------------------------------------
 for _ in $(seq 1 "$JVM_WAIT_TRIES"); do
