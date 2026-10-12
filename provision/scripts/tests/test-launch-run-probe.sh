@@ -90,6 +90,17 @@ else
   echo "  FAIL took ${el}s -- the probe was not bounded"; fail=$((fail+1))
 fi
 
+echo "7. a FAST probe must return FAST -- the bound must not cost its own timeout"
+t0=$(date +%s)
+rc=$(PROBE_T=30 run good L -DUSER_COUNT=400 -DPUSH=on -DSYNC_MODE=realistic)
+el=$(( $(date +%s) - t0 ))
+check "fast-path-accepted" 0 0 "$rc"
+if [ "$el" -lt 10 ]; then
+  echo "  PASS fast-path-in-${el}s with a 30s timeout (waiting on the watchdog would cost 30s+ per call)"; pass=$((pass+1))
+else
+  echo "  FAIL took ${el}s -- the bound is charging its own timeout on every call"; fail=$((fail+1))
+fi
+
 echo
 echo "passed $pass, failed $fail"
 [ "$fail" -eq 0 ]

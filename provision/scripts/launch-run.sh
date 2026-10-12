@@ -62,9 +62,20 @@ bounded() {
   local out rc pid wd
   out=$(mktemp); : "${out:?}"
   ( "$@" >"$out" 2>/dev/null ) & pid=$!
-  ( sleep "$PROBE_TIMEOUT"; kill -9 "$pid" 2>/dev/null ) & wd=$!
+  # >/dev/null 2>&1 is load-bearing, not tidiness. bounded() is called inside
+  # $( ), and command substitution blocks until EVERY holder of the pipe closes
+  # it -- including the watchdog's orphaned sleep. Without this redirect the
+  # substitution waits out the full PROBE_TIMEOUT on every call even when the
+  # command returned instantly.
+  ( sleep "$PROBE_TIMEOUT"; kill -9 "$pid" 2>/dev/null ) >/dev/null 2>&1 & wd=$!
   wait "$pid" 2>/dev/null; rc=$?
-  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
+  # Kill the watchdog but DO NOT wait for it. It is blocked inside sleep, so
+  # bash defers the signal until the sleep finishes -- and `wait` on it then
+  # costs a full PROBE_TIMEOUT on EVERY call, however fast the command was.
+  # At the 45 s default across the 30-iteration wait loop that turned a bound
+  # into a fifty-minute stall on 12 Oct, which is worse than the hang it
+  # replaced. The orphan exits on its own.
+  kill -9 "$wd" 2>/dev/null
   cat "$out"; rm -f "$out"
   return $rc
 }
