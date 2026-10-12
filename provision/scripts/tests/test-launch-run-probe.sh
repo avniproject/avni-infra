@@ -21,7 +21,7 @@ mkssh() { # $1 = mode
 cmd="\${@: -1}"
 case "\$cmd" in
   *pkill*)        echo killed >> "$WORK/kills"; exit 0 ;;
-  *pgrep*)        exit 0 ;;
+  *pgrep*)        case "$1" in hang) sleep 60 ;; *) echo "__ARGV_OK__"; echo 1 ;; esac; exit 0 ;;
   *run-scenario*) echo launched; exit 0 ;;
 esac
 case "\$cmd" in
@@ -30,12 +30,14 @@ case "\$cmd" in
       good)    echo "__ARGV_OK__"; echo "java -DUSER_COUNT=400 -DPUSH=on -DSYNC_MODE=realistic x" ;;
       missing) echo "__ARGV_OK__"; echo "java -DUSER_COUNT=400 x" ;;
       silent)  : ;;                        # no sentinel: the probe did not answer
+      hang)    sleep 60 ;;                   # never returns -- the 12 Oct incident
     esac; exit 0 ;;
   *__ARGV_OK__*Profile*)
     case "$1" in
       good)    echo "__ARGV_OK__"; echo "Profile: steady | 1600 syncs/hour for 15 min" ;;
       missing) echo "__ARGV_OK__"; echo "Profile: steady | 46 syncs/hour for 15 min" ;;
       silent)  : ;;
+      hang)    sleep 60 ;;
     esac; exit 0 ;;
 esac
 exit 0
@@ -46,7 +48,9 @@ EOF
 run() { # $1 mode, $2.. args
   local mode="$1"; shift
   mkssh "$mode"; rm -f "$WORK/kills"
-  PATH="$WORK:$PATH" AVNI_EICE_PROXY=/bin/true "$SCRIPT" "$@" >"$WORK/out" 2>&1
+  PATH="$WORK:$PATH" AVNI_EICE_PROXY=/bin/true AVNI_PROBE_TIMEOUT="${PROBE_T:-2}" \
+    AVNI_RETRY_SLEEP=0 AVNI_JVM_WAIT_TRIES=3 AVNI_JVM_WAIT_SLEEP=0 \
+    "$SCRIPT" "$@" >"$WORK/out" 2>&1
   echo $?
 }
 kills() { [ -f "$WORK/kills" ] && wc -l < "$WORK/kills" | tr -d ' ' || echo 0; }
@@ -74,6 +78,17 @@ rc=$(AVNI_EXPECT_RATE="1600 syncs/hour" run missing L -DUSER_COUNT=400); check "
 
 echo "5. newline in the property list -> refused before launching"
 rc=$(run good L "$(printf -- '-DA=1\n-DB=2')"); check "refuse-newline" 2 0 "$rc"
+
+echo "6. THE 12 OCT INCIDENT: the probe hangs -> bounded, and must NOT kill"
+t0=$(date +%s)
+rc=$(PROBE_T=2 run hang L -DUSER_COUNT=400 -DPUSH=on -DSYNC_MODE=realistic)
+el=$(( $(date +%s) - t0 ))
+check "no-kill-on-hang" 3 0 "$rc"
+if [ "$el" -lt 20 ]; then
+  echo "  PASS bounded-in-${el}s (unbounded, the stub sleeps 60s per call)"; pass=$((pass+1))
+else
+  echo "  FAIL took ${el}s -- the probe was not bounded"; fail=$((fail+1))
+fi
 
 echo
 echo "passed $pass, failed $fail"

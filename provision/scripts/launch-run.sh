@@ -41,23 +41,50 @@ INJECTOR="${AVNI_INJECTOR_ID:-i-041afc7c6e0761195}"
 HOME_DIR="${AVNI_INJECTOR_HOME:-/opt/avni-perf}"
 PROXY="${AVNI_EICE_PROXY:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../configure/scripts" && pwd)/eice-ssh-proxy.sh}"
 SENTINEL="__ARGV_OK__"
+# ServerAliveInterval/CountMax, not just ConnectTimeout: on 12 Oct 2026 one ssh
+# here hung for EIGHTEEN MINUTES and blocked the whole run's instrumentation.
+# ConnectTimeout bounds the CONNECT; a command that never returns is not covered
+# by it. 10x3 tears a wedged session down in about thirty seconds.
 SSH=(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR
-     -o ConnectTimeout=25 -o ServerAliveInterval=30 -o ProxyCommand="$PROXY %h" "ubuntu@$INJECTOR")
+     -o ConnectTimeout=25 -o ServerAliveInterval=10 -o ServerAliveCountMax=3
+     -o ProxyCommand="$PROXY %h" "ubuntu@$INJECTOR")
+
+# A wall-clock bound that does not depend on ssh behaving. macOS has no
+# timeout(1), so this is the portable shape: run in the background, shoot it if
+# it overstays, and read what it managed to write.
+PROBE_TIMEOUT="${AVNI_PROBE_TIMEOUT:-45}"
+# Tunable so the test suite can exercise the slow paths quickly. A test that
+# takes ten minutes is a test nobody runs, and this one pins a real incident.
+RETRY_SLEEP="${AVNI_RETRY_SLEEP:-15}"
+JVM_WAIT_TRIES="${AVNI_JVM_WAIT_TRIES:-30}"
+JVM_WAIT_SLEEP="${AVNI_JVM_WAIT_SLEEP:-10}"
+bounded() {
+  local out rc pid wd
+  out=$(mktemp); : "${out:?}"
+  ( "$@" >"$out" 2>/dev/null ) & pid=$!
+  ( sleep "$PROBE_TIMEOUT"; kill -9 "$pid" 2>/dev/null ) & wd=$!
+  wait "$pid" 2>/dev/null; rc=$?
+  kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
+  cat "$out"; rm -f "$out"
+  return $rc
+}
 
 echo "launch-run: $LABEL on $INJECTOR"
 "${SSH[@]}" "cd $HOME_DIR && rm -f $LABEL.log && setsid nohup ./run-scenario.sh $LABEL $PROPS > $LABEL.log 2>&1 < /dev/null & sleep 3; echo launched" 2>/dev/null
 
 # --- wait for the JVM ------------------------------------------------------
-for _ in $(seq 1 30); do
-  "${SSH[@]}" 'pgrep -f "[A]vniSyncSimulation" >/dev/null' 2>/dev/null && break
-  sleep 10
+for _ in $(seq 1 "$JVM_WAIT_TRIES"); do
+  case "$(bounded "${SSH[@]}" 'echo '"$SENTINEL"'; pgrep -c -f "[A]vniSyncSimulation"')" in
+    *"$SENTINEL"*[1-9]*) break ;;
+  esac
+  sleep "$JVM_WAIT_SLEEP"
 done
 
 # --- probe argv, with a sentinel so "no answer" is distinguishable ---------
 # The sentinel is echoed by the REMOTE shell. If it is absent, the probe did
 # not run -- which is not evidence about the run.
 probe() {
-  "${SSH[@]}" "echo $SENTINEL; ps -eo args | grep '[A]vniSyncSimulation' | head -1" 2>/dev/null
+  bounded "${SSH[@]}" "echo $SENTINEL; ps -eo args | grep '[A]vniSyncSimulation' | head -1"
 }
 argv=""; got=0
 for attempt in 1 2 3 4 5; do
@@ -66,7 +93,7 @@ for attempt in 1 2 3 4 5; do
     *"$SENTINEL"*) argv="${out#*$SENTINEL}"; got=1; break ;;
   esac
   echo "launch-run: argv probe did not answer (attempt $attempt) -- retrying, NOT killing" >&2
-  sleep 15
+  sleep "$RETRY_SLEEP"
 done
 
 if [ "$got" -eq 0 ]; then
@@ -83,7 +110,7 @@ for kv in $PROPS; do
 done
 
 if [ -n "${AVNI_EXPECT_RATE:-}" ]; then
-  banner=$("${SSH[@]}" "echo $SENTINEL; grep -aE '^Profile:' $HOME_DIR/$LABEL.log | head -1" 2>/dev/null)
+  banner=$(bounded "${SSH[@]}" "echo $SENTINEL; grep -aE '^Profile:' $HOME_DIR/$LABEL.log | head -1")
   case "$banner" in
     *"$SENTINEL"*)
       b="${banner#*$SENTINEL}"
