@@ -34,11 +34,23 @@
 # NO CREDENTIALS ARE CREATED. Issue them out of band:
 #   aws iam create-login-profile --user-name <u> --password '<...>' --password-reset-required
 #   aws iam create-access-key    --user-name <u>
+#
+# --password-reset-required is only safe because IAMUserChangePassword is attached above. It
+# forces a change at first sign-in, and ReadOnlyAccess alone cannot perform one.
+#
+# There is no account password policy on this account, so IAM's defaults apply. Passwords issued
+# out of band should be long and random rather than relying on that.
 set -euo pipefail
 
 GROUP=loadtest-readonly
 SECRET_POLICY=loadtest-read-db-master-secret
 READONLY_ARN=arn:aws:iam::aws:policy/ReadOnlyAccess
+# ReadOnlyAccess does NOT grant iam:ChangePassword -- simulate-principal-policy
+# returns implicitDeny for it. A console password issued with
+# --password-reset-required then forces a change the account cannot perform, and
+# the person is locked out at first sign-in with no way through. This is the
+# policy that makes the forced reset completable, and nothing else here grants it.
+CHANGEPW_ARN=arn:aws:iam::aws:policy/IAMUserChangePassword
 EXPECT_ACCOUNT=936573213727
 
 account=$(aws sts get-caller-identity --query Account --output text)
@@ -58,7 +70,15 @@ if [ "${1:-}" = "--show" ]; then
   for u in $(aws iam get-group --group-name "$GROUP" --query 'Users[].UserName' --output text); do
     n=$(aws iam list-access-keys --user-name "$u" --query 'length(AccessKeyMetadata)' --output text)
     p=$(aws iam get-login-profile --user-name "$u" >/dev/null 2>&1 && echo yes || echo no)
-    echo "  $u: access keys $n, console password $p"
+    # --resource-arns is required, not optional: IAMUserChangePassword allows the action only on
+    # arn:aws:iam::*:user/${aws:username}, so simulating without a resource evaluates against "*"
+    # and returns implicitDeny for an account that can in fact change its password. A check that
+    # is wrong in the safe-looking direction is worse than no check.
+    c=$(aws iam simulate-principal-policy --policy-source-arn "arn:aws:iam::${EXPECT_ACCOUNT}:user/${u}" \
+          --action-names iam:ChangePassword \
+          --resource-arns "arn:aws:iam::${EXPECT_ACCOUNT}:user/${u}" \
+          --query 'EvaluationResults[0].EvalDecision' --output text 2>/dev/null)
+    echo "  $u: access keys $n, console password $p, can change password: $c"
   done
   exit 0
 fi
@@ -68,6 +88,9 @@ aws iam get-group --group-name "$GROUP" >/dev/null 2>&1 \
 
 aws iam attach-group-policy --group-name "$GROUP" --policy-arn "$READONLY_ARN"
 echo "attached ReadOnlyAccess"
+
+aws iam attach-group-policy --group-name "$GROUP" --policy-arn "$CHANGEPW_ARN"
+echo "attached IAMUserChangePassword"
 
 SECRET_ARN=$(tofu -chdir=provision/tofu/envs/loadtest output -raw db_master_secret_arn)
 POLICY_ARN="arn:aws:iam::${EXPECT_ACCOUNT}:policy/${SECRET_POLICY}"
