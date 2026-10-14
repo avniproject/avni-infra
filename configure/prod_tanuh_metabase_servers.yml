@@ -30,11 +30,13 @@
     # this playbook (e.g. `make tanuh-metabase-prod`) — unchanged behaviour.
     - role: tanuh_webapp
       vars:
-        # Prod pins a RELEASE TAG — UAT tracks `main`, prod never auto-drifts to
-        # `main`. v1.5.0 == the commit prod currently runs, so a bare
-        # `make tanuh-webapp-prod` is a no-op. Bump this to a newer tag to
-        # promote, after UAT sign-off (see tanuh-webapp README "Releases & promotion").
-        tanuh_webapp_git_ref: v1.5.0
+        # Prod pins a RELEASE TAG and never a branch head. Keep it equal to the tag
+        # prod currently runs, so a bare `make tanuh-webapp-prod` AND any untagged
+        # run of this playbook (e.g. `make tanuh-metabase-prod`) are no-ops for the
+        # webapp. v1.11.1 has been live since 2026-09-11 (the pin said v1.5.0 until
+        # 2026-10-01, so such a run would have downgraded prod). Bump to the new tag
+        # in the same change as a prod promotion (tanuh-webapp RELEASE_WORKFLOW.md).
+        tanuh_webapp_git_ref: v1.11.1
       tags: [tanuh_webapp]
     # UAT physician app (uat-tanuh.avniproject.org, :8081) on the SAME host,
     # backed by the Tanuh_UAT org on prod Avni. Guarded so it deploys ONLY when
@@ -48,6 +50,9 @@
         tanuh_webapp_instance_name: tanuh-webapp-uat
         tanuh_webapp_listen_port: 8081
         tanuh_webapp_server_name: uat-tanuh.avniproject.org
-        tanuh_webapp_git_ref: main
+        # UAT serves the head of the open minor release branch (tanuh-webapp uses
+        # Avni's X.Y release branches since 2026-10-01). `main` would drop the
+        # unreleased 1.13 work from UAT. Move this when the next minor line opens.
+        tanuh_webapp_git_ref: "1.13"
       tags: [tanuh_webapp_uat]
       when: "'tanuh_webapp_uat' in ansible_run_tags"
