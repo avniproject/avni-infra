@@ -80,19 +80,28 @@ INJ=$(aws_ ec2 describe-instances \
   --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null)
 [ -n "$INJ" ] && [ "$INJ" != "None" ] || warn "no injector running — nothing to warm from. Skipped."
 
-echo "warm-up: waiting for ${BASE_URL}/ping (up to ${WAIT}s)"
+SSH=(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR
+     -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ProxyCommand="$PROXY %h" "ubuntu@$INJ")
+
+# **Polled from the INJECTOR, not from here.** The ALB's security group admits
+# the injector and one office CIDR and nothing else, so a laptop on any other
+# network gets 000 forever and the warm-up reports "not warmed" while the
+# environment is perfectly healthy. On 14 Oct that sent a cold case 6 into a
+# two-hour run that had to be thrown away: warm throughput is ~3x cold, and the
+# run it was being compared against was warm.
+#
+# The load already runs on the injector. The gate had no business being
+# anywhere else.
+echo "warm-up: waiting for ${BASE_URL}/ping from the injector (up to ${WAIT}s)"
 START=$(date +%s)
 while :; do
-  CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${BASE_URL}/ping" 2>/dev/null)
+  CODE=$("${SSH[@]}" "curl -s -o /dev/null -w '%{http_code}' --max-time 10 '${BASE_URL}/ping'" 2>/dev/null)
   [ "$CODE" = "200" ] && break
   ELAPSED=$(( $(date +%s) - START ))
-  [ "$ELAPSED" -ge "$WAIT" ] && warn "/ping still $CODE after ${ELAPSED}s. Not warmed."
+  [ "$ELAPSED" -ge "$WAIT" ] && warn "/ping still ${CODE:-unreachable} after ${ELAPSED}s. Not warmed."
   sleep 15
 done
 echo "warm-up: /ping 200 after $(( $(date +%s) - START ))s"
-
-SSH=(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR
-     -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ProxyCommand="$PROXY %h" "ubuntu@$INJ")
 
 "${SSH[@]}" "test -d '$HOME_DIR/harness'" 2>/dev/null \
   || warn "injector has no $HOME_DIR/harness — run loadtest_injector.yml first. Skipped."
