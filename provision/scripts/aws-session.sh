@@ -19,6 +19,17 @@
 # If it asks for an MFA code and the terminal cannot echo, run
 # `aws sts get-caller-identity --profile avni-load-test` in a real terminal
 # first to refresh the cache, then source this.
+#
+# **NAME THE PROFILE WHEN SOURCING FROM A SCRIPT THAT TAKES ARGUMENTS.**
+# `.` does not reset positional parameters, so this file sees the CALLER's "$1".
+# A script invoked as `swap-dataset.sh pilot-day-120` that sources this bare
+# makes it try to resolve a profile called "pilot-day-120", fail, and leave the
+# shell on the default profile -- which is production. Write:
+#
+#   . provision/scripts/aws-session.sh avni-load-test
+#
+# Nothing warns about this at the call site, and it only appears once a caller
+# starts taking arguments.
 
 _avni_session() {
   local profile="${1:-avni-load-test}"
@@ -30,6 +41,16 @@ _avni_session() {
     printf 'aws-session: could not resolve profile %s\n%s\n' "$profile" "$creds" >&2
     printf 'aws-session: refresh MFA in an interactive terminal:\n' >&2
     printf '  aws sts get-caller-identity --profile %s\n' "$profile" >&2
+    # **Leave nothing usable behind.** Every other failure below unsets the
+    # exported credentials; this path did not, and the caller was then left on
+    # whatever was already configured -- which is the production profile. On
+    # 16 Oct that turned a mistyped profile into two runs that resolved to
+    # production and were stopped only by the caller's own account guard.
+    # AWS_PROFILE is pinned to what was asked for rather than cleared, so a
+    # later call fails loudly on that profile instead of quietly succeeding
+    # against the default one.
+    unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+    export AWS_PROFILE="$profile"
     return 1
   fi
 
@@ -37,7 +58,10 @@ _avni_session() {
   # code. Do not let it through: the fallback is production.
   case "$creds" in
     *AWS_ACCESS_KEY_ID*) : ;;
-    *) printf 'aws-session: no credentials in output; refusing to continue\n' >&2; return 1 ;;
+    *) printf 'aws-session: no credentials in output; refusing to continue\n' >&2
+       unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+       export AWS_PROFILE="$profile"
+       return 1 ;;
   esac
 
   eval "$creds"
