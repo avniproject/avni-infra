@@ -110,7 +110,7 @@ echo "warm-up: ${USERS} devices over ${BURST}s against ${BASE_URL} (discarded)"
 # JAVA_HOME is globbed for the same reason roles/avni_injector globs it: Java 8
 # owns the `java` alternative on this host and the Gatling plugin needs 11+.
 # The architecture is in the path, so it cannot be hardcoded either.
-"${SSH[@]}" "set -e
+out=$("${SSH[@]}" "set -e
   export GRADLE_USER_HOME='$HOME_DIR/.gradle'
   JH=\$(ls -d /usr/lib/jvm/java-17-openjdk-* 2>/dev/null | head -1)
   [ -n \"\$JH\" ] || { echo 'no java-17-openjdk-* under /usr/lib/jvm' >&2; exit 1; }
@@ -122,9 +122,18 @@ echo "warm-up: ${USERS} devices over ${BURST}s against ${BASE_URL} (discarded)"
     -DBURST_SECONDS=$BURST \
     -DSYNC_USERS=case1-users.csv \
     -DUSER_COUNT=$USERS \
-    -DCACHE_POLICY=discarded-warmup" 2>&1 \
-  | grep -aE '^(Profile|Sync mode):|^> *(request count|mean response time|response time 95th|mean throughput)|BUILD (SUCCESSFUL|FAILED)|error:' \
-  || true
+    -DCACHE_POLICY=discarded-warmup" 2>&1) || true
+
+# **The run is checked, not assumed.** This used to pipe straight into grep with
+# `|| true` on the end, so a dropped ssh produced no output, grep failed, the
+# failure was swallowed, and the script still printed "done, result discarded"
+# and exited 0. Success and failure were indistinguishable from outside, and on
+# 16 Oct that nearly sent a two-hour measured run at a server nothing had warmed.
+printf '%s\n' "$out" | grep -aE '^(Profile|Sync mode):|^> *(request count|mean response time|response time 95th|mean throughput)|BUILD (SUCCESSFUL|FAILED)|error:' || true
+case "$out" in
+  *"BUILD SUCCESSFUL"*) ;;
+  *) warn "the gatling run did not report BUILD SUCCESSFUL. Not warmed." ;;
+esac
 
 echo "warm-up: done, result discarded. Measured runs can start."
 echo "         How long warm lasts is unmeasured: 20 min was warm, 2m49s was not."
