@@ -24,6 +24,12 @@ module "avni_env" {
   # must have this back at db.m6g.large.
   db_instance_class = var.db_instance_class
 
+  # Module default except during the vertical scale sweep. A resize MUST go
+  # through here rather than `aws ec2 modify-instance-attribute`: the CLI route
+  # leaves this state believing the host is still m6g.large, and the next apply
+  # would silently undo the sweep.
+  app_instance_class = var.app_instance_class
+
   # ETL host off: testing under concurrent ETL load is deferred.
   #
   # This is a deliberate deviation, not a saving, and it is worth being precise
