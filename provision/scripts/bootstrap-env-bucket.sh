@@ -57,13 +57,18 @@ aws_ s3api put-public-access-block --bucket "$BUCKET" --public-access-block-conf
 aws_ s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-configuration \
   '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 
-# Artefacts accumulate per run and are interesting until analysed. Deployables
-# are small and their provenance matters for reading old runs, so they live
-# longer -- a result is only interpretable next to the bytes that produced it.
+# ARTEFACTS DO NOT EXPIRE, and that is deliberate.
+#   They did, at 90 days, on the theory that a run is "interesting until
+#   analysed". That theory is wrong. Analysis is not a single pass: a finding
+#   from one run gets re-read against an older one months later, and a
+#   measurement whose artefacts are gone cannot be re-checked, only re-run --
+#   on an environment that by then differs. The whole campaign is 1.8 GB, so
+#   the rule was deleting the output of the exercise to save about 5c a month.
+#
+# Deployables keep their 365-day expiry: they are large, reproducible from a
+# tag, and their provenance already lives in each run's run-metadata.json.
 aws_ s3api put-bucket-lifecycle-configuration --bucket "$BUCKET" --lifecycle-configuration '{
   "Rules": [
-    {"ID":"expire-run-artefacts","Status":"Enabled","Filter":{"Prefix":"artefacts/"},
-     "Expiration":{"Days":90}},
     {"ID":"expire-old-deployables","Status":"Enabled","Filter":{"Prefix":"deployables/"},
      "Expiration":{"Days":365}},
     {"ID":"abort-incomplete-uploads","Status":"Enabled","Filter":{"Prefix":""},
