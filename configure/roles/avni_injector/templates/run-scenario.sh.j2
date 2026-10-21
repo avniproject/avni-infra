@@ -179,6 +179,30 @@ else
   echo "WARNING: gatling produced no report directory. Keeping gradle.log only." >&2
 fi
 
+# --- one downloadable file ------------------------------------------------
+# A Gatling report is ~250 objects that only work together: index.html pulls
+# js/, style/ and four SVGs by relative path, so a presigned URL for any one
+# object renders an unstyled page with no charts. The bucket is private and has
+# no website endpoint, so there is no way to browse the directory either.
+#
+# So publish the run as a single archive as well. It downloads in one click,
+# unzips to a folder named for the run, and opens offline with every drill-down
+# page intact. It is close to free — a report is text, and 130 MB of it
+# compressed to 6.8 MB in 3.5 s when this was measured on 21 Oct 2026.
+#
+# The directory upload stays: tools/update-run-log.sh reads run-metadata.json,
+# stats.json, sync-durations.csv and gradle.log as individual objects.
+ZIP="{{ injector_home }}/runs/${RUN_ID}.zip"
+rm -f "$ZIP"
+# Zipped from the parent with $RUN_ID as the argument, so the archive carries
+# one top-level folder instead of scattering 250 files into someone's Downloads.
+if ( cd "{{ injector_home }}/runs" && zip -q -r -9 "$ZIP" "$RUN_ID" ); then
+  echo "archived $(du -h "$ZIP" | cut -f1) from $(du -sh "$STAGE" | cut -f1)"
+else
+  echo "WARNING: could not build ${ZIP}; publishing the directory only." >&2
+  ZIP=""
+fi
+
 # --- publish --------------------------------------------------------------
 # The instance profile grants PutObject on artefacts/* and NOT DeleteObject, so
 # the archive is append-only: no run can overwrite or erase an earlier result.
@@ -187,6 +211,7 @@ fi
 echo
 echo "publishing to ${DEST}"
 aws s3 cp --recursive --only-show-errors "$STAGE" "$DEST"
+[ -z "$ZIP" ] || aws s3 cp --only-show-errors "$ZIP" "${DEST}/${RUN_ID}.zip"
 echo "published. exit ${RC}"
 echo
 echo "  aws s3 ls ${DEST}/"

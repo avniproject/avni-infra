@@ -30,13 +30,19 @@
   when: injector_aws_account_id is not defined
   tags: [injector]
 
-- name: Install the AWS CLI
+- name: Install the AWS CLI and zip
   # Ubuntu's awscli package is v1 and old, but it is enough to copy a directory
   # to S3 and it avoids pulling an installer from the internet mid-provision.
   # The alternative — a presigned URL per object — cannot work for an upload of
   # a directory whose file names are only known after the run.
+  #
+  # zip builds the one-file archive of each run. It happens to be on the current
+  # AMI, which is exactly why it is named here: an undeclared dependency that
+  # works today is a run that silently publishes no archive after an AMI bump.
   apt:
-    name: awscli
+    name:
+      - awscli
+      - zip
     state: present
     update_cache: "{{ update_apt_cache | default(true) }}"
   become: true
