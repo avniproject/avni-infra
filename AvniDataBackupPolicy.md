@@ -5,8 +5,9 @@ All copies stay inside India. The primary is in AWS Mumbai (ap-south-1) and disa
 ### Avni Prod Database 
 - **Point-in-time restore** capability enabled
 - **Daily snapshots** captured, with last **14 days** retained in AWS Mumbai (ap-south-1)
-- **Cross-region DR**: AWS Backup plan `proddb02-daily-dr` takes a daily backup at 02:00 UTC and copies it to vault `proddb02-dr-vault-hyd` in **AWS Hyderabad (ap-south-2)**, retained for **3 days**
-- **Known limit**: the 3-day retention applies even when no newer copy arrives. If Mumbai stops producing backups for more than 3 days, the Hyderabad copies expire too
+- **Cross-region DR**: AWS Backup plan `proddb02-daily-dr` takes a daily backup at 02:00 UTC and copies it to vault `proddb02-dr-vault-hyd` in **AWS Hyderabad (ap-south-2)**
+- **The newest 3 copies are always kept.** Lambda `backup-vault-keep-latest` (ap-south-2) runs daily at 04:00 UTC and deletes older copies only when more than 3 exist. While Mumbai produces backups, Hyderabad holds the last 3 days
+- **If Mumbai stops producing backups, the last 3 copies stay.** Each one expires 365 days after it was copied, the ceiling set on the copy rule
 - DR copies are **KMS-encrypted** with a customer-managed key in Hyderabad (`alias/rds-dr-hyderabad`)
 - A restore from the Hyderabad copy was tested on 21 Oct 2026. The snapshot is on PostgreSQL 16.8, which Hyderabad does not offer for new databases, and it still restored
 
@@ -21,7 +22,7 @@ All copies stay inside India. The primary is in AWS Mumbai (ap-south-1) and disa
 
 | Component | Primary (Mumbai) | DR (Hyderabad) |
 |-----------|-----------------|----------------|
-| **Database** | 14-day automated backups + point-in-time restore | Daily encrypted copies, 3-day retention |
+| **Database** | 14-day automated backups + point-in-time restore | Daily encrypted copies, newest 3 always kept |
 | **Media Content** | Versioned, delete-protected | Real-time cross-region replica, delete-isolated |
 
 Both primary and DR locations are within AWS India but in **geographically separate regions** (Mumbai and Hyderabad), providing protection against regional outages and disasters.
