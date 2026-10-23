@@ -137,13 +137,6 @@ resource "aws_db_instance" "this" {
   # environment. Upgrade deliberately, re-baseline, and note it.
   auto_minor_version_upgrade = false
   instance_class             = var.db_instance_class
-  # A class change on this rig is always wanted now, not at the maintenance
-  # window: the vertical sweeps (plan rows 19, 25, 26) resize, run, and resize
-  # back inside a day. Without this the provider queues the change as a
-  # pending modification and reports the new class while the instance still
-  # runs the old one. The reboot it implies is the one RESIZE.md already
-  # budgets for.
-  apply_immediately          = true
 
   allocated_storage = var.db_allocated_storage
   storage_type      = "gp3"
