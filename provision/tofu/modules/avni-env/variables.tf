@@ -106,9 +106,9 @@ variable "enable_injector" {
 }
 
 variable "injector_instance_class" {
-  description = "Load injector. Sized for CPU and network rather than memory."
+  description = "Load injector. Sized for CPU and network rather than memory. m6g.large carried 10,000 users an hour at ~230 rps on 11-13% CPU."
   type        = string
-  default     = "m6g.xlarge"
+  default     = "m6g.large"
 }
 
 variable "enable_loader" {

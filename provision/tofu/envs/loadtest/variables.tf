@@ -32,17 +32,19 @@ variable "app_instance_class" {
 
 variable "injector_instance_class" {
   description = <<-EOT
-    Gatling injector. The module default (m6g.xlarge, 4 vCPU) drove every run
-    through row 25 of avni-perf's execution plan. Row 26 injects 10,000 users
-    an hour at ~290 rps and the plan sizes the injector at m6g.2xlarge for it,
-    since an injector short of CPU reports the server slower than it is (F7).
+    Gatling injector. m6g.xlarge (4 vCPU) drove every run through row 26 of
+    avni-perf's execution plan and never passed 13% mean CPU -- 10,000 users an
+    hour at ~230 rps on row 26 held at 11-13%, so the campaign ends with it on
+    m6g.large (2 vCPU), which is the default from 23 Oct 2026. An injector short
+    of CPU reports the server slower than it is (F7); check its CPU in the run
+    log before blaming the server if a run ever injects faster than that.
 
     Exposed here for the same reason as app_instance_class: a resize that does
     not go through state is undone by the next apply, and nothing records which
-    size a run used. Put it back to m6g.xlarge afterwards.
+    size a run used.
   EOT
   type        = string
-  default     = "m6g.xlarge"
+  default     = "m6g.large"
 }
 
 variable "db_iops" {
