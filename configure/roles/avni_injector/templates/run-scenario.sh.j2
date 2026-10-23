@@ -169,7 +169,12 @@ RC=0
 # Gatling writes build/reports/gatling/<sim>-<ts>/, which holds simulation.log,
 # index.html and the harness's own run-metadata.json. Take the newest, since an
 # instance may hold several from earlier runs in the same campaign.
-REPORT="$(find "$HARNESS/build/reports/gatling" -maxdepth 1 -mindepth 1 -type d 2>/dev/null \
+# **Only a report written AFTER this run began.** On 23 Oct 2026 a launch crashed at start-up
+# (a feeder missing from the deployed harness); Gatling wrote no report, so "the newest" was the
+# 900 s warm-up burst that had just finished, and a complete report of 100 training-cohort
+# users went to S3 under the run's id as if it were the run. $STAGE is created at launch, so
+# -newer than it is the test.
+REPORT="$(find "$HARNESS/build/reports/gatling" -maxdepth 1 -mindepth 1 -type d -newer "$STAGE" 2>/dev/null \
            | sort | tail -1 || true)"
 if [ -n "$REPORT" ]; then
   cp -a "$REPORT/." "$STAGE/"
