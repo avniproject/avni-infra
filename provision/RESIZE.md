@@ -33,6 +33,7 @@ the record of what the environment was when a result was produced is lost.
 | `app_instance_class` | app server CPU/memory | instance stop/start |
 | `injector_instance_class` | injector CPU/memory | instance stop/start |
 | `db_allocated_storage` | storage, and therefore baseline IOPS | online, but **cannot be reduced** |
+| `db_iops`, `db_storage_throughput` | gp3 provisioned IOPS / MB/s above the 3,000 / 125 baseline | online, but **only from 400 GiB** — see trap 5 |
 | `db_max_connections` | connection ceiling | `pending-reboot` — see below |
 
 ---
@@ -99,6 +100,17 @@ routine use. The retry in `env-teardown.sh` has cleared every occurrence on the
 first attempt. **Do this opportunistically at the next destroy and rebuild**,
 where a fresh instance is being created and the data reloaded anyway, rather than
 as a task of its own.
+
+### 5. gp3 IOPS and throughput can only be provisioned from 400 GiB
+On 2026-10-23 a planned `3000 -> 12000` IOPS / `125 -> 500` MB/s change planned
+cleanly and the apply failed: RDS accepts provisioned IOPS and throughput on
+gp3 only when `allocated_storage` is **400 GiB or more**, and this volume is
+250. Below that the baseline is all there is. The module now refuses the
+combination at plan time. If a load genuinely needs the IOPS, the storage has
+to grow first -- and storage cannot be reduced afterwards (trap above), so
+that is a permanent +150 GiB on the bill. The parallel load in
+`avni-perf/tools/swap-dataset.sh` (`SWAP_PARALLEL=1`) reached ~12,700 rows/s
+on the baseline volume, so for loads it is rarely worth it.
 
 ### 3. A stopped instance cannot have its class changed at all
 
