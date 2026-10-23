@@ -248,6 +248,75 @@ USAGE
 # ------------------------------------------------------------------ guards
 # Same shape as bootstrap-state-backend.sh. This script stops and destroys
 # things; running it against the wrong account is the worst outcome in the repo.
+# **"starting" is not "available", and "available" is not "accepting connections".**
+# On 23 Oct 2026 `start` issued the RDS start, started the instances, and handed
+# over to the warm-up as soon as /ping answered -- which it does without a
+# database. The app had booted before RDS could take a connection, every request
+# in the warm-up's first minute died with "Connection refused" inside the
+# authentication filter, and the warm-up reported "Not warmed" on an environment
+# that was fine ninety seconds later. The pool recovers on its own; the warm-up
+# does not. So `start` now waits twice: for RDS to report available, and then
+# for the database to actually accept a TCP connection, probed from the app host
+# because that is the host whose route and security group matter. Only then is
+# the warm-up worth running.
+RDS_AVAILABLE_SECONDS="${AVNI_RDS_AVAILABLE_SECONDS:-900}"
+DB_ACCEPT_SECONDS="${AVNI_DB_ACCEPT_SECONDS:-600}"
+
+rds_wait_available() {
+  local deadline status t0
+  t0=$(date +%s); deadline=$(( t0 + RDS_AVAILABLE_SECONDS ))
+  while :; do
+    status=$(rds_status)
+    case "$status" in
+      available) echo "rds: available after $(( $(date +%s) - t0 ))s"; return 0 ;;
+      stopped|absent|failed|deleting)
+        echo "rds: $DB_INSTANCE is $status; it will not become available" >&2; return 1 ;;
+    esac
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "rds: still $status after ${RDS_AVAILABLE_SECONDS}s; giving up" >&2; return 1
+    fi
+    echo "rds: $status, waiting ..."
+    sleep 30
+  done
+}
+
+app_instance_id() {
+  aws_ ec2 describe-instances \
+    --filters "Name=tag:Environment,Values=${ENVIRONMENT}" "Name=tag:Role,Values=avni-server" \
+              "Name=instance-state-name,Values=running,pending" \
+    --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null
+}
+
+db_wait_accepting() {
+  local host app proxy deadline t0
+  host=$(aws_ rds describe-db-instances --db-instance-identifier "$DB_INSTANCE" \
+           --query 'DBInstances[0].Endpoint.Address' --output text 2>/dev/null)
+  app=$(app_instance_id)
+  if [ -z "$host" ] || [ "$host" = "None" ] || [ -z "$app" ] || [ "$app" = "None" ]; then
+    echo "db: cannot probe (endpoint '${host:-?}', app instance '${app:-?}'); not waiting" >&2
+    return 1
+  fi
+  proxy="${AVNI_EICE_PROXY:-$(dirname "${BASH_SOURCE[0]}")/../../configure/scripts/eice-ssh-proxy.sh}"
+  t0=$(date +%s); deadline=$(( t0 + DB_ACCEPT_SECONDS ))
+  # A TCP accept on 5432 is enough: RDS opens the port only once Postgres is up,
+  # and "refused" is exactly the failure this guards against. bash's /dev/tcp
+  # needs nothing installed on the host.
+  while :; do
+    if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+           -o ConnectTimeout=20 -o ProxyCommand="$proxy %h" "ubuntu@$app" \
+           "timeout 5 bash -c 'exec 3<>/dev/tcp/$host/5432' 2>/dev/null" 2>/dev/null; then
+      echo "db: $host accepts connections after $(( $(date +%s) - t0 ))s (probed from $app)"
+      return 0
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      echo "db: $host not accepting connections after ${DB_ACCEPT_SECONDS}s; giving up" >&2
+      return 1
+    fi
+    echo "db: not accepting yet, waiting ..."
+    sleep 15
+  done
+}
+
 assert_account() {
   local account
   account=$(aws_ sts get-caller-identity --query Account --output text)
@@ -372,20 +441,31 @@ case "$CMD" in
     # throughput (avni-perf docs/findings-case1.md), and on 5 Oct the only
     # reason the morning sweep looked sane was that its first run happened to be
     # gentle enough to act as one. env-warmup.sh never fails the start.
+    #
+    # And not until the database accepts connections: see rds_wait_available.
+    DB_RC=0
     if [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ]; then
+      echo
+      rds_wait_available && db_wait_accepting || DB_RC=1
+    fi
+    if [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ] && [ "$DB_RC" -eq 0 ]; then
       echo
       "$(dirname "${BASH_SOURCE[0]}")/env-warmup.sh" || true
     elif [ "$RDS_RC" -ne 0 ]; then
       echo "Skipping warm-up: the database did not start." >&2
-    else
+    elif [ "$EC2_RC" -ne 0 ]; then
       echo "Skipping warm-up: the instances did not start." >&2
+    else
+      echo "Skipping warm-up: the database is not accepting connections. The app" >&2
+      echo "server's pool recovers on its own once it does; re-run start for the" >&2
+      echo "warm-up, or warm up by hand with env-warmup.sh." >&2
     fi
     # The app server comes up regardless and will serve 502 against a database
     # that never started, so a non-zero exit here is the only honest signal --
     # and the same holds for instances that never started at all. Callers that
     # pipe this through `tail` get the pipeline's status, not this one, which is
     # how 7 Oct's failed start reported success: use PIPESTATUS or do not pipe.
-    [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ] || exit 1
+    [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ] && [ "$DB_RC" -eq 0 ] || exit 1
     exit 0
     ;;
 
