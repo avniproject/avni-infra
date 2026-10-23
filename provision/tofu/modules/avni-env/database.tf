@@ -180,15 +180,6 @@ resource "aws_db_instance" "this" {
   # managed here — a tofu destroy must not be able to take it.
   snapshot_identifier = var.restore_from_snapshot
 
-  lifecycle {
-    # RDS provisions gp3 IOPS and throughput only from 400 GiB; below that an apply fails after
-    # a clean plan (2026-10-23). Refuse it here, where it is cheap.
-    precondition {
-      condition     = (var.db_iops == null && var.db_storage_throughput == null) || var.db_allocated_storage >= 400
-      error_message = "gp3 provisioned IOPS/throughput need db_allocated_storage >= 400 GiB; this volume is ${var.db_allocated_storage}. Grow the storage (irreversible) or leave db_iops and db_storage_throughput null."
-    }
-  }
-
   # The environment is disposable by design, so destroy must work. A final
   # snapshot is still taken by default, because a run's database is sometimes
   # worth keeping long enough to ask it a question.
@@ -202,6 +193,12 @@ resource "aws_db_instance" "this" {
 
   lifecycle {
     ignore_changes = [final_snapshot_identifier]
+    # RDS provisions gp3 IOPS and throughput only from 400 GiB; below that an apply fails after
+    # a clean plan (2026-10-23). Refuse it here, where it is cheap.
+    precondition {
+      condition     = (var.db_iops == null && var.db_storage_throughput == null) || var.db_allocated_storage >= 400
+      error_message = "gp3 provisioned IOPS/throughput need db_allocated_storage >= 400 GiB; this volume is ${var.db_allocated_storage}. Grow the storage (irreversible) or leave db_iops and db_storage_throughput null."
+    }
   }
 }
 
