@@ -23,6 +23,9 @@ module "avni_env" {
   # cheaply while idle — see the warning in terraform.tfvars. A measured run
   # must have this back at db.m6g.large.
   db_instance_class = var.db_instance_class
+  # Storage performance, through state for the same reason as the classes.
+  db_iops               = var.db_iops
+  db_storage_throughput = var.db_storage_throughput
 
   # Module default except during the vertical scale sweep. A resize MUST go
   # through here rather than `aws ec2 modify-instance-attribute`: the CLI route

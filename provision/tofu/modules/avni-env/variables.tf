@@ -195,6 +195,18 @@ variable "replica_instance_class" {
   default     = "db.m6g.medium"
 }
 
+variable "db_iops" {
+  description = "Provisioned IOPS for the gp3 volume; null keeps the 3,000 baseline. Raise for a bulk load, put back after."
+  type        = number
+  default     = null
+}
+
+variable "db_storage_throughput" {
+  description = "Provisioned throughput (MB/s) for the gp3 volume; null keeps the 125 MB/s baseline."
+  type        = number
+  default     = null
+}
+
 variable "db_max_connections" {
   description = <<-EOT
     RDS parameter group max_connections, as a STRING so it can carry RDS's own

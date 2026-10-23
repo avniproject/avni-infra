@@ -45,6 +45,18 @@ variable "injector_instance_class" {
   default     = "m6g.xlarge"
 }
 
+variable "db_iops" {
+  description = "gp3 provisioned IOPS; null is the 3,000 baseline. A dataset load is IO-bound (23 Oct 2026); raise it for the load and put it back."
+  type        = number
+  default     = null
+}
+
+variable "db_storage_throughput" {
+  description = "gp3 provisioned throughput in MB/s; null is the 125 baseline."
+  type        = number
+  default     = null
+}
+
 variable "db_instance_class" {
   description = "RDS instance class. The module default (db.m6g.large) is fixed-performance on purpose; override only to park an idle environment, never for a measured run."
   type        = string

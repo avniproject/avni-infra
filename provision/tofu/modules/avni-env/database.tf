@@ -140,6 +140,12 @@ resource "aws_db_instance" "this" {
 
   allocated_storage = var.db_allocated_storage
   storage_type      = "gp3"
+  # gp3 ships 3,000 IOPS and 125 MB/s whatever the size. A bulk load of a generated dataset
+  # is bound there, not on CPU: on 23 Oct 2026 the 14 M-row pilot-day-180-5k load ran at
+  # ~1,750 rows/s with the database at 27% CPU, ~2,450 IOPS and a disk queue of 14-18. Both
+  # can be raised online, independently of size, and put back; null keeps the defaults.
+  iops               = var.db_iops
+  storage_throughput = var.db_storage_throughput
   storage_encrypted = true
 
   # Deliberately NOT set. Setting max_allocated_storage enables autoscaling,
