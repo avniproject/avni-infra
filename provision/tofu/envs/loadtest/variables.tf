@@ -30,6 +30,21 @@ variable "app_instance_class" {
   default     = "m6g.large"
 }
 
+variable "injector_instance_class" {
+  description = <<-EOT
+    Gatling injector. The module default (m6g.xlarge, 4 vCPU) drove every run
+    through row 25 of avni-perf's execution plan. Row 26 injects 10,000 users
+    an hour at ~290 rps and the plan sizes the injector at m6g.2xlarge for it,
+    since an injector short of CPU reports the server slower than it is (F7).
+
+    Exposed here for the same reason as app_instance_class: a resize that does
+    not go through state is undone by the next apply, and nothing records which
+    size a run used. Put it back to m6g.xlarge afterwards.
+  EOT
+  type        = string
+  default     = "m6g.xlarge"
+}
+
 variable "db_instance_class" {
   description = "RDS instance class. The module default (db.m6g.large) is fixed-performance on purpose; override only to park an idle environment, never for a measured run."
   type        = string

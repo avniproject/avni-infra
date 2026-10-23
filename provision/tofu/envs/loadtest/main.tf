@@ -30,6 +30,10 @@ module "avni_env" {
   # would silently undo the sweep.
   app_instance_class = var.app_instance_class
 
+  # Module default except for plan row 26, which needs an m6g.2xlarge injector.
+  # Through state for the reason above.
+  injector_instance_class = var.injector_instance_class
+
   # ETL host off: testing under concurrent ETL load is deferred.
   #
   # This is a deliberate deviation, not a saving, and it is worth being precise
