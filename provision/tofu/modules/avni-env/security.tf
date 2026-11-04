@@ -133,10 +133,14 @@ resource "aws_vpc_security_group_ingress_rule" "app_from_alb" {
 # -- Database --------------------------------------------------------------
 
 resource "aws_vpc_security_group_ingress_rule" "db_from" {
+  # The injector is the dataset reload's psql client (swap-dataset.sh), so a reload
+  # needs no app host running: every copy stays stopped through the ~80 minutes
+  # of teardown, load, VACUUM and REINDEX, and starts only for the run.
   for_each = {
-    app    = aws_security_group.app.id
-    etl    = aws_security_group.etl.id
-    loader = aws_security_group.loader.id
+    app      = aws_security_group.app.id
+    etl      = aws_security_group.etl.id
+    loader   = aws_security_group.loader.id
+    injector = aws_security_group.injector.id
   }
   security_group_id            = aws_security_group.db.id
   referenced_security_group_id = each.value

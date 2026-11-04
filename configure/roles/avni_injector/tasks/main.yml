@@ -47,6 +47,19 @@
     update_cache: "{{ update_apt_cache | default(true) }}"
   become: true
   when: injector_install_awscli | bool
+
+- name: Install the Postgres client
+  # The injector is the dataset reload's database client: avni-perf's
+  # tools/swap-dataset.sh runs its teardown, COPY, VACUUM and REINDEX sessions
+  # here, so the app hosts can stay stopped through a reload. Ubuntu's client may
+  # be a major version behind RDS; psql and \copy work across that, only some \d
+  # meta-commands do not, and the reload uses none.
+  apt:
+    name: postgresql-client
+    state: present
+    update_cache: "{{ update_apt_cache | default(true) }}"
+  become: true
+  tags: [injector]
   tags: [injector, packages]
 
 - name: Create the harness directory

@@ -180,10 +180,13 @@ rds_transition_retrying() {
 ec2_pending_ids() {
   # Instances that still need starting. Deliberately not 'stopping' -- an
   # instance mid-stop cannot be started and asking only earns an error.
+  # With AVNI_START_APPS=no the app hosts are left out: see `start`.
+  local q='Reservations[].Instances[].InstanceId'
+  [ "$START_APPS" = "no" ] && q="Reservations[].Instances[?!(Tags[?Key=='Role' && Value=='avni-server'])].InstanceId"
   aws_ ec2 describe-instances \
     --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
               "Name=instance-state-name,Values=stopped" \
-    --query 'Reservations[].Instances[].InstanceId' --output text
+    --query "$q" --output text
 }
 
 ec2_start_retrying() {
@@ -228,11 +231,13 @@ ec2_start_retrying() {
 
 usage() {
   cat >&2 <<USAGE
-usage: $(basename "$0") {status|stop|start|stop-idle|destroy|hold|release}
+usage: $(basename "$0") {status|stop|start|start-apps|stop-apps|stop-idle|destroy|hold|release}
 
   status      what is running, what it is costing, and any hold
   stop        stop EC2 and RDS now, regardless of any hold
-  start       bring them back
+  start       bring them back (AVNI_START_APPS=no: all but the app hosts, no warm-up)
+  start-apps  start the app hosts one at a time, wait for /ping and target health
+  stop-apps   stop only the app hosts
   stop-idle   stop UNLESS an unexpired hold exists — this is what a scheduler calls
   destroy     tofu destroy, after proving the baseline snapshot survives it
   hold [h] [reason]
@@ -260,6 +265,11 @@ USAGE
 # because that is the host whose route and security group matter. Only then is
 # the warm-up worth running.
 RDS_AVAILABLE_SECONDS="${AVNI_RDS_AVAILABLE_SECONDS:-900}"
+# **AVNI_START_APPS=no starts the database and every host except the app hosts.**
+# For a dataset reload, which runs its psql sessions on the injector: the app
+# copies would only idle through it. `start-apps` brings them up afterwards.
+START_APPS="${AVNI_START_APPS:-yes}"
+APP_PING_SECONDS="${AVNI_APP_PING_SECONDS:-600}"
 DB_ACCEPT_SECONDS="${AVNI_DB_ACCEPT_SECONDS:-600}"
 
 rds_wait_available() {
@@ -287,11 +297,35 @@ app_instance_id() {
     --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null
 }
 
+role_instance_id() {
+  aws_ ec2 describe-instances \
+    --filters "Name=tag:Environment,Values=${ENVIRONMENT}" "Name=tag:Role,Values=$1" \
+              "Name=instance-state-name,Values=running,pending" \
+    --query 'Reservations[0].Instances[0].InstanceId' --output text 2>/dev/null
+}
+
+# App hosts in start order: the original first, then avni-server-2..N.
+app_ids_ordered() {
+  aws_ ec2 describe-instances \
+    --filters "Name=tag:Environment,Values=${ENVIRONMENT}" "Name=tag:Role,Values=avni-server" \
+              "Name=instance-state-name,Values=running,stopped,stopping,pending" \
+    --query 'Reservations[].Instances[].[Tags[?Key==`Name`]|[0].Value,InstanceId]' --output text \
+    | sort -V | awk '{print $2}'
+}
+
+ssh_host() {  # <instance id> <command>
+  local id="$1"; shift
+  local proxy="${AVNI_EICE_PROXY:-$(dirname "${BASH_SOURCE[0]}")/../../configure/scripts/eice-ssh-proxy.sh}"
+  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+      -o ConnectTimeout=20 -o ProxyCommand="$proxy %h" "ubuntu@$id" "$@" 2>/dev/null
+}
+
 db_wait_accepting() {
   local host app proxy deadline t0
   host=$(aws_ rds describe-db-instances --db-instance-identifier "$DB_INSTANCE" \
            --query 'DBInstances[0].Endpoint.Address' --output text 2>/dev/null)
-  app=$(app_instance_id)
+  # From the injector when the app hosts were left stopped; it reaches 5432 too.
+  if [ "$START_APPS" = "no" ]; then app=$(role_instance_id injector); else app=$(app_instance_id); fi
   if [ -z "$host" ] || [ "$host" = "None" ] || [ -z "$app" ] || [ "$app" = "None" ]; then
     echo "db: cannot probe (endpoint '${host:-?}', app instance '${app:-?}'); not waiting" >&2
     return 1
@@ -448,7 +482,11 @@ case "$CMD" in
       echo
       rds_wait_available && db_wait_accepting || DB_RC=1
     fi
-    if [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ] && [ "$DB_RC" -eq 0 ]; then
+    if [ "$START_APPS" = "no" ]; then
+      echo
+      echo "App hosts left stopped (AVNI_START_APPS=no): no warm-up. Bring them up"
+      echo "with '$(basename "$0") start-apps' and warm up before measuring."
+    elif [ "$RDS_RC" -eq 0 ] && [ "$EC2_RC" -eq 0 ] && [ "$DB_RC" -eq 0 ]; then
       echo
       "$(dirname "${BASH_SOURCE[0]}")/env-warmup.sh" || true
     elif [ "$RDS_RC" -ne 0 ]; then
@@ -494,6 +532,56 @@ case "$CMD" in
     echo "Destroying $ENVIRONMENT. The state bucket, the KMS key and the baseline"
     echo "snapshot are outside this root and survive."
     tofu -chdir="$TOFU_DIR" destroy
+    ;;
+
+  start-apps)
+    # **One copy at a time**, each serving /ping before the next starts: every
+    # start runs Flyway against the shared database, as loadtest_avni_servers.yml's
+    # serial: 1 does for a configure. Then every copy a healthy target. No warm-up:
+    # the caller warms up immediately before it measures.
+    assert_account
+    for id in $(app_ids_ordered); do
+      state=$(aws_ ec2 describe-instances --instance-ids "$id" --query 'Reservations[0].Instances[0].State.Name' --output text)
+      [ "$state" = "stopping" ] && { aws_ ec2 wait instance-stopped --instance-ids "$id"; state=stopped; }
+      if [ "$state" = "stopped" ]; then
+        attempt=1
+        until aws_ ec2 start-instances --instance-ids "$id" >/dev/null 2>/tmp/.start-apps.err.$$; do
+          grep -q InsufficientInstanceCapacity /tmp/.start-apps.err.$$ && [ $attempt -lt 10 ] \
+            || { cat /tmp/.start-apps.err.$$ >&2; rm -f /tmp/.start-apps.err.$$; exit 1; }
+          echo "app $id: no capacity in the AZ (attempt $attempt); retrying in ${EC2_RETRY_INTERVAL:-60}s" >&2
+          attempt=$(( attempt + 1 )); sleep "${EC2_RETRY_INTERVAL:-60}"
+        done
+        rm -f /tmp/.start-apps.err.$$
+      fi
+      aws_ ec2 wait instance-running --instance-ids "$id"
+      t0=$(date +%s)
+      until [ "$(ssh_host "$id" 'curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8021/ping')" = "200" ]; do
+        [ $(( $(date +%s) - t0 )) -ge "$APP_PING_SECONDS" ] && { echo "app $id: no /ping 200 after ${APP_PING_SECONDS}s" >&2; exit 1; }
+        sleep 10
+      done
+      echo "app $id: serving after $(( $(date +%s) - t0 ))s"
+    done
+    TG=$(aws_ elbv2 describe-target-groups --names "avni-${ENVIRONMENT}-app" --query 'TargetGroups[0].TargetGroupArn' --output text)
+    want=$(app_ids_ordered | wc -l | tr -d ' '); t0=$(date +%s)
+    until [ "$(aws_ elbv2 describe-target-health --target-group-arn "$TG" \
+                 --query 'TargetHealthDescriptions[?TargetHealth.State==`healthy`].Target.Id' --output text | wc -w | tr -d ' ')" = "$want" ]; do
+      [ $(( $(date +%s) - t0 )) -ge 300 ] && { echo "not every app host is a healthy target after 300s:" >&2
+        aws_ elbv2 describe-target-health --target-group-arn "$TG" --query 'TargetHealthDescriptions[].[Target.Id,TargetHealth.State]' --output text >&2; exit 1; }
+      sleep 10
+    done
+    echo "all $want app hosts healthy behind the load balancer. Warm up before measuring."
+    ;;
+
+  stop-apps)
+    # Only the app hosts, e.g. between runs while the injector reloads a dataset.
+    assert_account
+    IDS=$(app_ids_ordered | tr '\n' ' ')
+    [ -n "${IDS// /}" ] || { echo "no app hosts"; exit 0; }
+    # shellcheck disable=SC2086
+    aws_ ec2 stop-instances --instance-ids $IDS \
+      --query 'StoppingInstances[].{id:InstanceId,state:CurrentState.Name}' --output table
+    # shellcheck disable=SC2086
+    aws_ ec2 wait instance-stopped --instance-ids $IDS && echo "app hosts stopped: $IDS"
     ;;
 
   hold)

@@ -83,8 +83,11 @@ locals {
       "injector" = {
         role          = "injector"
         instance_type = var.injector_instance_class
-        root_volume   = 40
-        sg            = aws_security_group.injector.id
+        # 80, not 40: the injector holds a dataset while it reloads one -- the 10k
+        # extracts to 12 GB beside ~8 GB of run artefacts, and row 37's 25k to ~30 GB.
+        # A size increase applies in place; cloud-init grows the filesystem on boot.
+        root_volume = 80
+        sg          = aws_security_group.injector.id
         # The only host in a public subnet. It needs a stable address of its
         # own because that address is what gets enrolled in the ALB security
         # group and the WAF IP set; from a private subnet its traffic would
