@@ -9,7 +9,7 @@ metadata:
     environment: prod
     app: superset
   annotations:
-    kubernetes.io/autoupdate-spec: "work for superset 4.0.1"    # need to change in every deployment
+    kubernetes.io/autoupdate-spec: "work for superset 6.0.0"    # need to change in every deployment
 spec:
   replicas: 2
   minReadySeconds: 30
@@ -34,7 +34,7 @@ spec:
         app: superset
       containers:
         - name: supersetcontainer
-          image: public.ecr.aws/m1p7h9p1/avniproject/reporting-superset:4.0.1    # need to change after setting up avni
+          image: public.ecr.aws/m1p7h9p1/avniproject/reporting-superset:6.0.0    # need to change after setting up avni
           env:
             - name: SUPERSET_SECRET_KEY
               valueFrom:
