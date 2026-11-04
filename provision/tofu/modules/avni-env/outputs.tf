@@ -23,6 +23,11 @@ output "instance_ids" {
   value       = { for role, host in aws_instance.host : role => host.id }
 }
 
+output "app_instance_ids" {
+  description = "Every avni-server host's instance id, first one first -- what the run tooling sums app CPU over."
+  value       = [for k in local.app_hosts : aws_instance.host[k].id]
+}
+
 output "db_endpoint" {
   description = "Primary database endpoint."
   value       = aws_db_instance.this.endpoint

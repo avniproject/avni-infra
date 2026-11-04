@@ -146,7 +146,7 @@ resource "aws_db_instance" "this" {
   # can be raised online, independently of size, and put back; null keeps the defaults.
   iops               = var.db_iops
   storage_throughput = var.db_storage_throughput
-  storage_encrypted = true
+  storage_encrypted  = true
 
   # Deliberately NOT set. Setting max_allocated_storage enables autoscaling,
   # which could grow the volume past 400 GiB mid-campaign and silently restripe

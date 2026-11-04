@@ -82,6 +82,26 @@ variable "app_instance_class" {
   default     = "m6g.large"
 }
 
+variable "app_instance_count" {
+  description = <<-EOT
+    Number of avni-server hosts behind the load balancer, all of app_instance_class.
+    The first keeps the key "avni-server" (so raising the count never replaces it);
+    the rest are "avni-server-2" .. "avni-server-N". Every one is tagged
+    Role=avni-server, so the Ansible group avniservers holds them all.
+
+    For the load test's scale-out rows only. avni-server is not yet safe to run as
+    more than one copy in production (second-level cache, start-up recovery, timed
+    jobs, in-memory locks -- see avni-product-ops context/avni-server-horizontal-scaling.md);
+    a sync-only load test exercises none of those.
+  EOT
+  type        = number
+  default     = 1
+  validation {
+    condition     = var.app_instance_count >= 1 && var.app_instance_count <= 8
+    error_message = "app_instance_count must be between 1 and 8."
+  }
+}
+
 variable "enable_etl" {
   description = <<-EOT
     Create the avni-etl host. Defaults ON: the harness requires

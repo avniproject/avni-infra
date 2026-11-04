@@ -2,6 +2,12 @@
 
 - name: Configure avni servers (load test)
   hosts: avniservers
+  # **One app host at a time.** Every copy runs Flyway against the same database at start-up;
+  # Flyway's lock makes concurrent starts safe in principle, but a migration racing a second
+  # JVM's Hibernate validation is not something to discover mid-campaign. serial also means a
+  # failure on the first host stops the play before it reaches the others. One host (rows 1-31)
+  # behaves exactly as before.
+  serial: 1
   become: yes
   become_user: root
   remote_user: "{{ avni_appserver_user }}"

@@ -32,6 +32,7 @@ module "avni_env" {
   # leaves this state believing the host is still m6g.large, and the next apply
   # would silently undo the sweep.
   app_instance_class = var.app_instance_class
+  app_instance_count = var.app_instance_count
 
   # Module default except for plan row 26, which needs an m6g.2xlarge injector.
   # Through state for the reason above.

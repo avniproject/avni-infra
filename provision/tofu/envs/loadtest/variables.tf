@@ -30,6 +30,16 @@ variable "app_instance_class" {
   default     = "m6g.large"
 }
 
+variable "app_instance_count" {
+  description = <<-EOT
+    avni-server hosts behind the load balancer (plan rows 32-37). 1 is every run
+    through row 31. Raise it for the scale-out rows and put it back to 1 after;
+    the extra hosts are destroyed when it drops, the first is never touched.
+  EOT
+  type        = number
+  default     = 1
+}
+
 variable "injector_instance_class" {
   description = <<-EOT
     Gatling injector. m6g.xlarge (4 vCPU) drove every run through row 26 of

@@ -50,9 +50,17 @@ resource "aws_lb_target_group" "app" {
 }
 
 resource "aws_lb_target_group_attachment" "app" {
+  # One per avni-server host. The first keeps its address "avni-server" in state
+  # (moved block below), so going from one host to N adds attachments only.
+  for_each         = toset(local.app_hosts)
   target_group_arn = aws_lb_target_group.app.arn
-  target_id        = aws_instance.host["avni-server"].id
+  target_id        = aws_instance.host[each.key].id
   port             = local.app_port
+}
+
+moved {
+  from = aws_lb_target_group_attachment.app
+  to   = aws_lb_target_group_attachment.app["avni-server"]
 }
 
 # HTTPS only, and no plain-HTTP fallback any more. Production terminates TLS at

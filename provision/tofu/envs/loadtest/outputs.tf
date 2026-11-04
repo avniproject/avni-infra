@@ -69,3 +69,8 @@ output "media_key_params" {
   description = "SSM parameter names holding the S3 access key; the secret itself is never an output."
   value       = module.avni_env.media_key_params
 }
+
+output "app_instance_ids" {
+  description = "Every avni-server host's instance id, first one first."
+  value       = module.avni_env.app_instance_ids
+}

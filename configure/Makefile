@@ -611,10 +611,12 @@ loadtest-fetch-%: check-loadtest-version check-loadtest-profile
 	  $(LOADTEST_WORK)/avni-$*.jar --profile $(AVNI_AWS_PROFILE)
 
 ## Full configure: base, security, jdk, newrelic, webapp, server.
+## LIMIT=<instance id> configures one host, e.g. a copy app_instance_count just added.
 loadtest-configure-server: check-loadtest-version check-loadtest-outputs loadtest-fetch-server
 	APPLICATION_ZIP_PATH=$(LOADTEST_WORK)/ APPLICATION_ZIP_FILE_NAME=avni-server.jar \
 	$(LOADTEST_ANSIBLE_ENV) AVNI_AWS_PROFILE=$(AVNI_AWS_PROFILE) \
 	ansible-playbook loadtest_avni_servers.yml -i $(LOADTEST_INV) \
+	  $(if $(LIMIT),--limit $(LIMIT)) \
 	  $(LOADTEST_VAULT_ARG) \
 	  --extra-vars @$(LOADTEST_VARS_JSON) \
 	  --extra-vars '{$(LOADTEST_COMMON_VARS),"application_user":"avni-server-user"}'

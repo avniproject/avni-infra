@@ -42,28 +42,33 @@ locals {
   # One place to change how every host is built. root_volume is generous
   # relative to production's 40 GB because request logging is high volume —
   # AuthenticationFilter logs twice per request including the query string.
+  # avni-server, avni-server-2 .. avni-server-N: the first key never changes, so raising
+  # app_instance_count adds hosts and never replaces the one that exists.
+  app_hosts = [for i in range(var.app_instance_count) : i == 0 ? "avni-server" : "avni-server-${i + 1}"]
+
   hosts = merge(
-    {
-      "avni-server" = {
-        instance_type = var.app_instance_class
-        root_volume   = 60
-        sg            = aws_security_group.app.id
-        public        = false
-        # 1-minute CloudWatch rather than the 5-minute default.
-        #
-        # **A knee is a shape, and 5-minute buckets cannot show one.** The case 1
-        # sweep of 5 Oct 2026 found the app server at 99.25% CPU, which is enough
-        # to name it as the constraint, but every run was shorter than one bucket
-        # -- the 15 s run took 135 s -- so the saturation curve was unreadable.
-        # A finding was defensible and its shape was not.
-        #
-        # ~USD 2.10 a month per instance, which against this environment's ~USD
-        # 290 running is not a cost worth thinking about.
-        monitoring = true
+    { for k in local.app_hosts : k => {
+      role          = "avni-server"
+      instance_type = var.app_instance_class
+      root_volume   = 60
+      sg            = aws_security_group.app.id
+      public        = false
+      # 1-minute CloudWatch rather than the 5-minute default.
+      #
+      # **A knee is a shape, and 5-minute buckets cannot show one.** The case 1
+      # sweep of 5 Oct 2026 found the app server at 99.25% CPU, which is enough
+      # to name it as the constraint, but every run was shorter than one bucket
+      # -- the 15 s run took 135 s -- so the saturation curve was unreadable.
+      # A finding was defensible and its shape was not.
+      #
+      # ~USD 2.10 a month per instance, which against this environment's ~USD
+      # 290 running is not a cost worth thinking about.
+      monitoring = true
       }
     },
     var.enable_etl ? {
       "avni-etl" = {
+        role          = "avni-etl"
         instance_type = var.etl_instance_class
         root_volume   = 40
         sg            = aws_security_group.etl.id
@@ -76,6 +81,7 @@ locals {
     } : {},
     var.enable_injector ? {
       "injector" = {
+        role          = "injector"
         instance_type = var.injector_instance_class
         root_volume   = 40
         sg            = aws_security_group.injector.id
@@ -94,6 +100,7 @@ locals {
     } : {},
     var.enable_loader ? {
       "loader" = {
+        role          = "loader"
         instance_type = var.loader_instance_class
         root_volume   = 40
         sg            = aws_security_group.loader.id
@@ -145,7 +152,7 @@ resource "aws_instance" "host" {
   tags = {
     Name        = "${local.name}-${each.key}"
     Environment = var.environment
-    Role        = each.key
+    Role        = each.value.role
   }
 
   lifecycle {
