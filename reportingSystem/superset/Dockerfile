@@ -44,5 +44,9 @@ ENV SUPERSET_CONFIG_PATH=/app/superset_config.py
 EXPOSE 8088
 
 
-# Run superset
-ENTRYPOINT ["superset", "run", "-h", "0.0.0.0", "-p", "8088", "--with-threads", "--reload", "--debugger"]
+# No ENTRYPOINT here. The base image's CMD, /app/docker/entrypoints/run-server.sh,
+# starts gunicorn, the production server. The Flask development server
+# (`superset run ... --reload --debugger`) must never run in production: its
+# debugger console runs code for anyone who can work out its PIN, and nginx
+# forwards those requests like any other. Workers and timeout come from the env
+# (SERVER_WORKER_AMOUNT, GUNICORN_TIMEOUT); see docker_run.md.
