@@ -61,7 +61,8 @@
     dest: "{{ docker_container_env_file }}"
     owner: root
     group: root
-    mode: '755'
+    # Root only: the file holds database passwords and, for Metabase, the encryption key. Docker reads it as root.
+    mode: '0600'
 
 - name: Create default containers
   community.docker.docker_container:

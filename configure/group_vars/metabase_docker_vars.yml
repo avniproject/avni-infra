@@ -9,6 +9,11 @@
   metabase_container_ports_mapping: "3000:3000"
   metabase_container_env_file: "/root/metabase_docker.env"
   metabase_container_env_template_file: metabase.docker.env.template.j2
+  # MB_ENCRYPTION_SECRET_KEY: Metabase encrypts stored connection details and sensitive settings with it.
+  # Set as mb_encryption_secret_key in group_vars/prod-secret-vars.yml.enc (ansible-vault edit). Must match the key
+  # the data was encrypted with (enabled by hand on 2026-11-10, avni-product-ops metabase incident step 26);
+  # a missing or different key stops Metabase from starting. Never change it here: rotate with Metabase's
+  # rotate-encryption-key command.
   metabase_container_log_driver: "json-file"
   metabase_container_log_options:
     max-file: "10"
