@@ -14,3 +14,6 @@
 
 - include_tasks: setup_fail2ban.yml
   when: enable_fail2ban is defined and enable_fail2ban
+
+- include_tasks: setup_auth_log_retention.yml
+  when: auth_log_retention_weeks is defined

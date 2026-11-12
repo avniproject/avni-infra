@@ -14,7 +14,7 @@ Rules:
 
 1. **Access goes through groups.** Never assign a permission set to a user directly.
 2. **A person is only in their own organization's groups.** A Tanuh person is only in `tanuh-*` groups and a Samanvay person only in `samanvay-*` groups. The group prefix is the only record of which organization someone belongs to.
-3. **Never assign a Tanuh group or the Admin, Developer or Read-only permission set to the management account.** The existing `Billing` assignments there are separate; leave them.
+3. **Never assign a Tanuh group or the Admin, Developer or Read-only permission set to the management account.** The existing `Billing` assignments there are separate; leave them. So are the two `ops-*` groups below, each with a narrow permission set of its own.
 4. **One user per person**, signed up with their own work email. No shared users.
 
 | Group | Role | Accounts |
@@ -25,6 +25,8 @@ Rules:
 | `tanuh-admins` | Admin | staging |
 | `tanuh-developers` | Developer | staging |
 | `tanuh-readonly` | Read-only | staging |
+| `ops-vault-users` | VaultAccess: the tunnel to the password vault, nothing else | Samanvay Ops |
+| `ops-tanuh-deploy` | TanuhDeploy: SSH to the Tanuh server through Session Manager, nothing else | Samanvay Ops |
 
 Read-only is for testers: logs, metrics, read-only database credentials and the S3 documents each service grants. Developer adds SSH, port forwarding through any instance, ECS exec, restarting instances, tasks and databases, and billing. Admin is full access. Tanuh has it on staging only, through `tanuh-admins`.
 
@@ -115,7 +117,7 @@ Permission sets are shared by every client, so they stay.
 
 Users → each user's **Groups** tab, or Groups → each group's **Users** tab. AWS accounts → each account shows which groups are assigned with which permission set.
 
-Check this whenever someone leaves Samanvay or a client, and confirm that Samanvay Ops still shows only the `Billing` assignments.
+Check this whenever someone leaves Samanvay or a client, and confirm that Samanvay Ops still shows only the `Billing` assignments, `ops-vault-users` with VaultAccess and `ops-tanuh-deploy` with TanuhDeploy.
 
 ## First sign-in
 

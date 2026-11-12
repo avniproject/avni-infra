@@ -43,7 +43,7 @@ scheduled_job_repeat_interval: "360"
 
 avni_server_host: "localhost"
 avni_server_port: "8021"
-avni_server_opts: " -Dnewrelic.environment={{ newrelic_environment }} -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file.name={{avni_server_access_log_dir}}/chs.log -Dlogging.logback.rollingpolicy.max-file-size=5mb -Dlogging.logback.rollingpolicy.max-history=90 -Xms2560m -Xmx5120m -XX:MaxMetaspaceSize=512m -XX:CompressedClassSpaceSize=256m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{avni_server_access_log_dir}}/ -XX:OnOutOfMemoryError=\"/bin/kill -9 %p\" -XX:ErrorFile={{avni_server_access_log_dir}}/jvm.log -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"
+avni_server_opts: " -Dnewrelic.environment={{ newrelic_environment }} -javaagent:/opt/newrelic/newrelic.jar -Dlogging.file.name={{avni_server_access_log_dir}}/chs.log -Dlogging.logback.rollingpolicy.max-file-size=5mb -Dlogging.logback.rollingpolicy.max-history=180 -Dserver.tomcat.accesslog.max-days=180 -Xms2560m -Xmx5120m -XX:MaxMetaspaceSize=512m -XX:CompressedClassSpaceSize=256m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{avni_server_access_log_dir}}/ -XX:OnOutOfMemoryError=\"/bin/kill -9 %p\" -XX:ErrorFile={{avni_server_access_log_dir}}/jvm.log -XX:+UseStringDeduplication -XX:-OmitStackTraceInFastThrow"
 avni_server_db_host: "serverdb.avniproject.org."
 avni_server_read_db_host: "serverdb.read.avniproject.org."
 avni_server_db_port: "5432"
@@ -59,6 +59,8 @@ avni_server_bugsnag_release_stage: "prod"
 avni_server_keycloak_url: ""
 avni_server_keycloak_enabled: "false"
 avni_server_access_log_dir: "/var/log/avni_server"
+# CERT-In: keep app, access and auth logs on the server for 180 days (auth.log in weekly files)
+auth_log_retention_weeks: 27
 avni_server_cache_max_entries: "100"
 avni_server_cache_ttl_seconds: "300"
 avni_server_cache_max_weight: "3000"

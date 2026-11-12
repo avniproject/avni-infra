@@ -1,0 +1,31 @@
+---
+
+# auth.log is rotated with the other syslog files by /etc/logrotate.d/rsyslog, which keeps
+# 4 weeks. Move it to a file of its own that keeps auth_log_retention_weeks.
+
+- name: Rotate auth.log on its own schedule
+  copy:
+    dest: /etc/logrotate.d/auth-log-retention
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by avni-infra (security role). auth.log is kept {{ auth_log_retention_weeks }} weeks.
+      /var/log/auth.log
+      {
+      	rotate {{ auth_log_retention_weeks }}
+      	weekly
+      	missingok
+      	notifempty
+      	compress
+      	delaycompress
+      	postrotate
+      		/usr/lib/rsyslog/rsyslog-rotate
+      	endscript
+      }
+
+- name: Remove auth.log from the shared syslog rotation
+  lineinfile:
+    path: /etc/logrotate.d/rsyslog
+    regexp: '^/var/log/auth\.log$'
+    state: absent
