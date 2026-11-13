@@ -1,6 +1,6 @@
 #!/bin/sh
 # One-time laptop setup: reach Avni servers and databases through AWS Session Manager with your own sign-in.
-# Safe to run again. Mac and Linux (Windows: use WSL, or the browser shell and the database steps in the guide).
+# Safe to run again. Mac and Linux only; Windows is not supported for server or database work (the vault works from any laptop).
 #   sh install.sh            set up
 #   sh install.sh --check    only report what is missing
 set -eu
