@@ -1,0 +1,48 @@
+#!/bin/sh
+# avni-db up|down|status [name ...]     names: readcopy staging prerelease prod
+# Opens a database on a fixed local port, so each tool saves it once and
+# several can be open together. No name: readcopy for up, all four otherwise.
+set -eu
+REGION=ap-south-1
+FWD=AWS-StartPortForwardingSessionToRemoteHost
+spec() {   # name -> profile, server, document, database host, local port
+  case $1 in
+    readcopy)   echo "avni-readcopy i-07df2679f68762a68 Avni-ReadCopyTunnel - 15432" ;;
+    staging)    echo "avni-nonprod i-0879e9c88952968ea $FWD stagingdb.avniproject.org 15433" ;;
+    prerelease) echo "avni-nonprod i-0cdce9ae698eb3462 $FWD prereleasedb.avniproject.org 15434" ;;
+    prod)       echo "avni-prod i-07df2679f68762a68 $FWD serverdb.avniproject.org 15435" ;;
+    *) echo "avni-db: unknown database '$1' (readcopy, staging, prerelease, prod)" >&2; return 64 ;;
+  esac
+}
+listener() { lsof -nP -t -iTCP:"$1" -sTCP:LISTEN 2>/dev/null || true; }
+up() {
+  name=$1; s=$(spec "$name") || return 64; set -- $s; profile=$1; id=$2; doc=$3; host=$4; port=$5
+  if [ -n "$(listener "$port")" ]; then echo "$name: already up on localhost:$port"; return 0; fi
+  aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1 || aws sso login --profile "$profile" >&2
+  params="localPortNumber=$port"
+  [ "$host" = - ] || params="host=$host,portNumber=5432,$params"
+  log="${TMPDIR:-/tmp}/avni-db-$name.log"
+  nohup aws ssm start-session --profile "$profile" --region "$REGION" --target "$id" \
+    --document-name "$doc" --parameters "$params" >"$log" 2>&1 &
+  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    if [ -n "$(listener "$port")" ]; then echo "$name: up on localhost:$port"; return 0; fi
+    sleep 1
+  done
+  echo "$name: did not come up:" >&2; tail -3 "$log" >&2; return 1
+}
+down() {
+  s=$(spec "$1") || return 64; set -- $s "$1"; pids=$(listener "$5")
+  if [ -n "$pids" ]; then kill $pids; echo "$6: stopped"; else echo "$6: not running"; fi
+}
+status() {
+  s=$(spec "$1") || return 64; set -- $s "$1"
+  if [ -n "$(listener "$5")" ]; then echo "$6: UP on localhost:$5"; else echo "$6: down"; fi
+}
+cmd=${1:-status}; [ $# -gt 0 ] && shift
+case $cmd in up|down|status) ;; *) echo "usage: avni-db up|down|status [readcopy|staging|prerelease|prod ...]" >&2; exit 64 ;; esac
+if [ $# -eq 0 ]; then
+  if [ "$cmd" = up ]; then set -- readcopy; else set -- readcopy staging prerelease prod; fi
+fi
+rc=0
+for n in "$@"; do "$cmd" "$n" || rc=1; done
+exit $rc
