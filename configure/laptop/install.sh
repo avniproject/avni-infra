@@ -42,7 +42,7 @@ if [ -z "$CHECK" ]; then
     say "added 'Include avni.conf' to the top of ~/.ssh/config (old copy: ~/.ssh/config.before-avni)"
   fi
 fi
-if grep -nE '^[[:space:]]*Host(.*[[:space:]])?(avni-(staging|prerelease|prod)|integration-(staging|prerelease|prod)|(ssh|int)[.-](staging|prerelease|prod)[.a-z]*)([[:space:]]|$)' "$HOME/.ssh/config" 2>/dev/null | grep -v avni.conf; then
+if grep -nE '^[[:space:]]*Host[[:space:]]+(.*[[:space:]])?(avni-(staging|prerelease|prod)|integration-(staging|prerelease|prod)|(ssh|int)[.-](staging|prerelease|prod)[.a-z]*)([[:space:]]|$)' "$HOME/.ssh/config" 2>/dev/null | grep -v avni.conf; then
   say "NOTE: the lines above are old entries for the same servers. avni.conf takes precedence; delete them when convenient."
 fi
 
