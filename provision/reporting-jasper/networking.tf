@@ -69,15 +69,9 @@ resource "aws_security_group" "reporting_jasper_server_sg" {
   description = "Allowed Ports"
   vpc_id      = "${aws_vpc.reportingjaspervpc.id}"
 
-  ingress {
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-
-    cidr_blocks = [
-      "0.0.0.0/0",
-    ]
-  }
+  # No SSH from the internet (13 Nov 2026): people and deploys reach servers through
+  # Session Manager (configure/scripts/ssm-ssh-proxy.sh). SSH from inside the VPC is
+  # still covered by the rule below, whose port range includes 22.
 
   ingress {
     from_port = 0
