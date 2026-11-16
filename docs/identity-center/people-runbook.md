@@ -27,9 +27,14 @@ Rules:
 | `tanuh-readonly` | Read-only | staging |
 | `ops-vault-users` | VaultAccess: the tunnel to the password vault, nothing else | Samanvay Ops |
 | `ops-tanuh-deploy` | TanuhDeploy: SSH to the Tanuh server through Session Manager, nothing else | Samanvay Ops |
+| `ops-servers-nonprod` | AvniServersNonProd: shell, SSH and database tunnels on the staging and prerelease servers | Samanvay Ops |
+| `ops-servers-prod` | AvniServersProd: shell, SSH and database tunnels on the production servers | Samanvay Ops |
+| `ops-readcopy-tunnel` | AvniReadCopyTunnel: the tunnel to the production read copy, nothing else | Samanvay Ops |
 | `ops-prod-db-write` | AvniProdDbWrite: the write tunnel to the production database, nothing else. Empty except during a data fix (`db-write-tunnels.md`) | Samanvay Ops |
 | `ops-staging-db-write` | AvniStagingDbWrite: the write tunnel to the staging database, nothing else. Empty except during a fix | Samanvay Ops |
 | `ops-prerelease-db-write` | AvniPrereleaseDbWrite: the write tunnel to the prerelease database, nothing else. Empty except during a fix | Samanvay Ops |
+
+One exception to rule 1: Nupoor's sandbox tile, AvniNupoorSandbox, is assigned to her user directly (Himesh, 13 Nov), covering a shell, SSH and port forwarding on her two sandbox servers only.
 
 Read-only is for testers: logs, metrics, read-only database credentials and the S3 documents each service grants. Developer adds SSH, port forwarding through any instance, ECS exec, restarting instances, tasks and databases, and billing. Admin is full access. Tanuh has it on staging only, through `tanuh-admins`.
 
@@ -120,7 +125,7 @@ Permission sets are shared by every client, so they stay.
 
 Users → each user's **Groups** tab, or Groups → each group's **Users** tab. AWS accounts → each account shows which groups are assigned with which permission set.
 
-Check this whenever someone leaves Samanvay or a client, and confirm that Samanvay Ops still shows only the `Billing` assignments, `ops-vault-users` with VaultAccess, `ops-tanuh-deploy` with TanuhDeploy, and the three `ops-*-db-write` groups with their write tiles. The write groups should be empty unless a data fix is under way.
+Check this whenever someone leaves Samanvay or a client, and confirm that Samanvay Ops still shows only the `Billing` assignments, `ops-vault-users` with VaultAccess, `ops-tanuh-deploy` with TanuhDeploy, `ops-servers-nonprod`, `ops-servers-prod` and `ops-readcopy-tunnel` with their server and read copy tiles, Nupoor's user with AvniNupoorSandbox, and the three `ops-*-db-write` groups with their write tiles. The write groups should be empty unless a data fix is under way.
 
 ## First sign-in
 
