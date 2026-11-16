@@ -1,7 +1,10 @@
 #!/bin/sh
 # avni-db up|down|status [name ...]     names: readcopy staging prerelease prod
+#                                        prod-write staging-write prerelease-write
 # Opens a database on a fixed local port, so each tool saves it once and
-# several can be open together. No name: readcopy for up, all four otherwise.
+# several can be open together. No name: readcopy for up, all otherwise.
+# The -write names need the matching write tile, given for a data fix and then
+# removed (docs/identity-center/db-write-tunnels.md).
 set -eu
 REGION=ap-south-1
 FWD=AWS-StartPortForwardingSessionToRemoteHost
@@ -11,7 +14,10 @@ spec() {   # name -> profile, server, document, database host, local port
     staging)    echo "avni-nonprod i-0879e9c88952968ea $FWD stagingdb.avniproject.org 15433" ;;
     prerelease) echo "avni-nonprod i-0cdce9ae698eb3462 $FWD prereleasedb.avniproject.org 15434" ;;
     prod)       echo "avni-prod i-07df2679f68762a68 $FWD serverdb.avniproject.org 15435" ;;
-    *) echo "avni-db: unknown database '$1' (readcopy, staging, prerelease, prod)" >&2; return 64 ;;
+    prod-write)       echo "avni-prod-write i-07df2679f68762a68 Avni-ProdDbWriteTunnel - 15436" ;;
+    staging-write)    echo "avni-staging-write i-0879e9c88952968ea Avni-StagingDbWriteTunnel - 15437" ;;
+    prerelease-write) echo "avni-prerelease-write i-0cdce9ae698eb3462 Avni-PrereleaseDbWriteTunnel - 15438" ;;
+    *) echo "avni-db: unknown database '$1' (readcopy, staging, prerelease, prod, prod-write, staging-write, prerelease-write)" >&2; return 64 ;;
   esac
 }
 listener() { lsof -nP -t -iTCP:"$1" -sTCP:LISTEN 2>/dev/null || true; }
@@ -39,9 +45,9 @@ status() {
   if [ -n "$(listener "$5")" ]; then echo "$6: UP on localhost:$5"; else echo "$6: down"; fi
 }
 cmd=${1:-status}; [ $# -gt 0 ] && shift
-case $cmd in up|down|status) ;; *) echo "usage: avni-db up|down|status [readcopy|staging|prerelease|prod ...]" >&2; exit 64 ;; esac
+case $cmd in up|down|status) ;; *) echo "usage: avni-db up|down|status [readcopy|staging|prerelease|prod|prod-write|staging-write|prerelease-write ...]" >&2; exit 64 ;; esac
 if [ $# -eq 0 ]; then
-  if [ "$cmd" = up ]; then set -- readcopy; else set -- readcopy staging prerelease prod; fi
+  if [ "$cmd" = up ]; then set -- readcopy; else set -- readcopy staging prerelease prod prod-write staging-write prerelease-write; fi
 fi
 rc=0
 for n in "$@"; do "$cmd" "$n" || rc=1; done

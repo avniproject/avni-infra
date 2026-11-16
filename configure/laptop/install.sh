@@ -20,7 +20,8 @@ add_block() { grep -q "^\[$1\]" "$CFG" || { [ -n "$CHECK" ] && say "would add [$
 add_block "sso-session samanvay" "sso_start_url = https://samanvay.awsapps.com/start
 sso_region = ap-south-1
 sso_registration_scopes = sso:account:access"
-for p in "avni-nonprod AvniServersNonProd" "avni-prod AvniServersProd" "avni-readcopy AvniReadCopyTunnel"; do
+for p in "avni-nonprod AvniServersNonProd" "avni-prod AvniServersProd" "avni-readcopy AvniReadCopyTunnel" \
+         "avni-prod-write AvniProdDbWrite" "avni-staging-write AvniStagingDbWrite" "avni-prerelease-write AvniPrereleaseDbWrite"; do
   set -- $p
   add_block "profile $1" "sso_session = samanvay
 sso_account_id = 118388513628
