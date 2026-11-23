@@ -37,7 +37,7 @@ Unchanged:
 
 Rules that protect production:
 
-- **Never assign a Tanuh access permission set (Admin, Developer, Read-only) to the management account.** SCPs do not apply to the management account, so an assignment there has no guardrail. The `samanvay-*` groups exist for the Tanuh accounts only; management-account access, if wanted, gets its own group. Section 8 checks for one.
+- **Never assign a Tanuh access permission set (Admin, Developer, Read-only) to the management account.** SCPs do not apply to the management account, so an assignment there has no guardrail. The `samanvay-*` groups exist for the Tanuh accounts only; management-account access gets its own sets and groups: since 23 Nov 2026, `AvniOpsAdmin` (AdministratorAccess, 4 hours, group `ops-admins`) and `AvniOpsReadOnly` (ViewOnlyAccess plus listing reads, with object, parameter, secret and log-event reads denied; 8 hours, group `ops-readonly`), for the AWS admins, plus the narrow `ops-*` tiles in the people runbook. Section 8 checks that no Tanuh set is assigned here.
 - **The `Billing` permission set predates this setup.** It is assigned in the management account to the group `Billing` and to one user directly, for billing work. Leave it as it is.
 - **Never assign a Tanuh group to a Samanvay Ops account.**
 
@@ -340,7 +340,7 @@ Do the checks in order. Each depends on the one before it.
    aws ec2 describe-instances --region us-east-1 --profile tanuh-staging-developer   # AccessDenied / UnauthorizedOperation
    ```
 6. **Billing.** As Developer in `tanuh-staging`, Billing and Cost Management → Bills loads, and Cost Explorer shows only that account's costs.
-7. **Nothing in the management account.** Run each permission set through this check, signed in as your IAM user. The management account must not appear for any of them except `Billing`:
+7. **Nothing in the management account.** Run each permission set through this check, signed in as your IAM user. The management account must not appear for any of the Tanuh sets (`Admin`, `Developer`, `Read-only`). Expected there: `Billing`, `AvniOpsAdmin`, `AvniOpsReadOnly` and the `Avni*` tiles of the `ops-*` groups:
    ```bash
    aws sso-admin list-instances --region ap-south-1 --profile <your management profile>
    aws sso-admin list-permission-sets --instance-arn <instance arn> --region ap-south-1 --profile <your management profile>
@@ -348,7 +348,7 @@ Do the checks in order. Each depends on the one before it.
      --instance-arn <instance arn> --permission-set-arn <permission set arn> \
      --region ap-south-1 --profile <your management profile>
    ```
-   In the console, IAM Identity Center → AWS accounts → Samanvay Ops shows only the `Billing` assignments. From the CLI, a profile with `sso_account_id` set to the management account and `sso_role_name` set to `Admin`, `Developer` or `Read-only` gets `ForbiddenException ... No access` from `aws sts get-caller-identity`.
+   In the console, IAM Identity Center → AWS accounts → Samanvay Ops shows only `Billing`, `AvniOpsAdmin`, `AvniOpsReadOnly` and the `Avni*`, `VaultAccess` and `TanuhDeploy` tiles. From the CLI, a profile with `sso_account_id` set to the management account and `sso_role_name` set to `Admin`, `Developer` or `Read-only` gets `ForbiddenException ... No access` from `aws sts get-caller-identity`.
 8. **Prod.** As Developer, `aws sts get-caller-identity --profile tanuh-prod-developer` works and `--profile tanuh-prod-readonly` gets `No access`.
 9. **Read-only.** Move yourself to `samanvay-readonly`, then `aws sso logout && aws sso login --sso-session samanvay` (the CLI keeps role credentials it already has until they expire), and open `tanuh-staging` as Read-only:
    - CloudWatch Logs Insights runs a query.

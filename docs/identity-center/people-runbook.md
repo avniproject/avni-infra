@@ -14,7 +14,7 @@ Rules:
 
 1. **Access goes through groups.** Never assign a permission set to a user directly.
 2. **A person is only in their own organization's groups.** A Tanuh person is only in `tanuh-*` groups and a Samanvay person only in `samanvay-*` groups. The group prefix is the only record of which organization someone belongs to.
-3. **Never assign a Tanuh group or the Admin, Developer or Read-only permission set to the management account.** The existing `Billing` assignments there are separate; leave them. So are the `ops-*` groups below, each with a narrow permission set of its own.
+3. **Never assign a Tanuh group or the Admin, Developer or Read-only permission set to the management account.** The existing `Billing` assignments there are separate; leave them. So are the `ops-*` groups below, each with a permission set of its own; `ops-admins` and `ops-readonly` are the management account's own admin and everyday view (23 Nov 2026).
 4. **One user per person**, signed up with their own work email. No shared users.
 
 | Group | Role | Accounts |
@@ -25,6 +25,8 @@ Rules:
 | `tanuh-admins` | Admin | staging |
 | `tanuh-developers` | Developer | staging |
 | `tanuh-readonly` | Read-only | staging |
+| `ops-admins` | AvniOpsAdmin: full admin on this account, 4-hour sign-in, for changes only. The AWS admins: Himesh, Joy, Om, Vinay | Samanvay Ops |
+| `ops-readonly` | AvniOpsReadOnly: everyday view of this account, settings and listings; cannot read S3 objects, parameters, secrets or log contents. Same four | Samanvay Ops |
 | `ops-vault-users` | VaultAccess: the tunnel to the password vault, nothing else | Samanvay Ops |
 | `ops-tanuh-deploy` | TanuhDeploy: SSH to the Tanuh server through Session Manager with the person's own laptop key, nothing else. Enough to deploy the physician app, prod and UAT | Samanvay Ops |
 | `ops-servers-nonprod` | AvniServersNonProd: shell, SSH and database tunnels on the staging and prerelease servers | Samanvay Ops |

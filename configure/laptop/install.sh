@@ -22,7 +22,7 @@ sso_region = ap-south-1
 sso_registration_scopes = sso:account:access"
 for p in "avni-nonprod AvniServersNonProd" "avni-prod AvniServersProd" "avni-readcopy AvniReadCopyTunnel" \
          "avni-prod-write AvniProdDbWrite" "avni-staging-write AvniStagingDbWrite" "avni-prerelease-write AvniPrereleaseDbWrite" \
-         "avni-tanuh TanuhDeploy" "avni-int-logs AvniProdIntLogs"; do
+         "avni-tanuh TanuhDeploy" "avni-int-logs AvniProdIntLogs" "avni-readonly AvniOpsReadOnly" "avni-admin AvniOpsAdmin"; do
   set -- $p
   add_block "profile $1" "sso_session = samanvay
 sso_account_id = 118388513628
