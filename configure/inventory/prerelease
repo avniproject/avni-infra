@@ -1,17 +1,29 @@
 [webservers]
-int-prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+int-prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem aws_instance_id=i-0a357dbb9e5a91ca2
 
 [avniservers]
-ssh.prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+ssh.prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem aws_instance_id=i-0cdce9ae698eb3462
 
 [aiservers]
-ssh.prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+ssh.prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem aws_instance_id=i-0cdce9ae698eb3462
 
 [etlservers]
-int-prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+int-prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem aws_instance_id=i-0a357dbb9e5a91ca2
 
 [keycloak_server]
 keycloak-prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
 
 [minio_server]
 minio-prerelease.avniproject.org ansible_user=ubuntu ansible_port=22 ansible_ssh_private_key_file=~/.ssh/openchs-infra.pem
+
+# Hosts reached over AWS Session Manager: no inbound port 22 from the internet.
+# ssm-ssh-proxy.sh opens the session; the key above (or CircleCI's throwaway key)
+# still signs the SSH login. Run from configure/ so playbook_dir resolves.
+[ssm_proxied:children]
+webservers
+avniservers
+aiservers
+etlservers
+
+[ssm_proxied:vars]
+ansible_ssh_common_args='-o ProxyCommand="{{ playbook_dir }}/scripts/ssm-ssh-proxy.sh {{ aws_instance_id }}" -o ServerAliveInterval=30'
