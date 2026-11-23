@@ -1,0 +1,12 @@
+#!/bin/sh
+# Follow a production service log, with the AvniProdIntLogs tile. No shell on the server.
+#   avni-logs etl     ETL service on the prod integration server
+#   avni-logs int     integration service (Tanuh and other integrations) on the same server
+# Ctrl-C ends it. Sign-in lasts 8 hours; the session closes after an hour with no input.
+set -eu
+APP=${1:-}
+case "$APP" in etl|int) ;; *) echo "usage: avni-logs etl|int" >&2; exit 2;; esac
+PROFILE=avni-int-logs; REGION=ap-south-1
+aws sts get-caller-identity --profile "$PROFILE" >/dev/null 2>&1 || aws sso login --profile "$PROFILE" >&2
+exec aws ssm start-session --profile "$PROFILE" --region "$REGION" --target i-07e5114eea30b3b61 \
+  --document-name Avni-ProdIntLogs --parameters "app=$APP"

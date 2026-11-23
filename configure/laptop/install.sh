@@ -21,7 +21,8 @@ add_block "sso-session samanvay" "sso_start_url = https://samanvay.awsapps.com/s
 sso_region = ap-south-1
 sso_registration_scopes = sso:account:access"
 for p in "avni-nonprod AvniServersNonProd" "avni-prod AvniServersProd" "avni-readcopy AvniReadCopyTunnel" \
-         "avni-prod-write AvniProdDbWrite" "avni-staging-write AvniStagingDbWrite" "avni-prerelease-write AvniPrereleaseDbWrite"; do
+         "avni-prod-write AvniProdDbWrite" "avni-staging-write AvniStagingDbWrite" "avni-prerelease-write AvniPrereleaseDbWrite" \
+         "avni-tanuh TanuhDeploy" "avni-int-logs AvniProdIntLogs"; do
   set -- $p
   add_block "profile $1" "sso_session = samanvay
 sso_account_id = 118388513628
@@ -49,7 +50,7 @@ fi
 
 # 4. The database command.
 BIN="$HOME/.local/bin"
-if [ -z "$CHECK" ]; then mkdir -p "$BIN"; install -m 0755 "$HERE/avni-db" "$BIN/avni-db"; fi
+if [ -z "$CHECK" ]; then mkdir -p "$BIN"; install -m 0755 "$HERE/avni-db" "$BIN/avni-db"; install -m 0755 "$HERE/avni-logs" "$BIN/avni-logs"; fi
 case ":$PATH:" in *":$BIN:"*) ;; *) say "Add $BIN to your PATH to use avni-db (e.g. echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc)";; esac
 
 say ""
@@ -57,3 +58,4 @@ say "Done. Daily:"
 say "  ssh avni-staging                    (a browser tab opens to sign in when needed)"
 say "  avni-db up readcopy                 (production read copy on localhost:15432)"
 say "  avni-db status | avni-db down"
+say "  avni-logs etl | avni-logs int       (prod ETL or integration log, with the AvniProdIntLogs tile)"

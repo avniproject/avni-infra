@@ -260,9 +260,8 @@ launchpad-forms-prod: check-vault-pwd-file
 		--vault-password-file ${VAULT_PASSWORD_FILE} \
 		--tags launchpad_forms $(EXTRA_ARGS)
 
-tanuh-webapp-prod: check-vault-pwd-file
-	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod \
-		--vault-password-file ${VAULT_PASSWORD_FILE} \
+tanuh-webapp-prod:
+	ansible-playbook prod_tanuh_webapp_servers.yml -i inventory/prod \
 		--tags tanuh_webapp $(EXTRA_ARGS)
 
 # UAT physician app on the SAME Tanuh EC2 host (uat-tanuh.avniproject.org, :8081).
@@ -272,9 +271,8 @@ tanuh-webapp-prod: check-vault-pwd-file
 # run once before the first UAT deploy:
 #   WEBAPP_HOSTNAME=uat-tanuh.avniproject.org TG_NAME=tanuh-webapp-uat TG_PORT=8081 LISTENER_PRIORITY=32 bash ../tanuh-webapp/aws_alb_setup.sh
 # UAT tracks main; override with EXTRA_ARGS='-e tanuh_webapp_git_ref=<ref>'.
-tanuh-webapp-uat: check-vault-pwd-file
-	ansible-playbook prod_tanuh_metabase_servers.yml -i inventory/prod \
-		--vault-password-file ${VAULT_PASSWORD_FILE} \
+tanuh-webapp-uat:
+	ansible-playbook prod_tanuh_webapp_servers.yml -i inventory/prod \
 		--tags tanuh_webapp_uat $(EXTRA_ARGS)
 
 metabase-schedule-protection: check-vault-pwd-file

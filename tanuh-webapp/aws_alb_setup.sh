@@ -204,7 +204,7 @@ log "      and nginx is serving the SPA on EC2:$TG_PORT."
 
 log ""
 log "ALB wiring complete."
-log "Next: from configure/, run 'VAULT_PASSWORD_FILE=~/.ssh/infra-valut-pwd-file make tanuh-webapp-prod'"
+log "Next: from configure/, run 'make tanuh-webapp-prod'"
 log "Test: curl -sI https://$WEBAPP_HOSTNAME/  (expect HTTP/2 200 after deploy)"
 log ""
 log "Resources created (for aws_alb_teardown.sh):"

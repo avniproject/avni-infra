@@ -1,0 +1,43 @@
+---
+
+# Tanuh physician app, prod (tanuh.avniproject.org, :8080) and UAT
+# (uat-tanuh.avniproject.org, :8081), on the Tanuh host.
+# Split from prod_tanuh_metabase_servers.yml on 23 Nov 2026: the webapp uses no
+# secrets, so this play loads no vault file and a deploy needs no vault password.
+# Reached over Session Manager with the TanuhDeploy tile (configure/laptop, host
+# ssh.tanuh-reporting.avniproject.org); no shared key is needed.
+#   make tanuh-webapp-prod    make tanuh-webapp-uat
+
+- name: Deploy Tanuh physician app
+  hosts: tanuh_metabase_server
+  become: yes
+  become_user: root
+  vars:
+    update_apt_cache: yes
+  roles:
+    # Prod physician app (tanuh.avniproject.org, :8080). Deployed by
+    # `make tanuh-webapp-prod` (--tags tanuh_webapp), and by any untagged run of
+    # this playbook or of prod_tanuh_metabase_servers.yml, which imports it.
+    - role: tanuh_webapp
+      vars:
+        # Prod pins a RELEASE TAG, never a branch. v1.12.3 == what prod serves
+        # since 2026-10-14 (index-Bauvut3S.js), so a bare `make tanuh-webapp-prod`
+        # is a no-op. Bump this to a newer tag to promote, after UAT sign-off
+        # (see tanuh-webapp RELEASE_WORKFLOW.md).
+        tanuh_webapp_git_ref: v1.12.3
+      tags: [tanuh_webapp]
+    # UAT physician app (uat-tanuh.avniproject.org, :8081) on the SAME host,
+    # backed by the Tanuh_UAT org on prod Avni. Guarded so it deploys ONLY when
+    # `tanuh_webapp_uat` is explicitly requested (`make tanuh-webapp-uat`):
+    #   - `--tags tanuh_webapp` (prod deploy)  -> not selected -> skipped
+    #   - untagged run (`make tanuh-metabase-prod`, ansible_run_tags == ['all'])
+    #     -> selected by tag but `when` is false -> skipped
+    # so the prod webapp / metabase are never touched by the UAT instance.
+    - role: tanuh_webapp
+      vars:
+        tanuh_webapp_instance_name: tanuh-webapp-uat
+        tanuh_webapp_listen_port: 8081
+        tanuh_webapp_server_name: uat-tanuh.avniproject.org
+        tanuh_webapp_git_ref: main
+      tags: [tanuh_webapp_uat]
+      when: "'tanuh_webapp_uat' in ansible_run_tags"

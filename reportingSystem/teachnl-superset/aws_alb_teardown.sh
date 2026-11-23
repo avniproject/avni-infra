@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # TEACH Nagaland copy (avni-product-ops#347): the same steps as reportingSystem/tanuh-superset, for
-# teachnl-reporting.avniproject.org on nupoor-reporting. Tags Project=teachnl-superset and Client=lfe (the
+# teachnl-reporting.avniproject.org on the teachnl-reporting server (named nupoor-reporting until 23 Nov 2026;
+# its firewall group keeps the name nupoor-reporting). Tags Project=teachnl-superset and Client=lfe (the
 # access policy requires the Project tag). Defaults name TEACH's pieces, so a missing variable can't reach
 # Tanuh's. Run with SITE_HOST=teachnl-reporting.avniproject.org LISTENER_PRIORITY=50 set explicitly.
 #

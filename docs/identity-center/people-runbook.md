@@ -26,9 +26,10 @@ Rules:
 | `tanuh-developers` | Developer | staging |
 | `tanuh-readonly` | Read-only | staging |
 | `ops-vault-users` | VaultAccess: the tunnel to the password vault, nothing else | Samanvay Ops |
-| `ops-tanuh-deploy` | TanuhDeploy: SSH to the Tanuh server through Session Manager, nothing else | Samanvay Ops |
+| `ops-tanuh-deploy` | TanuhDeploy: SSH to the Tanuh server through Session Manager with the person's own laptop key, nothing else. Enough to deploy the physician app, prod and UAT | Samanvay Ops |
 | `ops-servers-nonprod` | AvniServersNonProd: shell, SSH and database tunnels on the staging and prerelease servers | Samanvay Ops |
-| `ops-servers-prod` | AvniServersProd: shell, SSH and database tunnels on the production servers | Samanvay Ops |
+| `ops-servers-prod` | AvniServersProd: shell, SSH and database tunnels on the production servers, including teachnl-reporting | Samanvay Ops |
+| `ops-prod-int-logs` | AvniProdIntLogs: follow the ETL or integration service log on the prod integration server, no shell (`avni-logs`) | Samanvay Ops |
 | `ops-readcopy-tunnel` | AvniReadCopyTunnel: the tunnel to the production read copy, nothing else | Samanvay Ops |
 | `ops-prod-db-write` | AvniProdDbWrite: the write tunnel to the production database, nothing else. Empty except during a data fix (`db-write-tunnels.md`) | Samanvay Ops |
 | `ops-staging-db-write` | AvniStagingDbWrite: the write tunnel to the staging database, nothing else. Empty except during a fix | Samanvay Ops |

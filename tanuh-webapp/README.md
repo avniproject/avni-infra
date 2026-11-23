@@ -52,12 +52,14 @@ bash aws_alb_teardown.sh
 
 ```bash
 cd ../configure
-VAULT_PASSWORD_FILE=~/.ssh/infra-valut-pwd-file make tanuh-webapp-prod
+make tanuh-webapp-prod
 ```
 
-Ansible runs only the `tanuh_webapp`-tagged tasks against
-`prod_tanuh_metabase_servers.yml`, so the Tanuh Metabase container is not
-touched.
+Needs the TanuhDeploy tile and the laptop kit (`configure/laptop/install.sh`),
+which routes the host through Session Manager with your own laptop key. No vault
+password: since 23 Nov 2026 the webapp has its own playbook,
+`prod_tanuh_webapp_servers.yml`, which loads no secrets. The Tanuh Metabase
+container is not touched.
 
 What it does on the host:
 
@@ -129,11 +131,11 @@ WEBAPP_HOSTNAME=uat-tanuh.avniproject.org TG_NAME=tanuh-webapp-uat TG_PORT=8081 
 
 ```bash
 cd ../configure
-VAULT_PASSWORD_FILE=~/.ssh/infra-valut-pwd-file make tanuh-webapp-uat
+make tanuh-webapp-uat
 ```
 
 Runs only the `tanuh_webapp_uat`-tagged role application against
-`prod_tanuh_metabase_servers.yml`. The prod webapp, Metabase and Superset on the
+`prod_tanuh_webapp_servers.yml`. The prod webapp, Metabase and Superset on the
 same host are **not** touched: the UAT role is guarded by
 `when: 'tanuh_webapp_uat' in ansible_run_tags`, so `make tanuh-webapp-prod` and
 untagged runs (`make tanuh-metabase-prod`) skip it entirely. UAT tracks `main`;
