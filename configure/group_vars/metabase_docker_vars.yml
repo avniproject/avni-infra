@@ -2,6 +2,10 @@
 
   metabase_container_name: metabase
   metabase_container_image: metabase/metabase:v0.64.4
+  # X-rays stay off (MB_ENABLE_XRAYS / MB_SHOW_HOMEPAGE_XRAYS in metabase.docker.env.template.j2). From v0.64 the
+  # homepage x-ray suggestion query joins every field of every connected database to metabase_field_user_settings
+  # on each homepage load; on 2026-11-24 it held proddb02 (Metabase's own database) at 99% CPU and logins timed out.
+  # Being env vars, the admin toggles are locked; remove both lines only after checking a newer Metabase fixes it.
 #  Below image is for t4g instance type (arm64/v8) architecture
 #  metabase_container_image: iwalucas/metabase:latest
   metabase_hostname: metabase
