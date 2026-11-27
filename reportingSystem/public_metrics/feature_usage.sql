@@ -329,3 +329,17 @@ commit;
 --   select feature, measure, sum(value) from public_metrics.v_feature_activity_monthly group by 1, 2;
 --   set role avni_metrics_writer; select 1 from public_metrics.usage_daily limit 1; reset role;
 --   select rolname, rolsuper, rolinherit, rolconnlimit from pg_roles where rolname = 'avni_metrics_writer';
+
+-- 8. Added 27 Nov 2026 for the nightly job's db function, which signs in only as the writer:
+--    it reads these four views to map suffixes and to fetch the one-day counts.
+grant select on public_metrics.v_live_orgs, public_metrics.v_duplicate_suffixes,
+    public_metrics.v_phone_pushes_for_day, public_metrics.v_checklist_items_for_day
+    to avni_metrics_writer;
+
+-- 9. Added 27 Nov 2026: every organisation's suffix, so the nightly job can tell a request from a
+--    non-live organisation (expected, e.g. tanuh_uat) from one that matches no organisation (a fault).
+create or replace view public_metrics.v_all_org_suffixes as
+select distinct lower(coalesce(username_suffix, db_user)) as suffix
+from organisation
+where coalesce(username_suffix, db_user) is not null;
+grant select on public_metrics.v_all_org_suffixes to avni_metrics_writer, avni_metrics_reader;
