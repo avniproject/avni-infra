@@ -24,6 +24,8 @@ ALERT_TOPIC=arn:aws:sns:$REGION:$ACCOUNT:avni-infra-alerts
 LOGS_FN=avni-usage-metrics-logs
 DB_FN=avni-usage-metrics-db
 TAGS="Project=feature-usage-dashboard,Card=avni-product-ops-331,Owner=samanvay-ops"
+MEDIA_BUCKET=prod-user-media
+INV_BUCKET=avni-usage-metrics-inventory-$ACCOUNT    # daily S3 Inventory of the media bucket
 HERE="$(cd "$(dirname "$0")" && pwd)"
 BUILD="$(mktemp -d)"
 trap 'rm -rf "$BUILD"' EXIT
@@ -41,6 +43,23 @@ curl -fsS https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o "
 (cd "$BUILD/logs" && zip -qr ../logs.zip .)
 (cd "$BUILD/db" && zip -qr ../db.zip .)
 
+# ---- media inventory: AWS lists prod-user-media daily into a private bucket -----------------
+# Reading the list costs about $0.007 a day; listing 2.8 million files directly took over 10 minutes.
+if ! command aws s3api head-bucket --bucket "$INV_BUCKET" 2>/dev/null; then
+  aws s3api create-bucket --bucket "$INV_BUCKET" --create-bucket-configuration LocationConstraint=$REGION >/dev/null
+fi
+aws s3api put-public-access-block --bucket "$INV_BUCKET" --public-access-block-configuration \
+  BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws s3api put-bucket-encryption --bucket "$INV_BUCKET" --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+aws s3api put-bucket-lifecycle-configuration --bucket "$INV_BUCKET" --lifecycle-configuration \
+  '{"Rules":[{"ID":"expire-7-days","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":7}}]}'
+aws s3api put-bucket-tagging --bucket "$INV_BUCKET" --tagging 'TagSet=[{Key=Project,Value=feature-usage-dashboard}]'
+INV_POLICY='{"Version":"2012-10-17","Statement":[{"Sid":"S3InventoryDelivery","Effect":"Allow","Principal":{"Service":"s3.amazonaws.com"},"Action":"s3:PutObject","Resource":"arn:aws:s3:::'"$INV_BUCKET"'/*","Condition":{"StringEquals":{"aws:SourceAccount":"'"$ACCOUNT"'","s3:x-amz-acl":"bucket-owner-full-control"},"ArnLike":{"aws:SourceArn":"arn:aws:s3:::'"$MEDIA_BUCKET"'"}}}]}'
+aws s3api put-bucket-policy --bucket "$INV_BUCKET" --policy "$INV_POLICY"
+INV_CONFIG='{"Id":"usage-metrics","IsEnabled":true,"IncludedObjectVersions":"Current","Schedule":{"Frequency":"Daily"},"OptionalFields":["LastModifiedDate"],"Destination":{"S3BucketDestination":{"AccountId":"'"$ACCOUNT"'","Bucket":"arn:aws:s3:::'"$INV_BUCKET"'","Format":"CSV"}}}'
+aws s3api put-bucket-inventory-configuration --bucket "$MEDIA_BUCKET" --id usage-metrics --inventory-configuration "$INV_CONFIG"
+
 # ---- roles -------------------------------------------------------------------------------
 TRUST='{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"lambda.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
 ensure_role() {
@@ -56,6 +75,8 @@ command aws iam put-role-policy --role-name "$LOGS_FN" --policy-name usage-metri
  {"Effect":"Allow","Action":"logs:StartQuery","Resource":"arn:aws:logs:$REGION:$ACCOUNT:log-group:$LOG_GROUP:*"},
  {"Effect":"Allow","Action":["logs:GetQueryResults","logs:StopQuery"],"Resource":"*"},
  {"Effect":"Allow","Action":"lambda:InvokeFunction","Resource":"arn:aws:lambda:$REGION:$ACCOUNT:function:$DB_FN"},
+ {"Effect":"Allow","Action":"s3:ListBucket","Resource":"arn:aws:s3:::$INV_BUCKET"},
+ {"Effect":"Allow","Action":"s3:GetObject","Resource":"arn:aws:s3:::$INV_BUCKET/*"},
  {"Effect":"Allow","Action":"cloudwatch:PutMetricData","Resource":"*","Condition":{"StringEquals":{"cloudwatch:namespace":"AvniUsageMetrics"}}},
  {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":"arn:aws:logs:$REGION:$ACCOUNT:log-group:/aws/lambda/$LOGS_FN:*"}
 ]}
@@ -90,14 +111,14 @@ fi
 aws lambda wait function-active-v2 --function-name "$DB_FN"
 unset WRITER_PW DB_ENV
 
-LOGS_ENV="Variables={WAF_LOG_GROUP=$LOG_GROUP,LB_MATCH=prod-openchs-load-balancer,DB_FUNCTION=$DB_FN}"
+LOGS_ENV="Variables={WAF_LOG_GROUP=$LOG_GROUP,LB_MATCH=prod-openchs-load-balancer,DB_FUNCTION=$DB_FN,MEDIA_BUCKET=$MEDIA_BUCKET,INVENTORY_BUCKET=$INV_BUCKET,INVENTORY_ID=usage-metrics}"
 if aws lambda get-function --function-name "$LOGS_FN" >/dev/null 2>&1; then
   aws lambda update-function-code --function-name "$LOGS_FN" --zip-file "fileb://$BUILD/logs.zip" >/dev/null
   aws lambda wait function-updated --function-name "$LOGS_FN"
-  aws lambda update-function-configuration --function-name "$LOGS_FN" --environment "$LOGS_ENV" >/dev/null
+  aws lambda update-function-configuration --function-name "$LOGS_FN" --environment "$LOGS_ENV" --memory-size 1024 >/dev/null
 else
   aws lambda create-function --function-name "$LOGS_FN" --runtime python3.13 --handler handler.handler \
-    --role "arn:aws:iam::$ACCOUNT:role/$LOGS_FN" --zip-file "fileb://$BUILD/logs.zip" --timeout 900 --memory-size 256 \
+    --role "arn:aws:iam::$ACCOUNT:role/$LOGS_FN" --zip-file "fileb://$BUILD/logs.zip" --timeout 900 --memory-size 1024 \
     --environment "$LOGS_ENV" --tags "$TAGS" >/dev/null
 fi
 aws lambda wait function-active-v2 --function-name "$LOGS_FN"
@@ -129,9 +150,9 @@ aws cloudwatch put-metric-alarm --alarm-name avni-usage-metrics-failed \
   --comparison-operator GreaterThanOrEqualToThreshold --treat-missing-data notBreaching \
   --alarm-actions "$ALERT_TOPIC"
 aws cloudwatch put-metric-alarm --alarm-name avni-usage-metrics-no-web-saves \
-  --alarm-description "Feature usage job wrote no web saves for a day: header lost, or job not running (avni-product-ops#331)" \
+  --alarm-description "Feature usage job wrote no web saves two days running: header lost, or job not running (avni-product-ops#331). One empty day is normal on Sundays." \
   --namespace AvniUsageMetrics --metric-name WebSaves \
-  --statistic Sum --period 86400 --evaluation-periods 1 --threshold 1 \
+  --statistic Sum --period 86400 --evaluation-periods 2 --datapoints-to-alarm 2 --threshold 1 \
   --comparison-operator LessThanThreshold --treat-missing-data breaching \
   --alarm-actions "$ALERT_TOPIC"
 aws cloudwatch put-metric-alarm --alarm-name avni-usage-metrics-unmatched \

@@ -343,3 +343,15 @@ select distinct lower(coalesce(username_suffix, db_user)) as suffix
 from organisation
 where coalesce(username_suffix, db_user) is not null;
 grant select on public_metrics.v_all_org_suffixes to avni_metrics_writer, avni_metrics_reader;
+
+-- 10. Added 27 Nov 2026: "Files stored" is a running total, so a month shows its highest day, not
+--     the sum of its days. Every other measure is summed.
+create or replace view public_metrics.v_usage_monthly as
+select organisation_id, feature, measure, month, value
+from public_metrics.v_feature_activity_monthly
+union all
+select d.organisation_id, d.feature, d.measure, date_trunc('month', d.day)::date,
+       (case when d.measure = 'Files stored' then max(d.value) else sum(d.value) end)::bigint
+from public_metrics.usage_daily d
+         join public_metrics.v_live_orgs o on o.organisation_id = d.organisation_id
+group by 1, 2, 3, 4;
